@@ -1,7 +1,7 @@
 import sys
 import os
 import shutil
-from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout, QPushButton, QFileDialog, QLineEdit
+from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout, QPushButton, QFileDialog, QLineEdit, QHBoxLayout
 from PyQt5.QtGui import QPixmap, QMovie, QImageReader
 from PyQt5.QtCore import Qt, QSize
 from PIL import Image
@@ -25,13 +25,27 @@ class ImageViewer(QWidget):
         self.image_order_label.setFixedHeight(30)
         layout.addWidget(self.image_order_label)
 
+        # 오픈폴더 버튼과 경로를 표시할 라인에디트
+        self.open_button_layout = QHBoxLayout()  # 수평 레이아웃을 사용하여 버튼과 경로를 나란히 배치
         self.open_button = QPushButton('Open Image Folder', self)
         self.open_button.clicked.connect(self.open_folder)
-        layout.addWidget(self.open_button)
+        self.open_path_input = QLineEdit(self)
+        self.open_path_input.setPlaceholderText("Selected Folder Path")
+        self.open_path_input.setReadOnly(True)  # 경로만 표시되도록 읽기 전용 설정
+        self.open_button_layout.addWidget(self.open_button)
+        self.open_button_layout.addWidget(self.open_path_input)
+        layout.addLayout(self.open_button_layout)
 
+        # 기준 폴더 버튼과 경로를 표시할 라인에디트
+        self.base_folder_layout = QHBoxLayout()  # 수평 레이아웃을 사용하여 버튼과 경로를 나란히 배치
         self.set_base_folder_button = QPushButton('Set Base Folder', self)
         self.set_base_folder_button.clicked.connect(self.set_base_folder)
-        layout.addWidget(self.set_base_folder_button)
+        self.base_folder_input = QLineEdit(self)
+        self.base_folder_input.setPlaceholderText("Base Folder Path")
+        self.base_folder_input.setReadOnly(True)  # 경로만 표시되도록 읽기 전용 설정
+        self.base_folder_layout.addWidget(self.set_base_folder_button)
+        self.base_folder_layout.addWidget(self.base_folder_input)
+        layout.addLayout(self.base_folder_layout)
 
         self.folder_input = QLineEdit(self)
         self.folder_input.setPlaceholderText("Enter folder name and press Enter (Copy & Next)")
@@ -51,6 +65,7 @@ class ImageViewer(QWidget):
         folder_path = QFileDialog.getExistingDirectory(self, "Set Base Folder")
         if folder_path:
             self.base_folder = folder_path
+            self.base_folder_input.setText(self.base_folder)  # 경로 표시
             print(f"Base folder set to: {self.base_folder}")
 
     def open_folder(self):
@@ -58,6 +73,7 @@ class ImageViewer(QWidget):
 
         if folder_path:
             self.image_files = self.get_image_files(folder_path)
+            self.open_path_input.setText(folder_path)  # 경로 표시
 
             if self.image_files:
                 self.image_files.sort()
