@@ -25,32 +25,31 @@ class ImageViewer(QWidget):
         self.image_order_label.setFixedHeight(30)
         layout.addWidget(self.image_order_label)
 
-        # 오픈폴더 버튼과 경로를 표시할 라인에디트
-        self.open_button_layout = QHBoxLayout()  # 수평 레이아웃을 사용하여 버튼과 경로를 나란히 배치
         self.open_button = QPushButton('Open Image Folder', self)
         self.open_button.clicked.connect(self.open_folder)
-        self.open_path_input = QLineEdit(self)
-        self.open_path_input.setPlaceholderText("Selected Folder Path")
-        self.open_path_input.setReadOnly(True)  # 경로만 표시되도록 읽기 전용 설정
-        self.open_button_layout.addWidget(self.open_button)
-        self.open_button_layout.addWidget(self.open_path_input)
-        layout.addLayout(self.open_button_layout)
+        layout.addWidget(self.open_button)
 
-        # 기준 폴더 버튼과 경로를 표시할 라인에디트
-        self.base_folder_layout = QHBoxLayout()  # 수평 레이아웃을 사용하여 버튼과 경로를 나란히 배치
         self.set_base_folder_button = QPushButton('Set Base Folder', self)
         self.set_base_folder_button.clicked.connect(self.set_base_folder)
-        self.base_folder_input = QLineEdit(self)
-        self.base_folder_input.setPlaceholderText("Base Folder Path")
-        self.base_folder_input.setReadOnly(True)  # 경로만 표시되도록 읽기 전용 설정
-        self.base_folder_layout.addWidget(self.set_base_folder_button)
-        self.base_folder_layout.addWidget(self.base_folder_input)
-        layout.addLayout(self.base_folder_layout)
+        layout.addWidget(self.set_base_folder_button)
 
         self.folder_input = QLineEdit(self)
         self.folder_input.setPlaceholderText("Enter folder name and press Enter (Copy & Next)")
         self.folder_input.returnPressed.connect(self.copy_image)  # 복사 후 다음 이미지로 이동
         layout.addWidget(self.folder_input)
+
+        # 12개의 빈 버튼 10줄 추가
+        self.buttons = []  # 빈 버튼 리스트
+        for _ in range(4):  # 10줄
+            button_layout = QHBoxLayout()  # 가로 배치 레이아웃
+            button_row = []  # 각 버튼을 저장할 리스트
+            for _ in range(12):  # 12개의 버튼
+                empty_button = QPushButton('')  # 빈 버튼
+                empty_button.clicked.connect(self.on_button_click)  # 버튼 클릭 시 폴더 경로로 이동
+                button_row.append(empty_button)
+                button_layout.addWidget(empty_button)
+            self.buttons.append(button_row)  # 각 줄을 리스트에 추가
+            layout.addLayout(button_layout)
 
         self.setLayout(layout)
 
@@ -65,15 +64,31 @@ class ImageViewer(QWidget):
         folder_path = QFileDialog.getExistingDirectory(self, "Set Base Folder")
         if folder_path:
             self.base_folder = folder_path
-            self.base_folder_input.setText(self.base_folder)  # 경로 표시
             print(f"Base folder set to: {self.base_folder}")
+
+            # 하위 폴더들을 가져와서 버튼에 경로 설정
+            subfolders = [f.path for f in os.scandir(self.base_folder) if f.is_dir()]
+            subfolders.sort()
+
+            # 빈 버튼에 하위 폴더 경로를 설정
+            for i, row in enumerate(self.buttons):
+                for j, button in enumerate(row):
+                    index = i * 12 + j
+                    if index < len(subfolders):
+                        button.setText(os.path.basename(subfolders[index]))  # 버튼에 폴더 이름 설정
+                        button.setToolTip(subfolders[index])  # 버튼 툴팁에 전체 경로 표시
+
+    def on_button_click(self):
+        button = self.sender()
+        folder_path = button.toolTip()  # 버튼의 툴팁에서 폴더 경로 가져오기
+        print(f"Selected folder: {folder_path}")
+        # 이 부분에서 폴더를 열거나 다른 작업을 할 수 있습니다.
 
     def open_folder(self):
         folder_path = QFileDialog.getExistingDirectory(self, "Open Image Folder")
 
         if folder_path:
             self.image_files = self.get_image_files(folder_path)
-            self.open_path_input.setText(folder_path)  # 경로 표시
 
             if self.image_files:
                 self.image_files.sort()
