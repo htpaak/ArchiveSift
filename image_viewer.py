@@ -2,8 +2,8 @@ import sys
 import os
 import shutil
 import re
-from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout, QPushButton, QFileDialog, QLineEdit, QHBoxLayout
-from PyQt5.QtGui import QPixmap, QMovie, QImageReader
+from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout, QPushButton, QFileDialog, QHBoxLayout
+from PyQt5.QtGui import QPixmap, QMovie, QImageReader, QFont
 from PyQt5.QtCore import Qt, QSize
 from PIL import Image
 
@@ -21,10 +21,9 @@ class ImageViewer(QWidget):
         self.image_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(self.image_label)
 
-        self.image_order_label = QLabel(self)
-        self.image_order_label.setAlignment(Qt.AlignCenter)
-        self.image_order_label.setFixedHeight(30)
-        layout.addWidget(self.image_order_label)
+        self.image_info_label = QLabel(self)
+        self.image_info_label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(self.image_info_label)
 
         self.open_button = QPushButton('Open Image Folder', self)
         self.open_button.clicked.connect(self.open_folder)
@@ -34,14 +33,9 @@ class ImageViewer(QWidget):
         self.set_base_folder_button.clicked.connect(self.set_base_folder)
         layout.addWidget(self.set_base_folder_button)
 
-        self.folder_input = QLineEdit(self)
-        self.folder_input.setPlaceholderText("Enter folder name and press Enter (Copy & Next)")
-        self.folder_input.returnPressed.connect(self.copy_image)  # 복사 후 다음 이미지로 이동
-        layout.addWidget(self.folder_input)
-
-        # 12개의 빈 버튼 10줄 추가
+        # 12개의 빈 버튼 4줄 추가
         self.buttons = []  # 빈 버튼 리스트
-        for _ in range(4):  # 10줄
+        for _ in range(4):  # 4줄
             button_layout = QHBoxLayout()  # 가로 배치 레이아웃
             button_row = []  # 각 버튼을 저장할 리스트
             for _ in range(12):  # 12개의 버튼
@@ -66,6 +60,12 @@ class ImageViewer(QWidget):
         if folder_path:
             self.base_folder = folder_path
             print(f"Base folder set to: {self.base_folder}")
+
+            # 버튼들 초기화
+            for row in self.buttons:
+                for button in row:
+                    button.setText('')  # 버튼 텍스트 비우기
+                    button.setToolTip('')  # 툴팁 비우기
 
             # 하위 폴더들을 가져와서 버튼에 경로 설정
             subfolders = [f.path for f in os.scandir(self.base_folder) if f.is_dir()]
@@ -95,7 +95,6 @@ class ImageViewer(QWidget):
                 self.image_files.sort()
                 self.show_image(self.image_files[0])
                 self.current_index = 0
-                self.update_image_order()
             else:
                 print("No valid image files found in the folder.")
 
@@ -115,10 +114,7 @@ class ImageViewer(QWidget):
         elif image_path.lower().endswith('.gif'):
             # GIF 파일 처리 (QMovie 사용)
             movie = QMovie(image_path)
-
-            # GIF의 크기를 미리 조정하기 전에 movie를 QLabel에 설정하지 않음
             self.scale_gif(movie)  # GIF 크기 비율 맞추기
-
             self.image_label.setMovie(movie)
             movie.start()
         elif image_path.lower().endswith('.webp'):
@@ -127,8 +123,9 @@ class ImageViewer(QWidget):
         else:
             pixmap = QPixmap(image_path)
             self.image_label.setPixmap(pixmap.scaled(self.image_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
-        
+
         self.current_image_path = image_path
+        self.update_image_info()  # 이미지 정보를 업데이트
 
     def show_webp_animation(self, image_path):
         # WEBP 애니메이션을 처리하기 위해 QImageReader를 사용
@@ -174,45 +171,29 @@ class ImageViewer(QWidget):
         # 스케일된 크기 설정
         movie.setScaledSize(QSize(new_width, new_height))
 
-    def update_image_order(self):
+    def update_image_info(self):
+        # 현재 이미지의 순서와 전체 개수를 하단에 표시
         if self.image_files:
-            self.image_order_label.setText(f"{self.current_index + 1} / {len(self.image_files)}")
+            image_info = f"{self.current_index + 1} / {len(self.image_files)}"
+            self.image_info_label.setText(image_info)
+
+            # 폰트 크기 조정 (세로 길이가 너무 길지 않도록)
+            font = QFont()
+            font.setPointSize(10)  # 폰트 크기 설정 (최소로 설정)
+            self.image_info_label.setFont(font)
+
+            # 레이아웃 크기 제한
+            self.image_info_label.setFixedHeight(30)  # 레이블의 세로 길이를 최소로 설정
 
     def show_next_image(self):
         if self.image_files:
             self.current_index = (self.current_index + 1) % len(self.image_files)
             self.show_image(self.image_files[self.current_index])
-            self.update_image_order()
 
     def show_previous_image(self):
         if self.image_files:
             self.current_index = (self.current_index - 1) % len(self.image_files)
             self.show_image(self.image_files[self.current_index])
-            self.update_image_order()
-
-    def copy_image(self):
-        if self.current_image_path and self.base_folder:
-            folder_name = self.folder_input.text().strip()
-
-            if folder_name:
-                target_folder = os.path.join(self.base_folder, folder_name)
-
-                if not os.path.exists(target_folder):
-                    os.makedirs(target_folder)
-
-                try:
-                    target_path = self.get_unique_file_path(target_folder, self.current_image_path)
-                    shutil.copy2(self.current_image_path, target_path)  # ✅ 이동 대신 복사
-                    print(f"Copied: {self.current_image_path} -> {target_path}")
-
-                    self.folder_input.clear()
-                    self.show_next_image()  # ✅ 복사 후 다음 이미지로 자동 이동
-                except Exception as e:
-                    print(f"Error copying {self.current_image_path}: {e}")
-            else:
-                print("Please enter a folder name.")
-        else:
-            print("No image selected or base folder not set.")
 
     def copy_image_to_folder(self, folder_path):
         if self.current_image_path and folder_path:
