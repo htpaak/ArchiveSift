@@ -1,6 +1,7 @@
 import sys
 import os
 import shutil
+import re
 from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout, QPushButton, QFileDialog, QLineEdit, QHBoxLayout
 from PyQt5.QtGui import QPixmap, QMovie, QImageReader
 from PyQt5.QtCore import Qt, QSize
@@ -82,7 +83,7 @@ class ImageViewer(QWidget):
         button = self.sender()
         folder_path = button.toolTip()  # 버튼의 툴팁에서 폴더 경로 가져오기
         print(f"Selected folder: {folder_path}")
-        # 이 부분에서 폴더를 열거나 다른 작업을 할 수 있습니다.
+        self.copy_image_to_folder(folder_path)  # 해당 폴더로 이미지 복사
 
     def open_folder(self):
         folder_path = QFileDialog.getExistingDirectory(self, "Open Image Folder")
@@ -200,7 +201,7 @@ class ImageViewer(QWidget):
                     os.makedirs(target_folder)
 
                 try:
-                    target_path = os.path.join(target_folder, os.path.basename(self.current_image_path))
+                    target_path = self.get_unique_file_path(target_folder, self.current_image_path)
                     shutil.copy2(self.current_image_path, target_path)  # ✅ 이동 대신 복사
                     print(f"Copied: {self.current_image_path} -> {target_path}")
 
@@ -212,6 +213,34 @@ class ImageViewer(QWidget):
                 print("Please enter a folder name.")
         else:
             print("No image selected or base folder not set.")
+
+    def copy_image_to_folder(self, folder_path):
+        if self.current_image_path and folder_path:
+            try:
+                target_path = self.get_unique_file_path(folder_path, self.current_image_path)
+                shutil.copy2(self.current_image_path, target_path)
+                print(f"Copied: {self.current_image_path} -> {target_path}")
+                self.show_next_image()  # 이미지 복사 후 다음 이미지로 자동 이동
+            except Exception as e:
+                print(f"Error copying {self.current_image_path} to {folder_path}: {e}")
+
+    def get_unique_file_path(self, folder_path, image_path):
+        # 파일 이름이 중복되지 않도록 새로운 파일 이름을 생성
+        base_name = os.path.basename(image_path)
+        name, ext = os.path.splitext(base_name)
+
+        # 기존에 '(숫자)' 형식이 있으면 제거
+        name = re.sub(r'\s?\(\d+\)', '', name)  # '(숫자)' 패턴 제거
+
+        target_path = os.path.join(folder_path, f"{name}{ext}")
+        
+        counter = 1
+        while os.path.exists(target_path):
+            # 파일 이름이 존재하면 카운트를 증가시키면서 이름을 변경
+            target_path = os.path.join(folder_path, f"{name} ({counter}){ext}")
+            counter += 1
+
+        return target_path
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Left:
