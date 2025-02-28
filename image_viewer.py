@@ -6,8 +6,7 @@ from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout, QPushBut
 from PyQt5.QtGui import QPixmap, QImage, QImageReader, QFont, QMovie
 from PyQt5.QtCore import Qt, QSize, QTimer
 import cv2
-from PIL import Image  # Pillow 라이브러리에서 Image 모듈 임포트
-
+from PIL import Image
 
 class ImageViewer(QWidget):
     def __init__(self):
@@ -108,14 +107,20 @@ class ImageViewer(QWidget):
         valid_extensions = ['.jpg', '.jpeg', '.png', '.webp', '.psd', '.gif', '.mp4']
         return [os.path.join(folder_path, f) for f in os.listdir(folder_path) if any(f.lower().endswith(ext) for ext in valid_extensions)]
 
-    def show_webp_animation(self, webp_path):
-    # WEBP 애니메이션 처리 (QMovie 사용)
-      movie = QMovie(webp_path)
-      self.scale_gif(movie)  # GIF와 동일한 방식으로 크기 비율 맞추기
-      self.image_label.setMovie(movie)
-      movie.start()
+    def stop_video(self):
+        """현재 재생 중인 MP4를 즉시 정리하는 함수"""
+        if self.cap is not None:  # self.cap이 존재할 때만 해제
+            self.cap.release()  # 비디오 캡처 객체 해제
+            self.cap = None
+
+        if self.timer.isActive():
+            self.timer.stop()  # 타이머 중지
+
 
     def show_image(self, image_path):
+        # 새 이미지나 GIF가 들어오면 즉시 MP4 정리
+        self.stop_video()
+        
         if image_path.lower().endswith('.psd'):
             # PSD 파일을 PNG로 변환
             image = Image.open(image_path)
@@ -132,7 +137,7 @@ class ImageViewer(QWidget):
             movie.start()
         elif image_path.lower().endswith('.webp'):
             # WEBP 애니메이션 처리
-            self.show_webp_animation(image_path)  # WEBP 파일 처리 함수 호출
+            self.show_webp_animation(image_path)
         elif image_path.lower().endswith('.mp4'):
             # MP4 비디오 파일 처리
             self.play_video(image_path)
@@ -143,12 +148,50 @@ class ImageViewer(QWidget):
         self.current_image_path = image_path
         self.update_image_info()  # 이미지 정보를 업데이트
 
+    def show_webp_animation(self, image_path):
+        # WEBP 애니메이션을 처리하기 위해 QImageReader를 사용
+        reader = QImageReader(image_path)
+
+        # 이미지를 로드하고 애니메이션으로 처리
+        if reader.supportsAnimation():
+            movie = QMovie(image_path)
+            movie.setCacheMode(QMovie.CacheAll)
+            self.scale_gif(movie)  # GIF와 동일하게 크기 비율 맞추기
+
+            self.image_label.setMovie(movie)
+            movie.start()
 
     def scale_gif(self, movie):
-        # GIF의 크기를 이미지 레이블에 맞게 비율에 맞춰서 조정
-        size = self.image_label.size()
-        movie.setScaledSize(size)
-        
+        # 첫 번째 프레임을 얻어서 GIF의 원본 비율을 계산합니다.
+        movie.jumpToFrame(0)  # 첫 번째 프레임으로 이동
+        image = movie.currentImage()
+
+        # 원본 이미지에서 비율 계산
+        original_width = image.width()
+        original_height = image.height()
+
+        # GIF 비율 계산 (가로 / 세로)
+        if original_height == 0:
+            original_height = 1  # 0으로 나누는 것을 방지
+        aspect_ratio = original_width / original_height
+
+        # image_label의 크기
+        label_width = self.image_label.width()
+        label_height = self.image_label.height()
+
+        # 원본 비율에 맞게 크기를 계산
+        if label_width / label_height > aspect_ratio:
+            # 세로가 더 좁은 경우, 세로에 맞춰 크기 조정
+            new_height = label_height
+            new_width = int(new_height * aspect_ratio)
+        else:
+            # 가로가 더 좁은 경우, 가로에 맞춰 크기 조정
+            new_width = label_width
+            new_height = int(new_width / aspect_ratio)
+
+        # 스케일된 크기 설정
+        movie.setScaledSize(QSize(new_width, new_height))
+
     def play_video(self, video_path):
         # OpenCV로 비디오 캡처 객체 생성
         self.cap = cv2.VideoCapture(video_path)
@@ -194,23 +237,49 @@ class ImageViewer(QWidget):
             # 레이아웃 크기 제한
             self.image_info_label.setFixedHeight(30)  # 레이블의 세로 길이를 최소로 설정
 
+    def show_next_image(self):
+        if self.image_files:
+            self.current_index = (self.current_index + 1) % len(self.image_files)
+            self.show_image(self.image_files[self.current_index])
+
+    def show_previous_image(self):
+        if self.image_files:
+            self.current_index = (self.current_index - 1) % len(self.image_files)
+            self.show_image(self.image_files[self.current_index])
+
+    def copy_image_to_folder(self, folder_path):
+        if self.current_image_path and folder_path:
+            try:
+                target_path = self.get_unique_file_path(folder_path, self.current_image_path)
+                shutil.copy2(self.current_image_path, target_path)
+                print(f"Copied: {self.current_image_path} -> {target_path}")
+                self.show_next_image()  # 이미지 복사 후 다음 이미지로 자동 이동
+            except Exception as e:
+                print(f"Error copying {self.current_image_path} to {folder_path}: {e}")
+
+    def get_unique_file_path(self, folder_path, image_path):
+        # 파일 이름이 중복되지 않도록 새로운 파일 이름을 생성
+        base_name = os.path.basename(image_path)
+        name, ext = os.path.splitext(base_name)
+
+        # 기존에 '(숫자)' 형식이 있으면 제거
+        name = re.sub(r'\s?\(\d+\)', '', name)  # '(숫자)' 패턴 제거
+
+        target_path = os.path.join(folder_path, f"{name}{ext}")
+        
+        counter = 1
+        while os.path.exists(target_path):
+            # 파일 이름이 존재하면 카운트를 증가시키면서 이름을 변경
+            target_path = os.path.join(folder_path, f"{name} ({counter}){ext}")
+            counter += 1
+
+        return target_path
+
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Left:
             self.show_previous_image()
         elif event.key() == Qt.Key_Right:
             self.show_next_image()
-
-    def show_previous_image(self):
-        # 이전 이미지로 이동
-        if self.image_files and self.current_index > 0:
-            self.current_index -= 1
-            self.show_image(self.image_files[self.current_index])
-
-    def show_next_image(self):
-        # 다음 이미지로 이동
-        if self.image_files and self.current_index < len(self.image_files) - 1:
-            self.current_index += 1
-            self.show_image(self.image_files[self.current_index])
 
     def wheelEvent(self, event):
         if event.angleDelta().y() > 0:
@@ -218,8 +287,11 @@ class ImageViewer(QWidget):
         elif event.angleDelta().y() < 0:
             self.show_next_image()
 
-if __name__ == '__main__':
+def main():
     app = QApplication(sys.argv)
     viewer = ImageViewer()
     viewer.show()
     sys.exit(app.exec_())
+
+if __name__ == "__main__":
+    main()
