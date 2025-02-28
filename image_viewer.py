@@ -2,7 +2,7 @@ import sys
 import os
 import shutil
 import re
-from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout, QPushButton, QFileDialog, QHBoxLayout, QMessageBox
+from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout, QPushButton, QFileDialog, QHBoxLayout
 from PyQt5.QtGui import QPixmap, QImage, QImageReader, QFont, QMovie
 from PyQt5.QtCore import Qt, QSize, QTimer
 import cv2
@@ -247,9 +247,15 @@ class ImageViewer(QWidget):
             self.current_index = (self.current_index - 1) % len(self.image_files)
             self.show_image(self.image_files[self.current_index])
 
+
     def copy_image_to_folder(self, folder_path):
         if self.current_image_path and folder_path:
             try:
+
+                # 이전 메시지 레이블이 존재하면 닫기
+                if hasattr(self, 'message_label') and self.message_label.isVisible():
+                    self.message_label.close()
+
                 # 이미지 복사할 대상 경로 생성
                 target_path = self.get_unique_file_path(folder_path, self.current_image_path)
                 
@@ -257,23 +263,29 @@ class ImageViewer(QWidget):
                 shutil.copy2(self.current_image_path, target_path)
                 print(f"Copied: {self.current_image_path} -> {target_path}")
                 
-                # 복사된 이미지 경로로 메시지 박스 표시
-                msg_box = QMessageBox()
-                msg_box.setIcon(QMessageBox.Information)
-                msg_box.setWindowTitle("이미지 복사")
-                msg_box.setText(f"경로 {target_path}로 이미지가 복사되었습니다.")
-                msg_box.setStandardButtons(QMessageBox.Ok)
+                # QLabel을 사용하여 메시지 표시
+                self.message_label = QLabel(f"경로 {target_path}로 이미지가 복사되었습니다.", self)
+                self.message_label.setStyleSheet("color: rgba(255, 255, 255, 0.8); background-color: rgba(0, 0, 0, 0.8); font-size: 72px; ")  # 글자 크기 3배로 키우기
+                self.message_label.setAlignment(Qt.AlignCenter)
+                self.message_label.show()
 
-                # 2초 후 메시지 박스 닫기
-                QTimer.singleShot(333, msg_box.close)
+                # 텍스트에 맞게 QLabel 크기 자동 조정
+                self.message_label.adjustSize()
+
+                # 메시지 위치 살짝 이동 (Y 좌표 50픽셀, X 좌표 30픽셀 이동)
+                self.message_label.move(self.message_label.x() + 30, self.message_label.y() + 50)  # 오른쪽으로 30, 아래로 50픽셀 이동
+
+                # 0.5초 후 메시지 박스 자동 닫기
+                QTimer.singleShot(2000, self.message_label.close)  # 500ms 후에 메시지 박스 닫기
                 
-                # 메시지 박스를 띄우고 2초 후 자동으로 닫기
-                msg_box.exec_()
-
                 # 이미지 복사 후 다음 이미지로 자동 이동
                 self.show_next_image()  
             except Exception as e:
                 print(f"Error copying {self.current_image_path} to {folder_path}: {e}")
+
+
+
+
 
     def get_unique_file_path(self, folder_path, image_path):
         # 파일 이름이 중복되지 않도록 새로운 파일 이름을 생성
