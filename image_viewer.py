@@ -2,7 +2,7 @@ import sys
 import os
 import shutil
 import re
-from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout, QPushButton, QFileDialog, QHBoxLayout, QSlider
+from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout, QPushButton, QFileDialog, QHBoxLayout, QMessageBox
 from PyQt5.QtGui import QPixmap, QImage, QImageReader, QFont, QMovie
 from PyQt5.QtCore import Qt, QSize, QTimer
 import cv2
@@ -33,12 +33,6 @@ class ImageViewer(QWidget):
         self.set_base_folder_button = QPushButton('Set Base Folder', self)
         self.set_base_folder_button.clicked.connect(self.set_base_folder)
         layout.addWidget(self.set_base_folder_button)
-
-                # 여기에 슬라이더 추가
-        self.slider = QSlider(Qt.Horizontal, self)  # 수평 슬라이더 추가
-        self.slider.setRange(0, 100)  # 슬라이더 범위 설정
-        self.slider.setValue(50)  # 초기값 설정
-        layout.addWidget(self.slider)  # 레이아웃에 슬라이더 추가
 
         # 12개의 빈 버튼 4줄 추가
         self.buttons = []  # 빈 버튼 리스트
@@ -206,11 +200,6 @@ class ImageViewer(QWidget):
             print("Error: Could not open video.")
             return
 
-        # 비디오의 총 프레임 수를 슬라이더의 최대값으로 설정
-        total_frames = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        self.slider.setMaximum(total_frames - 1)  # 슬라이더의 최대값을 프레임 수로 설정
-
-
         # 타이머를 33ms로 설정하여 대략 30fps로 업데이트
         self.timer.start(33)
 
@@ -230,10 +219,6 @@ class ImageViewer(QWidget):
             # QImage를 QPixmap으로 변환하여 라벨에 표시
             pixmap = QPixmap.fromImage(qimg)
             self.image_label.setPixmap(pixmap.scaled(self.image_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
-
-            # 현재 프레임을 슬라이더의 값으로 설정
-            current_frame = int(self.cap.get(cv2.CAP_PROP_POS_FRAMES))
-            self.slider.setValue(current_frame)
         else:
             # 비디오의 끝에 도달하면 처음으로 돌아가기
             self.cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
@@ -265,10 +250,28 @@ class ImageViewer(QWidget):
     def copy_image_to_folder(self, folder_path):
         if self.current_image_path and folder_path:
             try:
+                # 이미지 복사할 대상 경로 생성
                 target_path = self.get_unique_file_path(folder_path, self.current_image_path)
+                
+                # 이미지 복사
                 shutil.copy2(self.current_image_path, target_path)
                 print(f"Copied: {self.current_image_path} -> {target_path}")
-                self.show_next_image()  # 이미지 복사 후 다음 이미지로 자동 이동
+                
+                # 복사된 이미지 경로로 메시지 박스 표시
+                msg_box = QMessageBox()
+                msg_box.setIcon(QMessageBox.Information)
+                msg_box.setWindowTitle("이미지 복사")
+                msg_box.setText(f"경로 {target_path}로 이미지가 복사되었습니다.")
+                msg_box.setStandardButtons(QMessageBox.Ok)
+
+                # 2초 후 메시지 박스 닫기
+                QTimer.singleShot(333, msg_box.close)
+                
+                # 메시지 박스를 띄우고 2초 후 자동으로 닫기
+                msg_box.exec_()
+
+                # 이미지 복사 후 다음 이미지로 자동 이동
+                self.show_next_image()  
             except Exception as e:
                 print(f"Error copying {self.current_image_path} to {folder_path}: {e}")
 
