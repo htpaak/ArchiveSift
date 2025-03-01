@@ -9,6 +9,13 @@ from PyQt5.QtCore import Qt, QSize, QTimer, QEvent, QPoint, pyqtSignal
 import cv2
 from PIL import Image
 
+# MPV DLL 경로를 PATH에 추가 (반드시 mpv 모듈을 import하기 전에 해야 함)
+mpv_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mpv')
+os.environ["PATH"] = mpv_path + os.pathsep + os.environ["PATH"]
+
+# 이제 mpv 모듈을 import
+import mpv
+
 # 커스텀 제목표시줄 클래스
 class TitleBar(QWidget):
     def __init__(self, parent=None):
@@ -248,6 +255,19 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
         # 전역 이벤트 필터 설치
         QApplication.instance().installEventFilter(self)
 
+        # MPV DLL 경로 설정
+        if getattr(sys, 'frozen', False):
+            # PyInstaller로 패키징된 경우
+            mpv_path = os.path.join(os.path.dirname(sys.executable), 'mpv')
+            os.environ["MPV_DYLIB_PATH"] = os.path.join(mpv_path, "libmpv-2.dll")
+        else:
+            # 일반 스크립트로 실행되는 경우
+            mpv_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mpv')
+            os.environ["MPV_DYLIB_PATH"] = os.path.join(mpv_path, "libmpv-2.dll")
+
+        # MPV 플레이어 생성
+        self.player = mpv.MPV(ytdl=True, input_default_bindings=True, input_vo_keyboard=True)
+
     def ensure_maximized(self):
         """창이 최대화 상태인지 확인하고 그렇지 않으면 다시 최대화합니다."""
         if not self.isMaximized():
@@ -335,13 +355,21 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
         return [os.path.join(folder_path, f) for f in os.listdir(folder_path) if any(f.lower().endswith(ext) for ext in valid_extensions)]
 
     def stop_video(self):
-        """현재 재생 중인 MP4를 즉시 정리하는 함수"""
-        if self.cap is not None:  # 비디오 캡처 객체가 존재하면
-            self.cap.release()  # 비디오 캡처 객체 해제
-            self.cap = None  # 캡처 객체를 None으로 설정
-
-        if self.timer.isActive():  # 타이머가 활성화 되어 있으면
-            self.timer.stop()  # 타이머 중지
+        """비디오 재생 중지"""
+        # OpenCV 객체 정리
+        if self.cap is not None:
+            self.cap.release()
+            self.cap = None
+        
+        if self.timer.isActive():
+            self.timer.stop()
+        
+        # MPV 정지
+        if hasattr(self, 'player'):
+            try:
+                self.player.stop()
+            except:
+                pass
 
     def show_image(self, image_path):
         # 새 이미지나 GIF가 들어오면 즉시 MP4 정리
@@ -462,19 +490,66 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
         # 새로 계산된 크기로 GIF를 설정합니다.
         movie.setScaledSize(QSize(new_width, new_height))  # 크기를 새로 계산된 크기로 설정
 
-    # 비디오 파일을 재생하는 메서드입니다.
     def play_video(self, video_path):
-        # OpenCV를 사용하여 비디오 캡처 객체를 생성합니다.
-        self.cap = cv2.VideoCapture(video_path)  # video_path 경로의 비디오를 읽기 위한 캡처 객체 생성
+        """MPV를 사용하여 비디오 재생"""
+        # 기존 비디오 중지
+        self.stop_video()
+        
+        # MPV로 비디오 재생
+        try:
+            # 화면에 비디오 출력을 위한 윈도우 핸들 설정
+            wid = int(self.image_label.winId())
+            self.player.wid = wid
+            
+            # MPV 옵션 설정
+            self.player.loop = True  # 비디오 반복 재생
+            self.player.volume = 100  # 볼륨 100%로 설정
+            
+            # 비디오 파일 재생
+            self.player.play(video_path)
+            
+            # 컨트롤 연결
+            if hasattr(self, 'play_button'):
+                self.play_button.clicked.connect(self.toggle_play_pause)
+            if hasattr(self, 'volume_slider'):
+                self.volume_slider.valueChanged.connect(self.set_volume)
+            if hasattr(self, 'mute_button'):
+                self.mute_button.clicked.connect(self.toggle_mute)
+            
+            # 비디오 정보 업데이트
+            self.current_image_path = video_path
+            
+        except Exception as e:
+            print(f"MPV 재생 오류: {e}")
 
-        if not self.cap.isOpened():  # 비디오 파일이 제대로 열리지 않으면 에러 메시지를 출력
-            print("Error: Could not open video.")
-            return  # 비디오가 열리지 않으면 함수 종료
+    def toggle_play_pause(self):
+        """재생/일시정지 토글"""
+        if not hasattr(self, 'player'):
+            return
+        
+        # MPV 재생 상태 토글
+        paused = self.player.pause
+        self.player.pause = not paused
+        
+        # 버튼 텍스트 업데이트
+        self.play_button.setText("❚❚" if not paused else "▶")
 
-        # 타이머를 33ms로 설정하여 약 30fps로 비디오를 업데이트합니다.
-        self.timer.start(33)  # 타이머를 시작하고, 33ms마다 프레임을 갱신
+    def set_volume(self, value):
+        """볼륨 설정"""
+        if not hasattr(self, 'player'):
+            return
+        
+        self.player.volume = value
 
-    # 비디오의 프레임을 업데이트하는 메서드입니다.
+    def toggle_mute(self):
+        """음소거 토글"""
+        if not hasattr(self, 'player'):
+            return
+        
+        muted = self.player.mute
+        self.player.mute = not muted
+        self.mute_button.setText("🔇" if not muted else "🔊")
+
     def update_video_frame(self):
         # 비디오에서 프레임을 읽어옵니다.
         ret, frame = self.cap.read()  # 프레임을 하나 읽어와 ret과 frame에 저장
@@ -857,6 +932,16 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
                     if hasattr(self, 'volume_slider'):
                         self.volume_slider.setFixedWidth(int(120 * (40/25)))  # 비율 유지
                     break
+
+    def closeEvent(self, event):
+        """앱 종료 시 MPV 정리"""
+        self.stop_video()
+        if hasattr(self, 'player'):
+            try:
+                self.player.terminate()
+            except:
+                pass
+        event.accept()
 
 # 메인 함수
 def main():
