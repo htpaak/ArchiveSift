@@ -269,11 +269,14 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
         # 메시지 레이블 생성 및 설정
         self.message_label = QLabel(message, self)
         self.message_label.setStyleSheet("""
-            color: rgba(255, 255, 255, 0.8);
-            background-color: rgba(0, 0, 0, 0.8);
-            font-size: 72px;
-            padding: 20px;
-            border-radius: 10px;
+            QLabel {
+                color: white;
+                background-color: rgba(52, 73, 94, 0.9);
+                font-size: 36px;
+                padding: 15px 25px;
+                border-radius: 5px;
+                font-weight: bold;
+            }
         """)
         self.message_label.setAlignment(Qt.AlignCenter)
         self.message_label.show()
@@ -305,8 +308,15 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
 
                 # 사용자에게 복사 완료 메시지를 보여줍니다.
                 self.message_label = QLabel(f"경로 {target_path}로 이미지가 복사되었습니다.", self)
-                self.message_label.setStyleSheet("color: rgba(255, 255, 255, 0.8); background-color: rgba(0, 0, 0, 0.8); font-size: 72px; ")  
-                # 스타일 설정 (반투명한 배경과 큰 폰트 크기)
+                self.message_label.setStyleSheet("""
+                    QLabel {
+                        color: white;
+                        background-color: rgba(52, 73, 94, 0.9);
+                        font-size: 36px;
+                        padding: 15px 25px;
+                        border-radius: 5px;
+                    }
+                """)
                 self.message_label.setAlignment(Qt.AlignCenter)  # 텍스트를 중앙 정렬
                 self.message_label.show()  # 레이블을 화면에 표시
 
