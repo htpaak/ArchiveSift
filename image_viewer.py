@@ -462,8 +462,9 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
         # 파일 확장자 확인 (소문자로 변환)
         file_ext = os.path.splitext(image_path)[1].lower()
 
-        # 미디어 파일 여부에 따라 처리
-        if file_ext == '.psd':  # PSD 파일 처리
+        if file_ext == '.gif':  # GIF 파일 처리
+            self.show_gif(image_path)  # GIF를 표시하는 메서드 호출
+        elif file_ext == '.psd':  # PSD 파일 처리
             # PSD 파일을 PNG로 변환
             image = Image.open(image_path)  # PIL을 사용하여 PSD 파일 열기
             temp_path = 'temp_image.png'  # 임시 파일 경로
@@ -471,31 +472,20 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
             pixmap = QPixmap(temp_path)  # QPixmap으로 이미지 변환
             os.remove(temp_path)  # 임시 파일 삭제
             self.image_label.setPixmap(pixmap.scaled(self.image_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))  # QLabel에 이미지 표시
-        elif file_ext == '.gif':  # GIF 파일 처리
-            movie = QMovie(image_path)  # QMovie를 사용하여 GIF 파일 처리
-            self.scale_gif(movie)  # GIF 크기 비율 맞추기
-            self.image_label.setMovie(movie)  # GIF를 QLabel에 표시
-            movie.start()  # GIF 재생 시작
-        elif file_ext == '.webp':  # WEBP 파일 처리
-            # WEBP 파일이 애니메이션인지 확인
-            reader = QImageReader(image_path)
-            if reader.supportsAnimation():  # 애니메이션을 지원하면
-                self.show_webp_animation(image_path)  # WEBP 애니메이션 처리
-            else:
-                # 애니메이션이 아닐 경우 일반 이미지로 처리
-                pixmap = QPixmap(image_path)  # 일반 이미지로 처리
-                if not pixmap.isNull():  # 이미지가 정상적으로 로드되었는지 확인
-                    self.image_label.setPixmap(pixmap.scaled(self.image_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))  # 이미지를 QLabel에 표시
-                else:
-                    print(f"Error loading image: {image_path}")  # 이미지 로드 오류 메시지 출력
-        elif file_ext == '.mp4':  # MP4 파일 처리
-            self.play_video(image_path)  # MP4 비디오 재생
-        else:
+            # 슬라이더 초기화
+            self.playback_slider.setRange(0, 0)  # 슬라이더 범위를 0으로 설정
+            self.playback_slider.setValue(0)  # 슬라이더 초기값을 0으로 설정
+        elif file_ext in ['.jpg', '.jpeg', '.png']:  # JPG, JPEG, PNG 파일 처리
             pixmap = QPixmap(image_path)  # QPixmap으로 이미지 로드
             if not pixmap.isNull():  # 이미지가 정상적으로 로드되었는지 확인
                 self.image_label.setPixmap(pixmap.scaled(self.image_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))  # 이미지를 QLabel에 표시
-            else:
-                print(f"Error loading image: {image_path}")  # 이미지 로드 오류 메시지 출력
+            # 슬라이더 초기화
+            self.playback_slider.setRange(0, 0)  # 슬라이더 범위를 0으로 설정
+            self.playback_slider.setValue(0)  # 슬라이더 초기값을 0으로 설정
+        elif file_ext == '.webp':  # WEBP 파일 처리
+            self.show_webp_animation(image_path)  # WEBP 애니메이션 처리
+        elif file_ext == '.mp4':  # MP4 파일 처리
+            self.play_video(image_path)  # MP4 비디오 재생
 
         self.current_image_path = image_path  # 현재 이미지 경로 업데이트
         self.update_image_info()  # 이미지 정보 업데이트 메소드 호출
@@ -506,23 +496,121 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
         if hasattr(self, 'image_info_label'):
             self.image_info_label.raise_()
 
+    def show_gif(self, image_path):
+        # 이전 GIF 상태 정리
+        if hasattr(self, 'gif_timer'):
+            self.gif_timer.stop()  # 타이머 정지
+            self.playback_slider.valueChanged.disconnect()  # 슬라이더 연결 해제
+
+        # 이전 QMovie 객체가 있다면 삭제
+        if hasattr(self, 'current_movie'):
+            self.current_movie.stop()  # 현재 GIF 정지
+            del self.current_movie  # 메모리 해제
+
+        self.current_movie = QMovie(image_path)  # 새로운 QMovie 객체 생성
+
+        # GIF의 유효성 검사
+        if not self.current_movie.isValid():
+            return
+
+        # GIF의 첫 번째 프레임을 로드
+        self.current_movie.jumpToFrame(0)
+        if self.current_movie.currentImage().isNull():
+            return
+
+        # QLabel의 크기에 맞게 GIF 크기 조정
+        original_size = QSize(self.current_movie.currentImage().width(), self.current_movie.currentImage().height())
+        label_size = self.image_label.size()
+
+        if original_size.height() == 0:
+            original_size.setHeight(1)
+
+        if label_size.width() / label_size.height() > original_size.width() / original_size.height():
+            new_height = label_size.height()
+            new_width = int(new_height * (original_size.width() / original_size.height()))
+        else:
+            new_width = label_size.width()
+            new_height = int(new_width * (original_size.height() / original_size.width()))
+
+        self.current_movie.setScaledSize(QSize(new_width, new_height))
+        self.image_label.setMovie(self.current_movie)
+        self.current_movie.start()
+
+        # 슬라이더 범위를 GIF의 프레임 수에 맞게 설정
+        frame_count = self.current_movie.frameCount()
+        if frame_count > 0:
+            self.playback_slider.setRange(0, frame_count - 1)
+            self.playback_slider.setValue(0)
+
+            # 슬라이더 값 변경 시 프레임 변경 연결
+            self.playback_slider.valueChanged.connect(lambda value: self.current_movie.jumpToFrame(value))
+
+            # GIF의 프레임이 변경될 때마다 슬라이더 값을 업데이트
+            def update_slider():
+                current_frame = self.current_movie.currentFrameNumber()
+                if self.current_movie.state() == QMovie.Running:
+                    self.playback_slider.setValue(current_frame)
+
+            # 타이머를 사용하여 슬라이더 업데이트
+            self.gif_timer = QTimer(self)
+            self.gif_timer.timeout.connect(update_slider)
+            self.gif_timer.start(50)
+
+        # GIF 반복 설정
+        self.current_movie.loopCount = 0  # 무한 반복
+
     def show_webp_animation(self, image_path):
         # WEBP 애니메이션을 처리하기 위해 QImageReader를 사용
         reader = QImageReader(image_path)  # QImageReader 객체 생성
 
         # 이미지를 로드하고 애니메이션으로 처리
         if reader.supportsAnimation():  # 애니메이션을 지원하면
-            movie = QMovie(image_path)  # QMovie 객체로 애니메이션 처리
-            movie.setCacheMode(QMovie.CacheAll)  # 애니메이션 전체를 캐시로 설정
-            self.scale_gif(movie)  # GIF와 동일하게 크기 비율 맞추기
+            self.current_movie = QMovie(image_path)  # QMovie 객체로 애니메이션 처리
+            self.current_movie.setCacheMode(QMovie.CacheAll)  # 애니메이션 전체를 캐시로 설정
 
-            self.image_label.setMovie(movie)  # 애니메이션을 QLabel에 표시
-            movie.start()  # 애니메이션 시작
+            # 첫 번째 프레임으로 이동하여 크기 조정
+            self.current_movie.jumpToFrame(0)  # 첫 번째 프레임으로 이동
+            self.scale_webp()  # 크기 조정 메서드 호출
 
-    def scale_gif(self, movie):
+            # QLabel에 애니메이션을 표시
+            self.image_label.setMovie(self.current_movie)
+            self.current_movie.start()  # 애니메이션 시작
+
+            # 슬라이더 범위를 WEBP의 프레임 수에 맞게 설정
+            frame_count = self.current_movie.frameCount()
+            if frame_count > 0:
+                self.playback_slider.setRange(0, frame_count - 1)
+                self.playback_slider.setValue(0)
+
+                # 슬라이더 값 변경 시 프레임 변경 연결
+                self.playback_slider.valueChanged.connect(lambda value: self.current_movie.jumpToFrame(value))
+
+                # WEBP의 프레임이 변경될 때마다 슬라이더 값을 업데이트
+                def update_slider():
+                    current_frame = self.current_movie.currentFrameNumber()
+                    if self.current_movie.state() == QMovie.Running:
+                        self.playback_slider.setValue(current_frame)
+
+                # 타이머를 사용하여 슬라이더 업데이트
+                self.gif_timer = QTimer(self)
+                self.gif_timer.timeout.connect(update_slider)
+                self.gif_timer.start(50)  # 50ms마다 슬라이더 업데이트
+
+            # WEBP 반복 설정
+            self.current_movie.loopCount = 0  # 무한 반복
+        else:
+            # 애니메이션이 아닌 경우 일반 이미지로 처리
+            pixmap = QPixmap(image_path)  # QPixmap으로 이미지 로드
+            if not pixmap.isNull():  # 이미지가 정상적으로 로드되었는지 확인
+                self.image_label.setPixmap(pixmap.scaled(self.image_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))  # 이미지를 QLabel에 표시
+            # 슬라이더 초기화
+            self.playback_slider.setRange(0, 0)  # 슬라이더 범위를 0으로 설정
+            self.playback_slider.setValue(0)  # 슬라이더 초기값을 0으로 설정
+
+    def scale_webp(self):
         # 첫 번째 프레임으로 이동하여 이미지 데이터를 얻어옵니다.
-        movie.jumpToFrame(0)  # 첫 번째 프레임으로 이동
-        image = movie.currentImage()  # 현재 프레임의 이미지를 얻음
+        self.current_movie.jumpToFrame(0)  # 첫 번째 프레임으로 이동
+        image = self.current_movie.currentImage()  # 현재 프레임의 이미지를 얻음
 
         # 원본 이미지의 너비와 높이를 얻습니다.
         original_width = image.width()  # 원본 이미지의 너비
@@ -547,8 +635,8 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
             new_width = label_width  # 라벨의 너비를 기준으로 새 너비 설정
             new_height = int(new_width / aspect_ratio)  # 비율을 유지하며 세로 크기 계산
 
-        # 새로 계산된 크기로 GIF를 설정합니다.
-        movie.setScaledSize(QSize(new_width, new_height))  # 크기를 새로 계산된 크기로 설정
+        # 새로 계산된 크기로 WEBP를 설정합니다.
+        self.current_movie.setScaledSize(QSize(new_width, new_height))  # 크기를 새로 계산된 크기로 설정
 
     def play_video(self, video_path):
         """MPV를 사용하여 비디오 재생"""
@@ -610,8 +698,12 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
     def update_play_button(self):
         """MPV의 재생 상태에 따라 버튼 텍스트 업데이트 및 슬라이더 동기화"""
         if hasattr(self, 'player'):
-            self.play_button.setText("❚❚" if not self.player.pause else "▶")
-            self.update_playback_slider()  # 슬라이더 업데이트 호출
+            try:
+                self.play_button.setText("❚❚" if not self.player.pause else "▶")
+                self.update_playback_slider()  # 슬라이더 업데이트 호출
+            except mpv.ShutdownError:
+                print("MPV 플레이어가 종료되었습니다.")  # 오류 메시지 출력
+                self.play_button.setEnabled(False)  # 버튼 비활성화
 
     def update_video_frame(self):
         # 비디오에서 프레임을 읽어옵니다.
@@ -840,9 +932,9 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
         self.stop_video()
         if hasattr(self, 'player'):
             try:
-                self.player.terminate()
-            except:
-                pass
+                self.player.terminate()  # MPV 종료
+            except Exception as e:
+                print(f"MPV 종료 중 오류 발생: {e}")  # 오류 메시지 출력
         event.accept()
 
     def toggle_mute(self):
