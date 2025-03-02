@@ -104,7 +104,7 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
             }
             QSlider::handle:horizontal {
                 background: rgba(52, 73, 94, 1.0);  /* 핸들 색상 */
-                border: 1px solid rgba(0, 0, 0, 1.0);  /* 핸들 테두리 색상 */
+                border: 1px solid rgba(52, 73, 94, 1.0);  /* 핸들 테두리 색상 */
                 width: 15px;  /* 핸들 너비 */
                 margin: -5px 0;  /* 핸들 위치 조정 */
             }
@@ -112,7 +112,7 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
                 background: rgba(52, 73, 94, 1.0);  /* 핸들 마우스 오버 색상 */
             }
             QSlider::sub-page:horizontal {
-                background: rgba(0, 0, 0, 1.0);  /* 슬라이더의 현재 값에 해당하는 부분 색상 */
+                background: rgba(52, 73, 94, 1.0);  /* 슬라이더의 현재 값에 해당하는 부분 색상 */
             }
         """
 
@@ -340,8 +340,7 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
             mpv_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mpv')
             os.environ["MPV_DYLIB_PATH"] = os.path.join(mpv_path, "libmpv-2.dll")
 
-        # MPV 플레이어 생성
-        self.player = mpv.MPV(ytdl=True, input_default_bindings=True, input_vo_keyboard=True)
+        self.player = mpv.MPV(ytdl=True, input_default_bindings=True, input_vo_keyboard=True, hr_seek="yes")
 
         # 슬라이더와 음량 조절 동기화
         self.volume_slider.valueChanged.connect(self.adjust_volume)  # 슬라이더 값 변경 시 음량 조절 메서드 연결
@@ -349,6 +348,8 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
         # 슬라이더 스타일 적용
         self.playback_slider.setStyleSheet(slider_style)  # 슬라이더 스타일 적용
         self.volume_slider.setStyleSheet(slider_style)  # 음량 조절 슬라이더 스타일 적용
+
+        self.previous_position = None  # 클래스 변수로 이전 위치 저장
 
     def ensure_maximized(self):
         """창이 최대화 상태인지 확인하고 그렇지 않으면 다시 최대화합니다."""
@@ -393,7 +394,7 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
             for row in self.buttons:  # 버튼 행마다
                 for button in row:  # 버튼마다
                     button.setText('')  # 버튼 텍스트 초기화
-                    button.setToolTip('')  # 버튼 툴팁 초기화
+                    button.setToolTip('')  # 버튼 툴큐 초기화
 
             # 하위 폴더들을 가져와서 버튼에 경로 설정
             subfolders = [f.path for f in os.scandir(self.base_folder) if f.is_dir()]  # 하위 폴더 경로 목록 가져오기
@@ -405,11 +406,11 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
                     index = i * 12 + j  # 2D 배열에서 버튼의 인덱스 계산
                     if index < len(subfolders):  # 하위 폴더가 버튼보다 많지 않으면
                         button.setText(os.path.basename(subfolders[index]))  # 버튼 텍스트를 폴더 이름으로 설정
-                        button.setToolTip(subfolders[index])  # 버튼 툴팁에 폴더 경로 설정
+                        button.setToolTip(subfolders[index])  # 버튼 툴큐에 폴더 경로 설정
 
     def on_button_click(self):
         button = self.sender()  # 클릭된 버튼을 가져옴
-        folder_path = button.toolTip()  # 버튼의 툴팁에서 폴더 경로 가져오기
+        folder_path = button.toolTip()  # 버튼의 툴큐에서 폴더 경로 가져오기
         print(f"Selected folder: {folder_path}")  # 선택된 폴더 경로 출력
 
         # 커서를 일반 커서로 설정
@@ -467,6 +468,10 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
             self.current_movie.stop()  # GIF 정지
             self.playback_slider.valueChanged.disconnect()  # 슬라이더 연결 해제
 
+        # 슬라이더 초기화
+        self.playback_slider.setRange(0, 0)  # 슬라이더 범위를 0으로 설정
+        self.playback_slider.setValue(0)  # 슬라이더 초기값을 0으로 설정
+
         if file_ext == '.gif':  # GIF 파일 처리
             self.show_gif(image_path)  # GIF를 표시하는 메서드 호출
         elif file_ext == '.psd':  # PSD 파일 처리
@@ -477,16 +482,10 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
             pixmap = QPixmap(temp_path)  # QPixmap으로 이미지 변환
             os.remove(temp_path)  # 임시 파일 삭제
             self.image_label.setPixmap(pixmap.scaled(self.image_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))  # QLabel에 이미지 표시
-            # 슬라이더 초기화
-            self.playback_slider.setRange(0, 0)  # 슬라이더 범위를 0으로 설정
-            self.playback_slider.setValue(0)  # 슬라이더 초기값을 0으로 설정
         elif file_ext in ['.jpg', '.jpeg', '.png']:  # JPG, JPEG, PNG 파일 처리
             pixmap = QPixmap(image_path)  # QPixmap으로 이미지 로드
             if not pixmap.isNull():  # 이미지가 정상적으로 로드되었는지 확인
                 self.image_label.setPixmap(pixmap.scaled(self.image_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))  # 이미지를 QLabel에 표시
-            # 슬라이더 초기화
-            self.playback_slider.setRange(0, 0)  # 슬라이더 범위를 0으로 설정
-            self.playback_slider.setValue(0)  # 슬라이더 초기값을 0으로 설정
         elif file_ext == '.webp':  # WEBP 파일 처리
             self.show_webp_animation(image_path)  # WEBP 애니메이션 처리
         elif file_ext == '.mp4':  # MP4 파일 처리
@@ -509,6 +508,7 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
         # 이전 GIF 상태 정리
         if hasattr(self, 'gif_timer'):
             self.gif_timer.stop()  # 타이머 정지
+            del self.gif_timer  # 타이머 객체 삭제
 
         # 이전 QMovie 객체가 있다면 삭제
         if hasattr(self, 'current_movie'):
@@ -581,6 +581,10 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
 
         # 이미지를 로드하고 애니메이션으로 처리
         if reader.supportsAnimation():  # 애니메이션을 지원하면
+            if hasattr(self, 'gif_timer'):
+                self.gif_timer.stop()  # 이전 타이머 정지
+                del self.gif_timer  # 타이머 객체 삭제
+
             self.current_movie = QMovie(image_path)  # QMovie 객체로 애니메이션 처리
             self.current_movie.setCacheMode(QMovie.CacheAll)  # 애니메이션 전체를 캐시로 설정
 
@@ -682,35 +686,47 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
             # 비디오 정보 업데이트
             self.current_image_path = video_path
             
+            # 슬라이더 초기화
+            self.playback_slider.setRange(0, 0)  # 슬라이더 범위를 0으로 설정
+            self.playback_slider.setValue(0)  # 슬라이더 초기값을 0으로 설정
+            
+            # MPV의 재생 상태를 주기적으로 업데이트하기 위한 타이머 설정
+            self.video_timer = QTimer(self)
+            self.video_timer.timeout.connect(self.update_video_playback)  # 슬라이더 업데이트 호출
+            self.video_timer.start(100)  # 100ms마다 업데이트
+            
         except Exception as e:
             print(f"MPV 재생 오류: {e}")
 
-    def toggle_play_pause(self):
-        """재생/일시정지 토글"""
-        if not hasattr(self, 'player'):
-            return
-        
-        # MPV 재생 상태 토글
-        paused = self.player.pause
-        self.player.pause = not paused
-        
-        # 버튼 텍스트 업데이트
-        self.play_button.setText("❚❚" if not paused else "▶")
-
-    def update_playback_slider(self):
-        """MPV의 재생 위치에 따라 슬라이더 값을 업데이트합니다."""
+    def update_video_playback(self):
+        """MPV 비디오의 재생 위치에 따라 슬라이더 값을 업데이트합니다."""
         if hasattr(self, 'player'):
-            # MPV의 현재 재생 위치를 가져옵니다.
-            position = self.player.playback_time
-            # MPV의 총 길이를 가져옵니다.
-            duration = self.player.duration
-            
-            # duration이 None이 아니고 0보다 클 때만 슬라이더 값을 업데이트합니다.
-            if duration is not None and duration > 0:
-                self.playback_slider.setValue(int((position / duration) * 100))  # 슬라이더 값 업데이트
+            try:
+                position = self.player.playback_time  # 현재 재생 위치
+                duration = self.player.duration  # 총 길이
                 
-                # 재생 시간과 전체 시간 업데이트
-                self.time_label.setText(f"{self.format_time(position)} / {self.format_time(duration)}")
+                # playback_time 값이 None인 경우 처리
+                if position is None:
+                    return  # 슬라이더 업데이트를 건너뜁니다.
+
+                # 슬라이더 범위 설정
+                if duration is not None and duration > 0:
+                    self.playback_slider.setRange(0, int(duration))  # 슬라이더 범위 설정
+
+                    # 슬라이더 값 업데이트
+                    # position이 1초 단위로 증가하더라도, 슬라이더를 부드럽게 업데이트
+                if duration is not None and duration > 0:
+                    self.playback_slider.setRange(0, int(duration * 100))  # 슬라이더 범위를 밀리초 단위로 설정
+                    self.playback_slider.setValue(int(position * 100))  # 슬라이더 값을 밀리초 단위로 설정
+                    self.time_label.setText(f"{self.format_time(position)} / {self.format_time(duration)}")
+
+                    self.time_label.setText(f"{self.format_time(position)} / {self.format_time(duration)}")  # 시간 레이블 업데이트
+
+                self.previous_position = position  # 현재 위치를 이전 위치로 저장
+
+            except mpv.ShutdownError:
+                print("MPV 플레이어가 종료되었습니다.")  # 오류 메시지 출력
+                self.video_timer.stop()  # 타이머 중지
 
     def format_time(self, seconds):
         """초를 'MM:SS' 형식으로 변환합니다."""
@@ -722,8 +738,12 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
         """MPV의 재생 상태에 따라 버튼 텍스트 업데이트 및 슬라이더 동기화"""
         if hasattr(self, 'player'):
             try:
+                if not self.player:  # MPV가 유효한지 확인
+                    print("MPV player is not alive.")
+                    return  # 슬라이더 업데이트를 건너뜁니다.
+
                 self.play_button.setText("❚❚" if not self.player.pause else "▶")
-                self.update_playback_slider()  # 슬라이더 업데이트 호출
+                self.update_video_playback()  # 슬라이더 업데이트 호출
             except mpv.ShutdownError:
                 print("MPV 플레이어가 종료되었습니다.")  # 오류 메시지 출력
                 self.play_button.setEnabled(False)  # 버튼 비활성화
@@ -927,7 +947,6 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
         # 마우스가 윈도우 내에 있고, Y 좌표가 30 미만인지 확인
         if self.rect().contains(local_pos) and local_pos.y() < 30:
             if not self.title_bar.isVisible():
-                print("타이머: 마우스가 상단에 있어 제목표시줄 표시")  # 디버깅용
                 self.title_bar.show()
                 self.title_bar.raise_()  # 다른 위젯보다 앞으로 가져옴
         else:
@@ -958,6 +977,9 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
                 self.player.terminate()  # MPV 종료
             except Exception as e:
                 print(f"MPV 종료 중 오류 발생: {e}")  # 오류 메시지 출력
+        # 메시지 레이블이 존재하면 닫기
+        if hasattr(self, 'message_label') and self.message_label.isVisible():
+            self.message_label.close()
         event.accept()
 
     def toggle_mute(self):
