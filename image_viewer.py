@@ -462,6 +462,11 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
         # 파일 확장자 확인 (소문자로 변환)
         file_ext = os.path.splitext(image_path)[1].lower()
 
+        # GIF가 재생 중일 경우 정지
+        if hasattr(self, 'current_movie') and self.current_movie.state() == QMovie.Running:
+            self.current_movie.stop()  # GIF 정지
+            self.playback_slider.valueChanged.disconnect()  # 슬라이더 연결 해제
+
         if file_ext == '.gif':  # GIF 파일 처리
             self.show_gif(image_path)  # GIF를 표시하는 메서드 호출
         elif file_ext == '.psd':  # PSD 파일 처리
@@ -489,7 +494,11 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
 
         self.current_image_path = image_path  # 현재 이미지 경로 업데이트
         self.update_image_info()  # 이미지 정보 업데이트 메소드 호출
-        
+
+        # 시간 레이블 초기화
+        self.time_label.setText("00:00 / 00:00")  # 시간 레이블 초기화
+        self.time_label.show()  # 시간 레이블 표시
+
         # 제목표시줄과 이미지 정보 레이블을 앞으로 가져옴
         if hasattr(self, 'title_bar'):
             self.title_bar.raise_()
@@ -500,7 +509,6 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
         # 이전 GIF 상태 정리
         if hasattr(self, 'gif_timer'):
             self.gif_timer.stop()  # 타이머 정지
-            self.playback_slider.valueChanged.disconnect()  # 슬라이더 연결 해제
 
         # 이전 QMovie 객체가 있다면 삭제
         if hasattr(self, 'current_movie'):
@@ -550,6 +558,14 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
                 current_frame = self.current_movie.currentFrameNumber()
                 if self.current_movie.state() == QMovie.Running:
                     self.playback_slider.setValue(current_frame)
+                    # 현재 프레임 / 총 프레임 표시 업데이트
+                    self.time_label.setText(f"{current_frame + 1} / {self.current_movie.frameCount()}")  # 현재 프레임은 0부터 시작하므로 +1
+
+                # 타이머를 사용하여 슬라이더 업데이트
+                if not hasattr(self, 'gif_timer'):  # 타이머가 이미 존재하지 않을 때만 생성
+                    self.gif_timer = QTimer(self)
+                    self.gif_timer.timeout.connect(update_slider)
+                    self.gif_timer.start(50)  # 50ms마다 슬라이더 업데이트
 
             # 타이머를 사용하여 슬라이더 업데이트
             self.gif_timer = QTimer(self)
@@ -591,6 +607,9 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
                     if self.current_movie.state() == QMovie.Running:
                         self.playback_slider.setValue(current_frame)
 
+                        # 현재 프레임 / 총 프레임 표시 업데이트
+                        self.time_label.setText(f"{current_frame + 1} / {self.current_movie.frameCount()}")  # 현재 프레임은 0부터 시작하므로 +1
+
                 # 타이머를 사용하여 슬라이더 업데이트
                 self.gif_timer = QTimer(self)
                 self.gif_timer.timeout.connect(update_slider)
@@ -606,6 +625,10 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
             # 슬라이더 초기화
             self.playback_slider.setRange(0, 0)  # 슬라이더 범위를 0으로 설정
             self.playback_slider.setValue(0)  # 슬라이더 초기값을 0으로 설정
+
+            # 애니메이션이 아닌 경우에는 time_label을 사용
+            self.time_label.setText("00:00 / 00:00")  # time_label 초기화
+            self.time_label.show()  # time_label 표시
 
     def scale_webp(self):
         # 첫 번째 프레임으로 이동하여 이미지 데이터를 얻어옵니다.
