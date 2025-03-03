@@ -17,76 +17,29 @@ os.environ["PATH"] = mpv_path + os.pathsep + os.environ["PATH"]
 # 이제 mpv 모듈을 import
 import mpv
 
-# 커스텀 제목표시줄 클래스
-class TitleBar(QWidget):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.parent = parent
-        self.setMouseTracking(True)
-        
-        # 제목표시줄 스타일 설정
-        self.setStyleSheet("""
-            background-color: rgba(52, 73, 94, 1.0);
-            color: white;
-        """)
-        
-        # 제목표시줄 레이아웃 설정
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(10, 5, 10, 5)
-        
-        # 제목 라벨
-        self.title_label = QLabel('Image Viewer')
-        self.title_label.setStyleSheet("color: white; font-size: 16px;")
-        layout.addWidget(self.title_label)
-        layout.addStretch()
-        
-        # 최소화, 최대화, 닫기 버튼
-        min_button = QPushButton('_')
-        min_button.setStyleSheet("color: white; background: none; border: none;")
-        min_button.clicked.connect(self.parent.showMinimized)
-        
-        max_button = QPushButton('□')
-        max_button.setStyleSheet("color: white; background: none; border: none;")
-        max_button.clicked.connect(self.toggle_maximize)
-        
-        close_button = QPushButton('×')
-        close_button.setStyleSheet("color: white; background: none; border: none;")
-        close_button.clicked.connect(self.parent.close)
-        
-        layout.addWidget(min_button)
-        layout.addWidget(max_button)
-        layout.addWidget(close_button)
-        
-        self.setFixedHeight(30)
-        self.setLayout(layout)
-
-    def set_title(self, title):
-        """제목표시줄의 텍스트를 업데이트합니다."""
-        self.title_label.setText(title)
-
-    def toggle_maximize(self):
-        if self.parent.isMaximized():
-            self.parent.showNormal()
-        else:
-            self.parent.showMaximized()
-    
-    def mousePressEvent(self, event):
-        if event.button() == Qt.LeftButton:
-            self.parent.drag_position = event.globalPos() - self.parent.frameGeometry().topLeft()
-            event.accept()
-    
-    def mouseMoveEvent(self, event):
-        if event.buttons() == Qt.LeftButton and hasattr(self.parent, 'drag_position'):
-            if self.parent.isMaximized():
-                self.parent.showNormal()
-            
-            self.parent.move(event.globalPos() - self.parent.drag_position)
-            event.accept()
-        super().mouseMoveEvent(event)
-
 class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
     def __init__(self):
         super().__init__()  # QWidget의 초기화 메소드 호출
+
+        # 화면 해상도의 75%로 초기 창 크기 설정
+        screen = QApplication.primaryScreen().geometry()
+        width = int(screen.width() * 0.75)
+        height = int(screen.height() * 0.75)
+        self.resize(width, height)
+
+        # 창을 화면 중앙에 위치
+        x = (screen.width() - width) // 2
+        y = (screen.height() - height) // 2
+        self.move(x, y)
+
+        # 크기 조절을 위한 변수들 추가
+        self.resize_direction = None
+        self.resizing = False
+        self.resize_start_pos = None
+        self.resize_start_geometry = None
+        
+        # 최소 창 크기 설정
+        self.setMinimumSize(400, 300)
 
         # Define button style here
         button_style = """
@@ -163,6 +116,7 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
         max_btn.setStyleSheet("color: white; background: none; border: none;")
         max_btn.setFixedSize(30, 30)
         max_btn.clicked.connect(self.toggle_maximize_state)
+        self.max_btn = max_btn  # 버튼 객체를 클래스 변수로 저장
         
         close_btn = QPushButton("×")
         close_btn.setStyleSheet("color: white; background: none; border: none;")
@@ -388,6 +342,9 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
         # 창이 완전히 로드된 후 한번 더 업데이트
         QTimer.singleShot(100, self.update_image_info)
 
+        self.psd_cache = {}  # PSD 캐시를 딕셔너리로 변경
+        self.max_psd_cache_size = 5  # PSD 캐시 최대 크기
+
     def ensure_maximized(self):
         """창이 최대화 상태인지 확인하고 그렇지 않으면 다시 최대화합니다."""
         if not self.isMaximized():
@@ -398,6 +355,129 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
         if hasattr(self, 'title_bar'):
             self.title_bar.setGeometry(0, 0, self.width(), 30)
             self.title_bar.raise_()
+            
+            # 제목표시줄의 버튼들 업데이트
+            for child in self.title_bar.children():
+                if isinstance(child, QPushButton):
+                    child.updateGeometry()
+                    child.update()  # 버튼의 시각적 상태도 업데이트
+        
+        # 현재 표시 중인 미디어 크기 조절
+        if hasattr(self, 'current_image_path') and self.current_image_path:
+            file_ext = os.path.splitext(self.current_image_path)[1].lower()
+            
+            if file_ext == '.psd':  # PSD 파일
+                try:
+                    # 캐시된 이미지가 있으면 사용
+                    if self.current_image_path in self.psd_cache:
+                        pixmap = self.psd_cache[self.current_image_path]
+                    else:
+                        # 캐시된 이미지가 없으면 변환
+                        from PIL import Image, ImageCms
+                        from io import BytesIO
+                        
+                        # PSD 파일을 PIL Image로 열기
+                        image = Image.open(self.current_image_path)
+                        
+                        # RGB 모드로 변환
+                        if image.mode != 'RGB':
+                            image = image.convert('RGB')
+                        
+                        # ICC 프로파일 처리
+                        if 'icc_profile' in image.info:
+                            try:
+                                srgb_profile = ImageCms.createProfile('sRGB')
+                                icc_profile = BytesIO(image.info['icc_profile'])
+                                image = ImageCms.profileToProfile(
+                                    image,
+                                    ImageCms.ImageCmsProfile(icc_profile),
+                                    ImageCms.ImageCmsProfile(srgb_profile),
+                                    outputMode='RGB'
+                                )
+                            except Exception:
+                                image = image.convert('RGB')
+                        
+                        # 변환된 이미지를 캐시에 저장
+                        buffer = BytesIO()
+                        image.save(buffer, format='PNG', icc_profile=None)
+                        pixmap = QPixmap()
+                        pixmap.loadFromData(buffer.getvalue())
+                        buffer.close()
+                        
+                        # 캐시 크기 관리
+                        if len(self.psd_cache) >= self.max_psd_cache_size:
+                            # 가장 오래된 항목 제거
+                            self.psd_cache.pop(next(iter(self.psd_cache)))
+                        self.psd_cache[self.current_image_path] = pixmap
+                    
+                    if not pixmap.isNull():
+                        scaled_pixmap = pixmap.scaled(self.image_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                        self.image_label.setPixmap(scaled_pixmap)
+
+                except Exception as e:
+                    print(f"PSD 파일 리사이즈 중 오류 발생: {e}")
+            
+            elif file_ext in ['.jpg', '.jpeg', '.png']:  # 일반 이미지
+                pixmap = QPixmap(self.current_image_path)
+                if not pixmap.isNull():
+                    scaled_pixmap = pixmap.scaled(self.image_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                    self.image_label.setPixmap(scaled_pixmap)
+            
+            elif file_ext == '.webp':  # WEBP 파일
+                if hasattr(self, 'current_movie') and self.current_movie:
+                    # 애니메이션인 경우
+                    current_frame = self.current_movie.currentFrameNumber()
+                    original_size = QSize(self.current_movie.currentImage().width(), self.current_movie.currentImage().height())
+                    label_size = self.image_label.size()
+                    
+                    if original_size.height() == 0:
+                        original_size.setHeight(1)
+                    
+                    if label_size.width() / label_size.height() > original_size.width() / original_size.height():
+                        new_height = label_size.height()
+                        new_width = int(new_height * (original_size.width() / original_size.height()))
+                    else:
+                        new_width = label_size.width()
+                        new_height = int(new_width * (original_size.height() / original_size.width()))
+                    
+                    self.current_movie.setScaledSize(QSize(new_width, new_height))
+                    self.current_movie.jumpToFrame(current_frame)
+                else:
+                    # 일반 이미지인 경우
+                    pixmap = QPixmap(self.current_image_path)
+                    if not pixmap.isNull():
+                        scaled_pixmap = pixmap.scaled(self.image_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                        self.image_label.setPixmap(scaled_pixmap)
+            
+            elif file_ext in ['.gif', '.webp']:  # 애니메이션
+                if hasattr(self, 'current_movie'):
+                    # 현재 프레임 번호 저장
+                    current_frame = self.current_movie.currentFrameNumber()
+                    
+                    # 새로운 크기 계산
+                    original_size = QSize(self.current_movie.currentImage().width(), self.current_movie.currentImage().height())
+                    label_size = self.image_label.size()
+                    
+                    if original_size.height() == 0:
+                        original_size.setHeight(1)
+                    
+                    if label_size.width() / label_size.height() > original_size.width() / original_size.height():
+                        new_height = label_size.height()
+                        new_width = int(new_height * (original_size.width() / original_size.height()))
+                    else:
+                        new_width = label_size.width()
+                        new_height = int(new_width * (original_size.height() / original_size.width()))
+                    
+                    # 새로운 크기로 설정
+                    self.current_movie.setScaledSize(QSize(new_width, new_height))
+                    
+                    # 현재 프레임으로 복귀
+                    self.current_movie.jumpToFrame(current_frame)
+            
+            elif file_ext == '.mp4':  # 비디오
+                if hasattr(self, 'player'):
+                    # MPV 플레이어의 출력 크기 업데이트
+                    self.player.wid = int(self.image_label.winId())
         
         # 버튼 크기 계산 및 조정
         if hasattr(self, 'buttons') and hasattr(self, 'base_folder') and self.base_folder:
@@ -434,7 +514,7 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
                                 truncated = folder_name[:k] + ".."
                                 if font_metrics.horizontalAdvance(truncated) <= available_width:
                                     button.setText(truncated)
-                                    button.setToolTip(subfolders[index])  # 전체 경로는 툴팁으로
+                                    button.setToolTip(subfolders[index])  # 전체 경로는 툴큐로
                                     break
                         else:
                             button.setText(folder_name)  # 원래 폴더명으로 복원
@@ -476,6 +556,25 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
             max_width = int(window_width * 0.6)  # 최대 60%
             self.playback_slider.setMinimumWidth(min_width)
             self.playback_slider.setMaximumWidth(max_width)
+        
+        # 레이아웃 강제 업데이트 추가
+        if hasattr(self, 'image_container'):
+            self.image_container.updateGeometry()
+        
+        # 모든 버튼의 레이아웃 업데이트
+        for row in self.buttons:
+            for button in row:
+                button.updateGeometry()
+        
+        # 슬라이더 위젯의 레이아웃 업데이트
+        if hasattr(self, 'playback_slider'):
+            self.playback_slider.updateGeometry()
+        if hasattr(self, 'volume_slider'):
+            self.volume_slider.updateGeometry()
+        
+        # 전체 레이아웃 강제 업데이트
+        self.updateGeometry()
+        self.layout().update()
         
         super().resizeEvent(event)
 
@@ -533,7 +632,7 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
                                 truncated = folder_name[:k] + ".."
                                 if font_metrics.horizontalAdvance(truncated) <= available_width:
                                     button.setText(truncated)
-                                    button.setToolTip(subfolders[index])  # 전체 경로는 툴팁으로
+                                    button.setToolTip(subfolders[index])  # 전체 경로는 툴큐로
                                     break
                         else:
                             button.setText(folder_name)
@@ -608,7 +707,10 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
         # GIF가 재생 중일 경우 정지
         if hasattr(self, 'current_movie') and self.current_movie.state() == QMovie.Running:
             self.current_movie.stop()  # GIF 정지
-            self.playback_slider.valueChanged.disconnect()  # 슬라이더 연결 해제
+            try:
+                self.playback_slider.valueChanged.disconnect()  # 슬라이더 연결 해제
+            except TypeError:
+                pass  # 연결된 시그널이 없으면 무시
 
         # 슬라이더 초기화
         self.playback_slider.setRange(0, 0)  # 슬라이더 범위를 0으로 설정
@@ -616,53 +718,60 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
 
         if file_ext == '.gif':  # GIF 파일 처리
             self.show_gif(image_path)  # GIF를 표시하는 메서드 호출
-        elif file_ext == '.psd':  # PSD 파일 처리
+        elif file_ext == '.psd':  # PSD 파일
             try:
-                from PIL import Image, ImageCms
-                from io import BytesIO
-                
-                # PSD 파일을 PIL Image로 열기
-                image = Image.open(image_path)
-                
-                # RGB 모드로 변환
-                if image.mode != 'RGB':
-                    image = image.convert('RGB')
-                
-                # ICC 프로파일 처리
-                if 'icc_profile' in image.info:
-                    try:
-                        # sRGB 프로파일 생성
-                        srgb_profile = ImageCms.createProfile('sRGB')
-                        
-                        # 현재 이미지의 ICC 프로파일을 BytesIO 객체로 변환
-                        icc_profile = BytesIO(image.info['icc_profile'])
-                        
-                        # 현재 프로파일을 sRGB로 변환
-                        image = ImageCms.profileToProfile(
-                            image,
-                            ImageCms.ImageCmsProfile(icc_profile),
-                            ImageCms.ImageCmsProfile(srgb_profile),
-                            outputMode='RGB'
-                        )
-                    except Exception:
-                        # 프로파일 변환 실패 시 기본 RGB로 변환
+                # 캐시된 이미지가 있으면 사용
+                if image_path in self.psd_cache:
+                    pixmap = self.psd_cache[image_path]
+                else:
+                    # 캐시된 이미지가 없으면 변환
+                    from PIL import Image, ImageCms
+                    from io import BytesIO
+                    
+                    # PSD 파일을 PIL Image로 열기
+                    image = Image.open(image_path)
+                    
+                    # RGB 모드로 변환
+                    if image.mode != 'RGB':
                         image = image.convert('RGB')
+                    
+                    # ICC 프로파일 처리
+                    if 'icc_profile' in image.info:
+                        try:
+                            srgb_profile = ImageCms.createProfile('sRGB')
+                            icc_profile = BytesIO(image.info['icc_profile'])
+                            image = ImageCms.profileToProfile(
+                                image,
+                                ImageCms.ImageCmsProfile(icc_profile),
+                                ImageCms.ImageCmsProfile(srgb_profile),
+                                outputMode='RGB'
+                            )
+                        except Exception:
+                            image = image.convert('RGB')
+                    
+                    # 변환된 이미지를 캐시에 저장
+                    buffer = BytesIO()
+                    image.save(buffer, format='PNG', icc_profile=None)
+                    pixmap = QPixmap()
+                    pixmap.loadFromData(buffer.getvalue())
+                    buffer.close()
+                    
+                    # 캐시 크기 관리
+                    if len(self.psd_cache) >= self.max_psd_cache_size:
+                        # 가장 오래된 항목 제거
+                        self.psd_cache.pop(next(iter(self.psd_cache)))
+                    self.psd_cache[image_path] = pixmap
                 
-                # QPixmap으로 변환
-                buffer = BytesIO()
-                image.save(buffer, format='PNG', icc_profile=None)
-                pixmap = QPixmap()
-                pixmap.loadFromData(buffer.getvalue())
-                buffer.close()
-                
-                self.image_label.setPixmap(pixmap.scaled(self.image_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                if not pixmap.isNull():
+                    scaled_pixmap = pixmap.scaled(self.image_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                    self.image_label.setPixmap(scaled_pixmap)
 
             except Exception as e:
-                print(f"PSD 파일 로드 중 오류 발생: {e}")
+                print(f"PSD 파일 리사이즈 중 오류 발생: {e}")
         elif file_ext in ['.jpg', '.jpeg', '.png']:  # JPG, JPEG, PNG 파일 처리
             pixmap = QPixmap(image_path)  # QPixmap으로 이미지 로드
             if not pixmap.isNull():  # 이미지가 정상적으로 로드되었는지 확인
-                self.image_label.setPixmap(pixmap.scaled(self.image_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))  # 이미지를 QLabel에 표시
+                self.image_label.setPixmap(pixmap.scaled(self.image_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))  
         elif file_ext == '.webp':  # WEBP 파일 처리
             self.show_webp_animation(image_path)  # WEBP 애니메이션 처리
         elif file_ext == '.mp4':  # MP4 파일 처리
@@ -754,32 +863,35 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
 
     def show_webp_animation(self, image_path):
         # WEBP 애니메이션을 처리하기 위해 QImageReader를 사용
-        reader = QImageReader(image_path)  # QImageReader 객체 생성
+        reader = QImageReader(image_path)
 
         # 이미지를 로드하고 애니메이션으로 처리
         if reader.supportsAnimation():  # 애니메이션을 지원하면
             if hasattr(self, 'gif_timer'):
-                self.gif_timer.stop()  # 이전 타이머 정지
-                del self.gif_timer  # 타이머 객체 삭제
+                self.gif_timer.stop()
+                del self.gif_timer
 
-            self.current_movie = QMovie(image_path)  # QMovie 객체로 애니메이션 처리
-            self.current_movie.setCacheMode(QMovie.CacheAll)  # 애니메이션 전체를 캐시로 설정
+            if hasattr(self, 'current_movie'):
+                self.current_movie.stop()
+                del self.current_movie
 
-            # 첫 번째 프레임으로 이동하여 크기 조정
-            self.current_movie.jumpToFrame(0)  # 첫 번째 프레임으로 이동
-            self.scale_webp()  # 크기 조정 메서드 호출
-
-            # QLabel에 애니메이션을 표시
+            self.current_movie = QMovie(image_path)
+            self.current_movie.setCacheMode(QMovie.CacheAll)
+            self.current_movie.jumpToFrame(0)
+            self.scale_webp()
             self.image_label.setMovie(self.current_movie)
-            self.current_movie.start()  # 애니메이션 시작
 
             # 슬라이더 범위를 WEBP의 프레임 수에 맞게 설정
             frame_count = self.current_movie.frameCount()
-            if frame_count > 0:
+            if frame_count > 1:  # 프레임이 2개 이상일 때만 애니메이션으로 처리
                 self.playback_slider.setRange(0, frame_count - 1)
                 self.playback_slider.setValue(0)
 
                 # 슬라이더 값 변경 시 프레임 변경 연결
+                try:
+                    self.playback_slider.valueChanged.disconnect()
+                except TypeError:
+                    pass
                 self.playback_slider.valueChanged.connect(lambda value: self.current_movie.jumpToFrame(value))
 
                 # WEBP의 프레임이 변경될 때마다 슬라이더 값을 업데이트
@@ -787,29 +899,51 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
                     current_frame = self.current_movie.currentFrameNumber()
                     if self.current_movie.state() == QMovie.Running:
                         self.playback_slider.setValue(current_frame)
-
                         # 현재 프레임 / 총 프레임 표시 업데이트
-                        self.time_label.setText(f"{current_frame + 1} / {self.current_movie.frameCount()}")  # 현재 프레임은 0부터 시작하므로 +1
+                        self.time_label.setText(f"{current_frame + 1} / {self.current_movie.frameCount()}")
 
                 # 타이머를 사용하여 슬라이더 업데이트
                 self.gif_timer = QTimer(self)
                 self.gif_timer.timeout.connect(update_slider)
                 self.gif_timer.start(50)  # 50ms마다 슬라이더 업데이트
 
-            # WEBP 반복 설정
-            self.current_movie.loopCount = 0  # 무한 반복
-        else:
-            # 애니메이션이 아닌 경우 일반 이미지로 처리
-            pixmap = QPixmap(image_path)  # QPixmap으로 이미지 로드
-            if not pixmap.isNull():  # 이미지가 정상적으로 로드되었는지 확인
-                self.image_label.setPixmap(pixmap.scaled(self.image_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))  # 이미지를 QLabel에 표시
-            # 슬라이더 초기화
-            self.playback_slider.setRange(0, 0)  # 슬라이더 범위를 0으로 설정
-            self.playback_slider.setValue(0)  # 슬라이더 초기값을 0으로 설정
+                self.current_movie.start()
+            else:
+                # 프레임이 1개 이하일 경우 일반 이미지로 처리
+                image = QImage(image_path)
+                if not image.isNull():
+                    pixmap = QPixmap.fromImage(image)
+                    scaled_pixmap = pixmap.scaled(
+                        self.image_label.width(),
+                        self.image_label.height(),
+                        Qt.KeepAspectRatio,
+                        Qt.SmoothTransformation
+                    )
+                    self.image_label.setPixmap(scaled_pixmap)
 
-            # 애니메이션이 아닌 경우에는 time_label을 사용
-            self.time_label.setText("00:00 / 00:00")  # time_label 초기화
-            self.time_label.show()  # time_label 표시
+                # 슬라이더 초기화
+                self.playback_slider.setRange(0, 0)
+                self.playback_slider.setValue(0)
+                self.time_label.setText("00:00 / 00:00")
+                self.time_label.show()
+        else:
+            # 일반 WEBP 이미지 처리
+            image = QImage(image_path)
+            if not image.isNull():
+                pixmap = QPixmap.fromImage(image)
+                scaled_pixmap = pixmap.scaled(
+                    self.image_label.width(),
+                    self.image_label.height(),
+                    Qt.KeepAspectRatio,
+                    Qt.SmoothTransformation
+                )
+                self.image_label.setPixmap(scaled_pixmap)
+
+            # 슬라이더 초기화
+            self.playback_slider.setRange(0, 0)
+            self.playback_slider.setValue(0)
+            self.time_label.setText("00:00 / 00:00")
+            self.time_label.show()
 
     def scale_webp(self):
         # 첫 번째 프레임으로 이동하여 이미지 데이터를 얻어옵니다.
@@ -1119,15 +1253,120 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
             global_pos = event.globalPos()
             local_pos = self.mapFromGlobal(global_pos)
             
-            # 마우스가 QLabel 위에 있는지 확인
-            if self.image_label.geometry().contains(local_pos):
-                QApplication.setOverrideCursor(Qt.ArrowCursor)  # 일반 커서로 설정
-            # 마우스가 폴더 버튼 위에 있는지 확인
-            elif any(button.geometry().contains(local_pos) for row in self.buttons for button in row):
-                QApplication.setOverrideCursor(Qt.ArrowCursor)  # 일반 커서로 설정
-            else:
-                QApplication.restoreOverrideCursor()  # 기본 커서로 복원
-        
+            # 창이 최대화 상태가 아닐 때만 크기 조절 가능
+            if not self.isMaximized():
+                # 리사이징 중이면 크기 조절 처리
+                if self.resizing:
+                    diff = event.globalPos() - self.resize_start_pos
+                    new_geometry = self.resize_start_geometry.adjusted(0, 0, 0, 0)
+                    
+                    if self.resize_direction in ['left', 'top_left', 'bottom_left']:
+                        new_geometry.setLeft(self.resize_start_geometry.left() + diff.x())
+                    if self.resize_direction in ['right', 'top_right', 'bottom_right']:
+                        new_geometry.setRight(self.resize_start_geometry.right() + diff.x())
+                    if self.resize_direction in ['top', 'top_left', 'top_right']:
+                        new_geometry.setTop(self.resize_start_geometry.top() + diff.y())
+                    if self.resize_direction in ['bottom', 'bottom_left', 'bottom_right']:
+                        new_geometry.setBottom(self.resize_start_geometry.bottom() + diff.y())
+                    
+                    # 최소 크기 제한
+                    if new_geometry.width() >= 400 and new_geometry.height() >= 300:
+                        self.setGeometry(new_geometry)
+                    return True
+
+                # 제목 표시줄 드래그 중이면 창 이동
+                elif hasattr(self, 'drag_start_pos') and event.buttons() == Qt.LeftButton:
+                    if self.isMaximized():
+                        # 최대화 상태에서 드래그하면 일반 크기로 복원
+                        cursor_x = event.globalPos().x()
+                        window_width = self.width()
+                        ratio = cursor_x / window_width
+                        self.showNormal()
+                        # 마우스 위치 비율에 따라 창 위치 조정
+                        new_x = int(event.globalPos().x() - (self.width() * ratio))
+                        self.move(new_x, 0)
+                        self.drag_start_pos = event.globalPos()
+                    else:
+                        # 창 이동
+                        self.move(event.globalPos() - self.drag_start_pos)
+                    return True
+                
+                # 리사이징 중이 아닐 때 커서 모양 변경
+                edge_size = 4
+                
+                # 제목표시줄의 버튼 영역인지 확인
+                is_in_titlebar = local_pos.y() <= 30
+                is_in_titlebar_buttons = is_in_titlebar and local_pos.x() >= self.width() - 90
+                
+                # 마우스 커서 위치에 따른 크기 조절 방향 결정
+                if not is_in_titlebar_buttons:  # 버튼 영역이 아닐 때만 리사이징 방향 결정
+                    if local_pos.x() <= edge_size and local_pos.y() <= edge_size:
+                        QApplication.setOverrideCursor(Qt.SizeFDiagCursor)
+                        self.resize_direction = 'top_left'
+                    elif local_pos.x() >= self.width() - edge_size and local_pos.y() <= edge_size:
+                        QApplication.setOverrideCursor(Qt.SizeBDiagCursor)
+                        self.resize_direction = 'top_right'
+                    elif local_pos.x() <= edge_size and local_pos.y() >= self.height() - edge_size:
+                        QApplication.setOverrideCursor(Qt.SizeBDiagCursor)
+                        self.resize_direction = 'bottom_left'
+                    elif local_pos.x() >= self.width() - edge_size and local_pos.y() >= self.height() - edge_size:
+                        QApplication.setOverrideCursor(Qt.SizeFDiagCursor)
+                        self.resize_direction = 'bottom_right'
+                    elif local_pos.x() <= edge_size:
+                        QApplication.setOverrideCursor(Qt.SizeHorCursor)
+                        self.resize_direction = 'left'
+                    elif local_pos.x() >= self.width() - edge_size:
+                        QApplication.setOverrideCursor(Qt.SizeHorCursor)
+                        self.resize_direction = 'right'
+                    elif local_pos.y() <= edge_size:
+                        QApplication.setOverrideCursor(Qt.SizeVerCursor)
+                        self.resize_direction = 'top'
+                    elif local_pos.y() >= self.height() - edge_size:
+                        QApplication.setOverrideCursor(Qt.SizeVerCursor)
+                        self.resize_direction = 'bottom'
+                    else:
+                        if is_in_titlebar and not is_in_titlebar_buttons:
+                            QApplication.setOverrideCursor(Qt.ArrowCursor)
+                            self.resize_direction = None
+                        elif self.image_label.geometry().contains(local_pos) or \
+                             any(button.geometry().contains(local_pos) for row in self.buttons for button in row):
+                            QApplication.setOverrideCursor(Qt.ArrowCursor)
+                            self.resize_direction = None
+                        else:
+                            QApplication.restoreOverrideCursor()
+                            self.resize_direction = None
+                else:
+                    # 제목표시줄 버튼 영역에서는 기본 커서 사용
+                    QApplication.setOverrideCursor(Qt.ArrowCursor)
+                    self.resize_direction = None
+
+        elif event.type() == QEvent.MouseButtonPress and event.button() == Qt.LeftButton:
+            local_pos = self.mapFromGlobal(event.globalPos())
+            is_in_titlebar = local_pos.y() <= 30
+            is_in_titlebar_buttons = is_in_titlebar and local_pos.x() >= self.width() - 90
+            
+            if self.resize_direction and not self.isMaximized() and not is_in_titlebar_buttons:
+                # 리사이징 시작
+                self.resizing = True
+                self.resize_start_pos = event.globalPos()
+                self.resize_start_geometry = self.geometry()
+                return True
+            elif is_in_titlebar and not is_in_titlebar_buttons:
+                # 제목 표시줄 드래그 시작
+                self.drag_start_pos = event.globalPos() - self.pos()
+                return True
+            return False
+
+        elif event.type() == QEvent.MouseButtonRelease:
+            # 리사이징 또는 드래그 종료
+            was_resizing = self.resizing
+            if self.resizing:
+                self.resizing = False
+                QApplication.restoreOverrideCursor()
+            if hasattr(self, 'drag_start_pos'):
+                delattr(self, 'drag_start_pos')
+            return was_resizing
+
         return super().eventFilter(obj, event)
 
     # toggle_maximize 메소드 추가 (이름을 toggle_maximize_state로 변경)
@@ -1135,18 +1374,23 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
         """최대화 상태와 일반 상태를 토글합니다."""
         if self.isMaximized():
             self.showNormal()
+            self.max_btn.setText("□")  # 일반 상태일 때는 □ 표시
         else:
             self.showMaximized()
+            self.max_btn.setText("❐")  # 최대화 상태일 때는 ❐ 표시
 
     def closeEvent(self, event):
         """앱 종료 시 MPV 정리"""
         self.stop_video()
         if hasattr(self, 'player'):
             try:
-                self.player.terminate()  # MPV 종료
+                self.player.terminate()
             except Exception as e:
-                print(f"MPV 종료 중 오류 발생: {e}")  # 오류 메시지 출력
-        # 메시지 레이블이 존재하면 닫기
+                print(f"MPV 종료 중 오류 발생: {e}")
+        
+        # PSD 캐시 정리
+        self.psd_cache.clear()
+        
         if hasattr(self, 'message_label') and self.message_label.isVisible():
             self.message_label.close()
         event.accept()
