@@ -7,7 +7,8 @@ from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout, QPushBut
 from PyQt5.QtGui import QPixmap, QImage, QImageReader, QFont, QMovie, QCursor, QIcon
 from PyQt5.QtCore import Qt, QSize, QTimer, QEvent, QPoint, pyqtSignal
 import cv2
-from PIL import Image
+from PIL import Image, ImageCms
+from io import BytesIO
 
 # MPV DLL 경로를 PATH에 추가 (반드시 mpv 모듈을 import하기 전에 해야 함)
 mpv_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mpv')
@@ -447,12 +448,14 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
         if self.timer.isActive():
             self.timer.stop()
         
-        # MPV 정지
-        if hasattr(self, 'player'):
+        # MPV 정지 - 플레이어가 존재하고 실행 중일 때만 중지
+        if hasattr(self, 'player') and self.player:
             try:
-                self.player.stop()
-            except:
-                pass
+                # 플레이어가 실행 중인지 확인
+                if self.player.playback_time is not None:  # 재생 중인지 확인
+                    self.player.stop()
+            except Exception as e:
+                print(f"MPV 플레이어 종료 중 오류 발생: {e}")
 
     def show_image(self, image_path):
         self.stop_video()  # 비디오 중지
@@ -475,13 +478,48 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
         if file_ext == '.gif':  # GIF 파일 처리
             self.show_gif(image_path)  # GIF를 표시하는 메서드 호출
         elif file_ext == '.psd':  # PSD 파일 처리
-            # PSD 파일을 PNG로 변환
-            image = Image.open(image_path)  # PIL을 사용하여 PSD 파일 열기
-            temp_path = 'temp_image.png'  # 임시 파일 경로
-            image.save(temp_path)  # PNG로 저장
-            pixmap = QPixmap(temp_path)  # QPixmap으로 이미지 변환
-            os.remove(temp_path)  # 임시 파일 삭제
-            self.image_label.setPixmap(pixmap.scaled(self.image_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))  # QLabel에 이미지 표시
+            try:
+                from PIL import Image, ImageCms
+                from io import BytesIO
+                
+                # PSD 파일을 PIL Image로 열기
+                image = Image.open(image_path)
+                
+                # RGB 모드로 변환
+                if image.mode != 'RGB':
+                    image = image.convert('RGB')
+                
+                # ICC 프로파일 처리
+                if 'icc_profile' in image.info:
+                    try:
+                        # sRGB 프로파일 생성
+                        srgb_profile = ImageCms.createProfile('sRGB')
+                        
+                        # 현재 이미지의 ICC 프로파일을 BytesIO 객체로 변환
+                        icc_profile = BytesIO(image.info['icc_profile'])
+                        
+                        # 현재 프로파일을 sRGB로 변환
+                        image = ImageCms.profileToProfile(
+                            image,
+                            ImageCms.ImageCmsProfile(icc_profile),
+                            ImageCms.ImageCmsProfile(srgb_profile),
+                            outputMode='RGB'
+                        )
+                    except Exception:
+                        # 프로파일 변환 실패 시 기본 RGB로 변환
+                        image = image.convert('RGB')
+                
+                # QPixmap으로 변환
+                buffer = BytesIO()
+                image.save(buffer, format='PNG', icc_profile=None)
+                pixmap = QPixmap()
+                pixmap.loadFromData(buffer.getvalue())
+                buffer.close()
+                
+                self.image_label.setPixmap(pixmap.scaled(self.image_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                
+            except Exception as e:
+                print(f"PSD 파일 로드 중 오류 발생: {e}")
         elif file_ext in ['.jpg', '.jpeg', '.png']:  # JPG, JPEG, PNG 파일 처리
             pixmap = QPixmap(image_path)  # QPixmap으로 이미지 로드
             if not pixmap.isNull():  # 이미지가 정상적으로 로드되었는지 확인
@@ -720,12 +758,9 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
                     self.playback_slider.setValue(int(position * 100))  # 슬라이더 값을 밀리초 단위로 설정
                     self.time_label.setText(f"{self.format_time(position)} / {self.format_time(duration)}")
 
-                    self.time_label.setText(f"{self.format_time(position)} / {self.format_time(duration)}")  # 시간 레이블 업데이트
-
                 self.previous_position = position  # 현재 위치를 이전 위치로 저장
 
             except mpv.ShutdownError:
-                print("MPV 플레이어가 종료되었습니다.")  # 오류 메시지 출력
                 self.video_timer.stop()  # 타이머 중지
 
     def format_time(self, seconds):
@@ -739,13 +774,11 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
         if hasattr(self, 'player'):
             try:
                 if not self.player:  # MPV가 유효한지 확인
-                    print("MPV player is not alive.")
                     return  # 슬라이더 업데이트를 건너뜁니다.
 
                 self.play_button.setText("❚❚" if not self.player.pause else "▶")
                 self.update_video_playback()  # 슬라이더 업데이트 호출
             except mpv.ShutdownError:
-                print("MPV 플레이어가 종료되었습니다.")  # 오류 메시지 출력
                 self.play_button.setEnabled(False)  # 버튼 비활성화
 
     def update_video_frame(self):
