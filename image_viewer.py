@@ -17,6 +17,21 @@ os.environ["PATH"] = mpv_path + os.pathsep + os.environ["PATH"]
 # 이제 mpv 모듈을 import
 import mpv
 
+# QSlider를 상속받는 새로운 클래스 추가
+class ClickableSlider(QSlider):
+    clicked = pyqtSignal(int)  # 클릭 이벤트 시그널 추가
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            # 클릭한 위치의 값을 계산
+            pos = event.pos().x()
+            value = int((pos / self.width()) * (self.maximum() - self.minimum()) + self.minimum())
+            # 값을 범위 내로 제한
+            value = max(self.minimum(), min(self.maximum(), value))
+            self.setValue(value)  # 슬라이더 값을 직접 설정
+            self.clicked.emit(value)  # 클릭 이벤트 발생
+        super().mousePressEvent(event)
+
 class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
     def __init__(self):
         super().__init__()  # QWidget의 초기화 메소드 호출
@@ -219,10 +234,11 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
         self.play_button_timer.start(100)  # 100ms마다 상태 확인
 
         # 기존 슬라이더 (재생 바) 추가
-        self.playback_slider = QSlider(Qt.Horizontal, self)  # 재생 바 슬라이더 생성
+        self.playback_slider = ClickableSlider(Qt.Horizontal, self)  # ClickableSlider로 변경
         self.playback_slider.setRange(0, 100)  # 슬라이더 범위 설정
         self.playback_slider.setValue(0)  # 초기 값을 0으로 설정
         self.playback_slider.setStyleSheet(slider_style)  # 슬라이더 스타일 적용
+        self.playback_slider.clicked.connect(self.slider_clicked)  # 클릭 이벤트 연결
         new_slider_layout.addWidget(self.playback_slider)  # 재생 바 슬라이더를 레이아웃에 추가
 
         # 재생 시간 레이블 추가
@@ -265,12 +281,13 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
         new_slider_layout.addWidget(self.mute_button)  # 음소거 버튼을 레이아웃에 추가
 
         # 음량 조절용 슬라이더 추가
-        self.volume_slider = QSlider(Qt.Horizontal, self)  # 음량 조절 슬라이더 생성
+        self.volume_slider = ClickableSlider(Qt.Horizontal, self)  # ClickableSlider로 변경
         self.volume_slider.setRange(0, 100)  # 슬라이더 범위 설정
         self.volume_slider.setValue(100)  # 초기 값 설정 (100%로 시작)
         self.volume_slider.setStyleSheet(slider_style)  # 슬라이더 스타일 적용
         self.volume_slider.setFixedWidth(int(self.image_label.width() * 0.3))  # 슬라이더 너비를 이미지 너비의 30%로 설정
-        self.volume_slider.valueChanged.connect(self.adjust_volume)  # 슬라이더 값 변경 시 음량 조절 메서드 연결
+        self.volume_slider.clicked.connect(self.adjust_volume)  # 클릭 이벤트 연결
+        self.volume_slider.valueChanged.connect(self.adjust_volume)  # 드래그 이벤트 연결
         new_slider_layout.addWidget(self.volume_slider)  # 음량 조절 슬라이더를 레이아웃에 추가
 
         # 새로운 슬라이더 위젯을 하단 레이아웃에 추가
@@ -344,6 +361,8 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
 
         self.psd_cache = {}  # PSD 캐시를 딕셔너리로 변경
         self.max_psd_cache_size = 5  # PSD 캐시 최대 크기
+
+        self.is_slider_dragging = False  # 슬라이더 드래그 상태를 추적하는 변수 추가
 
     def ensure_maximized(self):
         """창이 최대화 상태인지 확인하고 그렇지 않으면 다시 최대화합니다."""
@@ -990,6 +1009,7 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
             # MPV 옵션 설정
             self.player.loop = True  # 비디오 반복 재생
             self.player.volume = 100  # 볼륨 100%로 설정
+            self.player.seekable = True  # seek 가능하도록 설정
             
             # 비디오 파일 재생
             self.player.play(video_path)
@@ -1001,17 +1021,52 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
             self.playback_slider.setRange(0, 0)  # 슬라이더 범위를 0으로 설정
             self.playback_slider.setValue(0)  # 슬라이더 초기값을 0으로 설정
             
+            # 슬라이더 이벤트 연결
+            self.playback_slider.sliderPressed.connect(self.slider_pressed)
+            self.playback_slider.sliderReleased.connect(self.slider_released)
+            self.playback_slider.valueChanged.connect(self.seek_video)
+            
             # MPV의 재생 상태를 주기적으로 업데이트하기 위한 타이머 설정
             self.video_timer = QTimer(self)
             self.video_timer.timeout.connect(self.update_video_playback)  # 슬라이더 업데이트 호출
-            self.video_timer.start(100)  # 100ms마다 업데이트
+            self.video_timer.start(16)  # 16ms마다 업데이트 (약 60fps)
             
         except Exception as e:
             print(f"MPV 재생 오류: {e}")
 
+    def slider_clicked(self, value):
+        """슬라이더를 클릭했을 때 호출됩니다."""
+        if hasattr(self, 'player'):
+            try:
+                # 클릭한 위치의 값을 초 단위로 변환
+                seconds = value / 1000.0  # 밀리초를 초 단위로 변환
+                # MPV의 seek 함수를 사용하여 정확한 위치로 이동
+                self.player.command('seek', seconds, 'absolute')
+            except Exception as e:
+                print(f"비디오 위치 변경 중 오류 발생: {e}")
+
+    def slider_pressed(self):
+        """슬라이더를 드래그하기 시작할 때 호출됩니다."""
+        self.is_slider_dragging = True
+
+    def slider_released(self):
+        """슬라이더 드래그가 끝날 때 호출됩니다."""
+        self.is_slider_dragging = False
+
+    def seek_video(self, value):
+        """슬라이더 값에 따라 비디오 재생 위치를 변경합니다."""
+        if hasattr(self, 'player') and self.is_slider_dragging:
+            try:
+                # 슬라이더 값을 초 단위로 변환 (value는 밀리초 단위)
+                seconds = value / 1000.0  # 밀리초를 초 단위로 변환 (1000으로 나눔)
+                # MPV의 seek 함수를 사용하여 정확한 위치로 이동
+                self.player.command('seek', seconds, 'absolute')
+            except Exception as e:
+                print(f"비디오 위치 변경 중 오류 발생: {e}")
+
     def update_video_playback(self):
         """MPV 비디오의 재생 위치에 따라 슬라이더 값을 업데이트합니다."""
-        if hasattr(self, 'player'):
+        if hasattr(self, 'player') and not self.is_slider_dragging:
             try:
                 position = self.player.playback_time  # 현재 재생 위치
                 duration = self.player.duration  # 총 길이
@@ -1022,13 +1077,17 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
 
                 # 슬라이더 범위 설정
                 if duration is not None and duration > 0:
-                    self.playback_slider.setRange(0, int(duration))  # 슬라이더 범위 설정
-
-                    # 슬라이더 값 업데이트
-                    # position이 1초 단위로 증가하더라도, 슬라이더를 부드럽게 업데이트
-                if duration is not None and duration > 0:
-                    self.playback_slider.setRange(0, int(duration * 100))  # 슬라이더 범위를 밀리초 단위로 설정
-                    self.playback_slider.setValue(int(position * 100))  # 슬라이더 값을 밀리초 단위로 설정
+                    # 슬라이더 범위를 밀리초 단위로 설정 (1000으로 곱해서 더 세밀하게)
+                    self.playback_slider.setRange(0, int(duration * 1000))
+                    
+                    # 현재 위치가 duration을 초과하면 0으로 리셋
+                    if position >= duration:
+                        self.playback_slider.setValue(0)
+                        self.player.command('seek', 0, 'absolute')  # seek_to 대신 command 사용
+                    else:
+                        # 슬라이더 값을 밀리초 단위로 설정 (1000으로 곱해서 더 세밀하게)
+                        self.playback_slider.setValue(int(position * 1000))
+                    
                     self.time_label.setText(f"{self.format_time(position)} / {self.format_time(duration)}")
 
                 self.previous_position = position  # 현재 위치를 이전 위치로 저장
