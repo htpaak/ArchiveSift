@@ -26,7 +26,7 @@ class TitleBar(QWidget):
         
         # 제목표시줄 스타일 설정
         self.setStyleSheet("""
-            background-color: rgba(52, 73, 94, 0.9);
+            background-color: rgba(52, 73, 94, 1.0);
             color: white;
         """)
         
@@ -59,7 +59,11 @@ class TitleBar(QWidget):
         
         self.setFixedHeight(30)
         self.setLayout(layout)
-    
+
+    def set_title(self, title):
+        """제목표시줄의 텍스트를 업데이트합니다."""
+        self.title_label.setText(title)
+
     def toggle_maximize(self):
         if self.parent.isMaximized():
             self.parent.showNormal()
@@ -100,20 +104,28 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
 
         # 슬라이더 스타일 설정 (슬라이더 배경 색상 변경)
         slider_style = """
-            QSlider {
-                background: rgba(255, 255, 255, 1.0);  /* 슬라이더 배경 색상 (연한 색상으로 변경) */
+            QSlider::groove:horizontal {
+                border: none;
+                height: 10px;
+                background: rgba(52, 73, 94, 0.9);
+                margin: 0px;
+                border-radius: 5px;
             }
             QSlider::handle:horizontal {
-                background: rgba(52, 73, 94, 1.0);  /* 핸들 색상 */
-                border: 1px solid rgba(52, 73, 94, 1.0);  /* 핸들 테두리 색상 */
-                width: 15px;  /* 핸들 너비 */
-                margin: -5px 0;  /* 핸들 위치 조정 */
+                background: white;
+                border: 2px solid white;
+                width: 16px;
+                height: 16px;
+                margin: -4px 0;
+                border-radius: 8px;
             }
-            QSlider::handle:horizontal:hover {
-                background: rgba(52, 73, 94, 1.0);  /* 핸들 마우스 오버 색상 */
+            QSlider::add-page:horizontal {
+                background: rgba(52, 73, 94, 0.3);
+                border-radius: 5px;
             }
             QSlider::sub-page:horizontal {
-                background: rgba(52, 73, 94, 1.0);  /* 슬라이더의 현재 값에 해당하는 부분 색상 */
+                background: rgba(52, 73, 94, 0.9);
+                border-radius: 5px;
             }
         """
 
@@ -131,41 +143,9 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
         
-        # 이미지를 표시할 컨테이너 위젯
-        self.image_container = QWidget()
-        self.image_container.setStyleSheet("background-color: white;")
-        
-        # 컨테이너에 대한 레이아웃
-        container_layout = QVBoxLayout(self.image_container)
-        container_layout.setContentsMargins(0, 0, 0, 0)
-        container_layout.setSpacing(0)
-        
-        # 이미지 레이블 설정
-        self.image_label = QLabel()
-        self.image_label.setAlignment(Qt.AlignCenter)
-        self.image_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.image_label.setStyleSheet("background-color: black;")  # QLabel 배경색을 검은색으로 설정
-        container_layout.addWidget(self.image_label)
-        
-        # 이미지 정보 레이블 생성
-        self.image_info_label = QLabel(self)
-        self.image_info_label.setStyleSheet("""
-            QLabel {
-                color: white;
-                background-color: rgba(52, 73, 94, 0.9);
-                font-size: 32px;
-                padding: 8px 12px;
-                border-radius: 3px;
-                font-weight: normal;
-            }
-        """)
-        self.image_info_label.setAlignment(Qt.AlignCenter)
-        self.image_info_label.hide()  # 초기에는 숨김
-        
         # 제목표시줄 생성
         self.title_bar = QWidget(self)
-        self.title_bar.setStyleSheet("background-color: rgba(52, 73, 94, 0.9);")
-        self.title_bar.setFixedHeight(30)
+        self.title_bar.setStyleSheet("background-color: rgba(52, 73, 94, 1.0);")
         
         title_layout = QHBoxLayout(self.title_bar)
         title_layout.setContentsMargins(10, 0, 10, 0)
@@ -195,12 +175,30 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
         title_layout.addWidget(min_btn)
         title_layout.addWidget(max_btn)
         title_layout.addWidget(close_btn)
+
+        # 메인 레이아웃에 제목표시줄 추가
+        main_layout.addWidget(self.title_bar, 1)  # 1%
         
-        # 초기에 제목표시줄 숨기기
-        self.title_bar.hide()
+        # 이미지를 표시할 컨테이너 위젯
+        self.image_container = QWidget()
+        self.image_container.setStyleSheet("background-color: white;")
         
-        # 제목표시줄이 다른 위젯보다 앞에 표시되도록 설정
-        self.title_bar.raise_()
+        # 컨테이너에 대한 레이아웃
+        container_layout = QVBoxLayout(self.image_container)
+        container_layout.setContentsMargins(0, 0, 0, 0)
+        container_layout.setSpacing(0)
+        
+        # 이미지 레이블 설정
+        self.image_label = QLabel()
+        self.image_label.setAlignment(Qt.AlignCenter)
+        self.image_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.image_label.setStyleSheet("background-color: black;")  # QLabel 배경색을 검은색으로 설정
+        container_layout.addWidget(self.image_label)
+        
+        # 이미지 정보 레이블 생성
+        self.image_info_label = QLabel(self)
+        self.image_info_label.setAlignment(Qt.AlignCenter)
+        self.image_info_label.hide()
         
         # 하단 버튼 레이아웃 생성
         bottom_layout = QVBoxLayout()
@@ -235,13 +233,26 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
 
         # 재생 시간 레이블 추가 (우로 90도 버튼 오른쪽으로 이동)
         self.time_label = QLabel("00:00 / 00:00", self)  # 초기 시간 표시
-        self.time_label.setStyleSheet("color: white;")  # 텍스트 색상 설정
+        self.time_label.setStyleSheet("""
+            QLabel {
+                color: white;
+                background-color: rgba(52, 73, 94, 0.9);
+                padding: 5px 10px;
+                border-radius: 3px;
+                font-size: 14px;
+                min-width: 100px;
+                max-width: 100px;
+                qproperty-alignment: AlignCenter;  /* 텍스트 중앙 정렬 */
+            }
+        """)
+        self.time_label.setFixedSize(100, 30)  # 너비 100px, 높이 30px로 고정
+        self.time_label.setAlignment(Qt.AlignCenter)  # 텍스트 중앙 정렬
         new_slider_layout.addWidget(self.time_label)  # 레이블을 우로 90도 버튼 오른쪽에 추가
 
         # 기존 슬라이더 (재생 바) 추가
         self.playback_slider = QSlider(Qt.Horizontal, self)  # 재생 바 슬라이더 생성
         self.playback_slider.setRange(0, 100)  # 슬라이더 범위 설정
-        self.playback_slider.setValue(50)  # 초기 값 설정
+        self.playback_slider.setValue(0)  # 초기 값을 0으로 설정
         self.playback_slider.setStyleSheet(slider_style)  # 슬라이더 스타일 적용
         new_slider_layout.addWidget(self.playback_slider)  # 재생 바 슬라이더를 레이아웃에 추가
 
@@ -298,8 +309,10 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
             bottom_layout.addLayout(button_layout)
 
         # 메인 레이아웃에 위젯 추가
-        main_layout.addWidget(self.image_container, 1)  # 이미지 컨테이너에 확장 비율 1 부여
-        main_layout.addLayout(bottom_layout)
+        main_layout.addWidget(self.image_container, 89)  # 89%
+
+        # 하단 버튼 영역을 메인 레이아웃에 추가
+        main_layout.addLayout(bottom_layout, 10)  # 10%
 
         self.image_files = []  # 이미지 파일 리스트 초기화
         self.current_index = 0  # 현재 이미지의 인덱스 초기화
@@ -322,11 +335,6 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
         self.setMouseTracking(True)
         self.image_container.setMouseTracking(True)
         self.image_label.setMouseTracking(True)
-        
-        # 마우스 움직임을 감지하는 타이머 설정
-        self.mouse_check_timer = QTimer(self)
-        self.mouse_check_timer.timeout.connect(self.check_mouse_position)
-        self.mouse_check_timer.start(100)  # 100ms마다 확인
         
         # 전역 이벤트 필터 설치
         QApplication.instance().installEventFilter(self)
@@ -352,6 +360,12 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
 
         self.previous_position = None  # 클래스 변수로 이전 위치 저장
 
+        # 창이 완전히 로드된 후 이미지 정보 업데이트를 위한 타이머 설정
+        # 초기 레이아웃 설정을 위해 바로 호출
+        self.update_image_info()
+        # 창이 완전히 로드된 후 한번 더 업데이트
+        QTimer.singleShot(100, self.update_image_info)
+
     def ensure_maximized(self):
         """창이 최대화 상태인지 확인하고 그렇지 않으면 다시 최대화합니다."""
         if not self.isMaximized():
@@ -361,17 +375,31 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
         """창 크기 변경 이벤트 처리"""
         if hasattr(self, 'title_bar'):
             self.title_bar.setGeometry(0, 0, self.width(), 30)
-            # 항상 맨 앞에 표시
             self.title_bar.raise_()
         
-        # 이미지 정보 레이블 위치 업데이트
-        if hasattr(self, 'image_info_label') and self.image_info_label.isVisible():
-            # 레이블 크기를 내용에 맞게 조정
-            self.image_info_label.adjustSize()
+        # 이미지 정보 레이블 업데이트
+        if hasattr(self, 'image_info_label') and self.image_files:
+            self.update_image_info()
             
-            # 우측 상단에 위치 (30px 여백)
-            x = self.width() - self.image_info_label.width() - 30
-            self.image_info_label.move(x, 50)
+        # 메시지 레이블 업데이트
+        if hasattr(self, 'message_label') and self.message_label.isVisible():
+            window_width = self.width()
+            font_size = max(12, min(32, int(window_width * 0.02)))
+            padding = max(8, min(12, int(window_width * 0.008)))
+            margin = max(10, min(30, int(window_width * 0.02)))
+            
+            self.message_label.setStyleSheet(f"""
+                QLabel {{
+                    color: white;
+                    background-color: rgba(52, 73, 94, 0.9);
+                    font-size: {font_size}px;
+                    padding: {padding}px {padding + 4}px;
+                    border-radius: 3px;
+                    font-weight: normal;
+                }}
+            """)
+            self.message_label.adjustSize()
+            self.message_label.move(margin, margin + 20)
         
         super().resizeEvent(event)
         # 창이 최대화 상태가 아니면 다시 최대화
@@ -463,6 +491,15 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
         # 이전 이미지 애니메이션 정지
         self.image_label.clear()  # QLabel의 내용을 지워서 애니메이션 정지
 
+        # 파일 이름과 확장자를 제목표시줄에 표시
+        file_name = os.path.basename(image_path) if image_path else "Image Viewer"
+        title_text = f"Image Viewer - {file_name}" if image_path else "Image Viewer"
+        # title_label을 찾아서 텍스트 업데이트
+        for child in self.title_bar.children():
+            if isinstance(child, QLabel):
+                child.setText(title_text)
+                break
+        
         # 파일 확장자 확인 (소문자로 변환)
         file_ext = os.path.splitext(image_path)[1].lower()
 
@@ -517,7 +554,7 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
                 buffer.close()
                 
                 self.image_label.setPixmap(pixmap.scaled(self.image_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
-                
+
             except Exception as e:
                 print(f"PSD 파일 로드 중 오류 발생: {e}")
         elif file_ext in ['.jpg', '.jpeg', '.png']:  # JPG, JPEG, PNG 파일 처리
@@ -802,23 +839,46 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
             # 비디오의 끝에 도달하면 첫 번째 프레임으로 돌아갑니다.
             self.cap.set(cv2.CAP_PROP_POS_FRAMES, 0)  # 비디오의 첫 번째 프레임으로 돌아가기
 
-    # 이미지 정보 (현재 이미지 번호와 전체 이미지 개수)를 하단에 표시하는 메서드입니다.
     def update_image_info(self):
+        """이미지 정보를 업데이트하고 레이블 크기를 조절합니다."""
+        # 기존 레이블이 표시중이면 닫기
+        if hasattr(self, 'image_info_label') and self.image_info_label.isVisible():
+            self.image_info_label.hide()
+
+        # 이미지 파일이 있을 때만 정보 표시
         if self.image_files:
-            # 현재 이미지의 순서와 전체 개수를 계산하여 텍스트로 표시
             image_info = f"{self.current_index + 1} / {len(self.image_files)}"
             self.image_info_label.setText(image_info)
             
-            # 레이블 크기를 내용에 맞게 조정
+            # 창 크기에 따라 폰트 크기 동적 조절
+            window_width = self.width()
+            font_size = max(12, min(32, int(window_width * 0.02)))
+            
+            # 패딩과 마진도 창 크기에 비례하여 조절
+            padding = max(8, min(12, int(window_width * 0.008)))
+            margin = max(10, min(30, int(window_width * 0.02)))
+            
+            self.image_info_label.setStyleSheet(f"""
+                QLabel {{
+                    color: white;
+                    background-color: rgba(52, 73, 94, 0.9);
+                    font-size: {font_size}px;
+                    padding: {padding}px {padding + 4}px;
+                    border-radius: 3px;
+                    font-weight: normal;
+                }}
+            """)
+            
+            # 레이블 크기와 위치 조정
             self.image_info_label.adjustSize()
             
-            # 우측 상단에 위치 (30px 여백)
-            x = self.width() - self.image_info_label.width() - 30
-            self.image_info_label.move(x, 50)
+            # 우측 상단에 위치 (여백은 창 크기에 비례)
+            x = self.width() - self.image_info_label.width() - margin
+            y = margin + 20
             
-            # 레이블을 표시하고 앞으로 가져오기
+            self.image_info_label.move(x, y)
             self.image_info_label.show()
-            self.image_info_label.raise_()  # 다른 위젯보다 앞으로 가져옴
+            self.image_info_label.raise_()
 
     # 다음 이미지를 보여주는 메서드입니다.
     def show_next_image(self):
@@ -845,20 +905,33 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
             self.message_label.close()
 
         self.message_label = QLabel(message, self)
-        self.message_label.setStyleSheet("""
-            QLabel {
+        
+        # 창 크기에 따라 폰트 크기 동적 조절
+        window_width = self.width()
+        font_size = max(12, min(32, int(window_width * 0.02)))
+        
+        # 패딩과 마진도 창 크기에 비례하여 조절
+        padding = max(8, min(12, int(window_width * 0.008)))
+        margin = max(10, min(30, int(window_width * 0.02)))
+        
+        self.message_label.setStyleSheet(f"""
+            QLabel {{
                 color: white;
                 background-color: rgba(52, 73, 94, 0.9);
-                font-size: 32px;
-                padding: 8px 12px;
+                font-size: {font_size}px;
+                padding: {padding}px {padding + 4}px;
                 border-radius: 3px;
                 font-weight: normal;
-            }
+            }}
         """)
+        
         self.message_label.setAlignment(Qt.AlignCenter)
         self.message_label.show()
         self.message_label.adjustSize()
-        self.message_label.move(30, 50)
+        
+        # 좌측 상단에 위치 (여백은 창 크기에 비례)
+        self.message_label.move(margin, margin + 20)
+        
         QTimer.singleShot(2000, self.message_label.close)
 
     # 현재 이미지를 다른 폴더로 복사하는 메서드입니다.
@@ -952,15 +1025,6 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
                 QApplication.setOverrideCursor(Qt.ArrowCursor)  # 일반 커서로 설정
             else:
                 QApplication.restoreOverrideCursor()  # 기본 커서로 복원
-
-            # 제목표시줄 영역(상단 30픽셀)에 있는지 확인
-            if local_pos.y() < 30:
-                if not self.title_bar.isVisible():
-                    self.title_bar.show()
-                    self.title_bar.raise_()  # 다른 위젯보다 앞으로 가져옴
-            else:
-                if self.title_bar.isVisible():
-                    self.title_bar.hide()
         
         return super().eventFilter(obj, event)
 
@@ -971,36 +1035,6 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
             self.showNormal()
         else:
             self.showMaximized()
-
-    def check_mouse_position(self):
-        """타이머로 주기적으로 마우스 위치를 확인합니다."""
-        global_pos = QCursor.pos()
-        local_pos = self.mapFromGlobal(global_pos)
-        
-        # 마우스가 윈도우 내에 있고, Y 좌표가 30 미만인지 확인
-        if self.rect().contains(local_pos) and local_pos.y() < 30:
-            if not self.title_bar.isVisible():
-                self.title_bar.show()
-                self.title_bar.raise_()  # 다른 위젯보다 앞으로 가져옴
-        else:
-            if self.title_bar.isVisible():
-                self.title_bar.hide()
-
-    def mousePressEvent(self, event):
-        """마우스 버튼 누름 이벤트 처리"""
-        if event.button() == Qt.LeftButton and event.y() < 30:
-            self.drag_position = event.globalPos() - self.frameGeometry().topLeft()
-        super().mousePressEvent(event)
-
-    def mouseMoveEvent(self, event):
-        """마우스 이동 이벤트 처리"""
-        # 창 드래그 처리
-        if hasattr(self, 'drag_position') and event.buttons() == Qt.LeftButton and event.y() < 30:
-            if self.isMaximized():
-                self.showNormal()
-            self.move(event.globalPos() - self.drag_position)
-        
-        super().mouseMoveEvent(event)
 
     def closeEvent(self, event):
         """앱 종료 시 MPV 정리"""
