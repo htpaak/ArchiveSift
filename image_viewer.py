@@ -132,9 +132,6 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
         # 프레임리스 윈도우 설정
         self.setWindowFlags(Qt.FramelessWindowHint)
         
-        # 최대화 플래그를 설정
-        self.setWindowState(Qt.WindowMaximized)
-        
         # 배경색을 흰색으로 설정
         self.setStyleSheet("background-color: white;")
 
@@ -212,42 +209,60 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
         new_slider_layout = QHBoxLayout(slider_widget)
         new_slider_layout.setContentsMargins(0, 0, 0, 0)
 
-        # 슬라이더 좌측 버튼 추가
+        # Open Image Folder 버튼 (첫 번째 위치)
+        self.open_button = QPushButton('Open Image Folder', self)
+        self.open_button.setStyleSheet("""
+            QPushButton {
+                background-color: rgba(52, 73, 94, 0.6);  /* 평상시 더 연하게 */
+                color: white;
+                border: none;
+                padding: 8px;
+                border-radius: 3px;
+            }
+            QPushButton:hover {
+                background-color: rgba(52, 73, 94, 1.0);  /* 마우스 오버 시 진하게 */
+            }
+        """)
+        self.open_button.clicked.connect(self.open_folder)
+        new_slider_layout.addWidget(self.open_button)
+
+        # Set Base Folder 버튼 (두 번째 위치)
+        self.set_base_folder_button = QPushButton('Set Base Folder', self)
+        self.set_base_folder_button.setStyleSheet("""
+            QPushButton {
+                background-color: rgba(52, 73, 94, 0.6);  /* 평상시 더 연하게 */
+                color: white;
+                border: none;
+                padding: 8px;
+                border-radius: 3px;
+            }
+            QPushButton:hover {
+                background-color: rgba(52, 73, 94, 1.0);  /* 마우스 오버 시 진하게 */
+            }
+        """)
+        self.set_base_folder_button.clicked.connect(self.set_base_folder)
+        new_slider_layout.addWidget(self.set_base_folder_button)
+
+        # 재생 버튼 (세 번째 위치)
         self.play_button = QPushButton("▶", self)  # 재생 아이콘 버튼
-        self.play_button.setStyleSheet(button_style)  # 버튼 스타일 적용
+        self.play_button.setStyleSheet("""
+            QPushButton {
+                background-color: rgba(52, 73, 94, 0.6);  /* 평상시 더 연하게 */
+                color: white;
+                border: none;
+                padding: 8px;
+                border-radius: 3px;
+            }
+            QPushButton:hover {
+                background-color: rgba(52, 73, 94, 1.0);  /* 마우스 오버 시 진하게 */
+            }
+        """)
         new_slider_layout.addWidget(self.play_button)
 
         # MPV 상태 확인을 위한 타이머 설정
         self.play_button_timer = QTimer(self)
         self.play_button_timer.timeout.connect(self.update_play_button)
         self.play_button_timer.start(100)  # 100ms마다 상태 확인
-
-        rotate_left_button = QPushButton("↺", self)  # 좌로 90도 회전 버튼
-        rotate_left_button.setStyleSheet(button_style)  # 버튼 스타일 적용
-        new_slider_layout.addWidget(rotate_left_button)
-
-        # 우로 90도 회전 버튼 추가
-        rotate_right_button = QPushButton("↻", self)  # 우로 90도 회전 버튼
-        rotate_right_button.setStyleSheet(button_style)  # 버튼 스타일 적용
-        new_slider_layout.addWidget(rotate_right_button)
-
-        # 재생 시간 레이블 추가 (우로 90도 버튼 오른쪽으로 이동)
-        self.time_label = QLabel("00:00 / 00:00", self)  # 초기 시간 표시
-        self.time_label.setStyleSheet("""
-            QLabel {
-                color: white;
-                background-color: rgba(52, 73, 94, 0.9);
-                padding: 5px 10px;
-                border-radius: 3px;
-                font-size: 14px;
-                min-width: 100px;
-                max-width: 100px;
-                qproperty-alignment: AlignCenter;  /* 텍스트 중앙 정렬 */
-            }
-        """)
-        self.time_label.setFixedSize(100, 30)  # 너비 100px, 높이 30px로 고정
-        self.time_label.setAlignment(Qt.AlignCenter)  # 텍스트 중앙 정렬
-        new_slider_layout.addWidget(self.time_label)  # 레이블을 우로 90도 버튼 오른쪽에 추가
 
         # 기존 슬라이더 (재생 바) 추가
         self.playback_slider = QSlider(Qt.Horizontal, self)  # 재생 바 슬라이더 생성
@@ -256,9 +271,41 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
         self.playback_slider.setStyleSheet(slider_style)  # 슬라이더 스타일 적용
         new_slider_layout.addWidget(self.playback_slider)  # 재생 바 슬라이더를 레이아웃에 추가
 
-        # 음소거 버튼 추가 (슬라이더와 슬라이더 사이에 위치)
+        # 재생 시간 레이블 추가
+        self.time_label = QLabel("00:00 / 00:00", self)  # 초기 시간 표시
+        self.time_label.setStyleSheet("""
+            QLabel {
+                color: white;
+                background-color: rgba(52, 73, 94, 0.6);  /* 평상시 더 연하게 */
+                padding: 5px 10px;
+                border-radius: 3px;
+                font-size: 14px;
+                min-width: 100px;
+                max-width: 100px;
+                qproperty-alignment: AlignCenter;  /* 텍스트 중앙 정렬 */
+            }
+            QLabel:hover {
+                background-color: rgba(52, 73, 94, 1.0);  /* 마우스 오버 시 진하게 */
+            }
+        """)
+        self.time_label.setFixedSize(100, 30)  # 너비 100px, 높이 30px로 고정
+        self.time_label.setAlignment(Qt.AlignCenter)  # 텍스트 중앙 정렬
+        new_slider_layout.addWidget(self.time_label)  # 레이블을 재생 바 오른쪽에 추가
+
+        # 음소거 버튼 추가
         self.mute_button = QPushButton("🔈", self)  # 음소거 해제 아이콘으로 초기화
-        self.mute_button.setStyleSheet("background-color: rgba(52, 73, 94, 0.9);")  # 배경색 설정
+        self.mute_button.setStyleSheet("""
+            QPushButton {
+                background-color: rgba(52, 73, 94, 0.6);  /* 평상시 더 연하게 */
+                color: white;
+                border: none;
+                padding: 8px;
+                border-radius: 3px;
+            }
+            QPushButton:hover {
+                background-color: rgba(52, 73, 94, 1.0);  /* 마우스 오버 시 진하게 */
+            }
+        """)
         self.mute_button.setFixedSize(30, 30)  # 버튼 크기 설정
         self.mute_button.clicked.connect(self.toggle_mute)  # 음소거 토글 메서드 연결
         new_slider_layout.addWidget(self.mute_button)  # 음소거 버튼을 레이아웃에 추가
@@ -275,31 +322,12 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
         # 새로운 슬라이더 위젯을 하단 레이아웃에 추가
         bottom_layout.addWidget(slider_widget)
 
-        # 상단 버튼들을 위한 수평 레이아웃 - Open Image Folder와 Set Base Folder 버튼을 한 줄로 배치
-        top_buttons_layout = QHBoxLayout()
-        top_buttons_layout.setContentsMargins(0, 0, 0, 0)
-
-        # Open Image Folder 버튼에 스타일 적용
-        self.open_button = QPushButton('Open Image Folder', self)
-        self.open_button.setStyleSheet(button_style)
-        self.open_button.clicked.connect(self.open_folder)
-        top_buttons_layout.addWidget(self.open_button)
-
-        # Set Base Folder 버튼에 스타일 적용
-        self.set_base_folder_button = QPushButton('Set Base Folder', self)
-        self.set_base_folder_button.setStyleSheet(button_style)
-        self.set_base_folder_button.clicked.connect(self.set_base_folder)
-        top_buttons_layout.addWidget(self.set_base_folder_button)
-
-        # 수평 레이아웃을 하단 레이아웃에 추가
-        bottom_layout.addLayout(top_buttons_layout)
-
         # 48개의 폴더 버튼에 스타일 적용
         self.buttons = []
-        for _ in range(4):
+        for _ in range(5):  # 4줄에서 5줄로 변경
             button_layout = QHBoxLayout()
             button_row = []
-            for _ in range(12):
+            for _ in range(20):  # 12개에서 20개로 변경
                 empty_button = QPushButton('')
                 empty_button.setStyleSheet(button_style)
                 empty_button.clicked.connect(self.on_button_click)
@@ -309,10 +337,10 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
             bottom_layout.addLayout(button_layout)
 
         # 메인 레이아웃에 위젯 추가
-        main_layout.addWidget(self.image_container, 89)  # 89%
+        main_layout.addWidget(self.image_container, 90)  # 89%
 
         # 하단 버튼 영역을 메인 레이아웃에 추가
-        main_layout.addLayout(bottom_layout, 10)  # 10%
+        main_layout.addLayout(bottom_layout, 9)  # 10%
 
         self.image_files = []  # 이미지 파일 리스트 초기화
         self.current_index = 0  # 현재 이미지의 인덱스 초기화
@@ -324,12 +352,6 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
         self.cap = None  # 비디오 캡처 객체 초기화
         self.timer = QTimer(self)  # 타이머 객체 생성
         self.timer.timeout.connect(self.update_video_frame)  # 타이머가 작동할 때마다 update_video_frame 메소드 호출
-
-        # 지연된 최대화 확인을 위한 타이머 설정
-        QTimer.singleShot(100, self.ensure_maximized)
-
-        # 창이 최대화된 상태로 표시되도록 설정
-        self.showMaximized()
 
         # 마우스 트래킹 활성화
         self.setMouseTracking(True)
@@ -377,6 +399,47 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
             self.title_bar.setGeometry(0, 0, self.width(), 30)
             self.title_bar.raise_()
         
+        # 버튼 크기 계산 및 조정
+        if hasattr(self, 'buttons') and hasattr(self, 'base_folder') and self.base_folder:
+            button_width = self.width() // 20  # 창 너비를 20등분
+            
+            # 하위 폴더 목록 다시 가져오기
+            def natural_keys(text):
+                import re
+                def atoi(text):
+                    return int(text) if text.isdigit() else text
+                return [atoi(c) for c in re.split('([0-9]+)', text)]
+
+            subfolders = [f.path for f in os.scandir(self.base_folder) if f.is_dir()]
+            subfolders.sort(key=lambda x: natural_keys(os.path.basename(x).lower()))
+
+            # 각 버튼의 텍스트 업데이트
+            for i, row in enumerate(self.buttons):
+                for j, button in enumerate(row):
+                    button.setFixedWidth(button_width)
+                    index = i * 20 + j
+                    if index < len(subfolders):
+                        folder_name = os.path.basename(subfolders[index])
+                        # 버튼의 실제 사용 가능한 너비 계산 (패딩 고려)
+                        available_width = button_width - 16  # 좌우 패딩 8px씩 제외
+                        
+                        # QFontMetrics를 사용하여 텍스트 너비 계산
+                        font_metrics = button.fontMetrics()
+                        text_width = font_metrics.horizontalAdvance(folder_name)
+                        
+                        # 텍스트가 버튼 너비를 초과하면 자동으로 줄임
+                        if text_width > available_width:
+                            # 적절한 길이를 찾을 때까지 텍스트 줄임
+                            for k in range(len(folder_name), 0, -1):
+                                truncated = folder_name[:k] + ".."
+                                if font_metrics.horizontalAdvance(truncated) <= available_width:
+                                    button.setText(truncated)
+                                    button.setToolTip(subfolders[index])  # 전체 경로는 툴팁으로
+                                    break
+                        else:
+                            button.setText(folder_name)  # 원래 폴더명으로 복원
+                            button.setToolTip(subfolders[index])
+        
         # 이미지 정보 레이블 업데이트
         if hasattr(self, 'image_info_label') and self.image_files:
             self.update_image_info()
@@ -400,11 +463,21 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
             """)
             self.message_label.adjustSize()
             self.message_label.move(margin, margin + 20)
+
+        # 볼륨 슬라이더 크기 조정
+        if hasattr(self, 'volume_slider'):
+            window_width = self.width()
+            self.volume_slider.setFixedWidth(int(window_width * 0.15))  # 창 너비의 15%
+
+        # 재생 슬라이더 크기 조정
+        if hasattr(self, 'playback_slider'):
+            window_width = self.width()
+            min_width = int(window_width * 0.4)  # 최소 40%
+            max_width = int(window_width * 0.6)  # 최대 60%
+            self.playback_slider.setMinimumWidth(min_width)
+            self.playback_slider.setMaximumWidth(max_width)
         
         super().resizeEvent(event)
-        # 창이 최대화 상태가 아니면 다시 최대화
-        if not self.isMaximized():
-            QTimer.singleShot(10, self.showMaximized)
 
     def mouseDoubleClickEvent(self, event):
         """더블 클릭 시 최대화 및 일반 창 상태를 전환합니다."""
@@ -414,28 +487,57 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
             self.showMaximized()
 
     def set_base_folder(self):
-        folder_path = QFileDialog.getExistingDirectory(self, "Set Base Folder")  # 폴더 선택 대화상자 열기
-        if folder_path:  # 폴더가 선택되었으면
-            self.base_folder = folder_path  # 선택한 폴더 경로를 기준 폴더로 설정
-            print(f"Base folder set to: {self.base_folder}")  # 기준 폴더 경로 출력
+        folder_path = QFileDialog.getExistingDirectory(self, "Set Base Folder")
+        if folder_path:
+            self.base_folder = folder_path
+            print(f"Base folder set to: {self.base_folder}")
 
             # 버튼들 초기화
-            for row in self.buttons:  # 버튼 행마다
-                for button in row:  # 버튼마다
-                    button.setText('')  # 버튼 텍스트 초기화
-                    button.setToolTip('')  # 버튼 툴큐 초기화
+            for row in self.buttons:
+                for button in row:
+                    button.setText('')
+                    button.setToolTip('')
 
-            # 하위 폴더들을 가져와서 버튼에 경로 설정
-            subfolders = [f.path for f in os.scandir(self.base_folder) if f.is_dir()]  # 하위 폴더 경로 목록 가져오기
-            subfolders.sort()  # 하위 폴더 목록을 정렬
+            # 하위 폴더들을 가져와서 자연스러운 순서로 정렬
+            def natural_keys(text):
+                import re
+                def atoi(text):
+                    return int(text) if text.isdigit() else text
+                return [atoi(c) for c in re.split('([0-9]+)', text)]
 
-            # 빈 버튼에 하위 폴더 경로를 설정
-            for i, row in enumerate(self.buttons):  # 각 행에 대해
-                for j, button in enumerate(row):  # 각 버튼에 대해
-                    index = i * 12 + j  # 2D 배열에서 버튼의 인덱스 계산
-                    if index < len(subfolders):  # 하위 폴더가 버튼보다 많지 않으면
-                        button.setText(os.path.basename(subfolders[index]))  # 버튼 텍스트를 폴더 이름으로 설정
-                        button.setToolTip(subfolders[index])  # 버튼 툴큐에 폴더 경로 설정
+            subfolders = [f.path for f in os.scandir(self.base_folder) if f.is_dir()]
+            subfolders.sort(key=lambda x: natural_keys(os.path.basename(x).lower()))
+
+            # 버튼 너비 계산
+            button_width = self.width() // 20
+
+            # 빈 버튼에 하위 폴더 경로를 순서대로 설정
+            for i, row in enumerate(self.buttons):
+                for j, button in enumerate(row):
+                    index = i * 20 + j
+                    if index < len(subfolders):
+                        folder_name = os.path.basename(subfolders[index])
+                        button.setFixedWidth(button_width)
+                        
+                        # 버튼의 실제 사용 가능한 너비 계산 (패딩 고려)
+                        available_width = button_width - 16  # 좌우 패딩 8px씩 제외
+                        
+                        # QFontMetrics를 사용하여 텍스트 너비 계산
+                        font_metrics = button.fontMetrics()
+                        text_width = font_metrics.horizontalAdvance(folder_name)
+                        
+                        # 텍스트가 버튼 너비를 초과하면 자동으로 줄임
+                        if text_width > available_width:
+                            # 적절한 길이를 찾을 때까지 텍스트 줄임
+                            for k in range(len(folder_name), 0, -1):
+                                truncated = folder_name[:k] + ".."
+                                if font_metrics.horizontalAdvance(truncated) <= available_width:
+                                    button.setText(truncated)
+                                    button.setToolTip(subfolders[index])  # 전체 경로는 툴팁으로
+                                    break
+                        else:
+                            button.setText(folder_name)
+                            button.setToolTip(subfolders[index])
 
     def on_button_click(self):
         button = self.sender()  # 클릭된 버튼을 가져옴
