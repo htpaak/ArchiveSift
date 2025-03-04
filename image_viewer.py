@@ -5,7 +5,7 @@ import shutil
 import re
 from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout, QPushButton, QFileDialog, QHBoxLayout, QSizePolicy, QSlider, QLayout
 from PyQt5.QtGui import QPixmap, QImage, QImageReader, QFont, QMovie, QCursor, QIcon
-from PyQt5.QtCore import Qt, QSize, QTimer, QEvent, QPoint, pyqtSignal
+from PyQt5.QtCore import Qt, QSize, QTimer, QEvent, QPoint, pyqtSignal, QRect, QMetaObject  # QRect를 QtCore에서 가져옵니다.
 import cv2
 from PIL import Image, ImageCms
 from io import BytesIO
@@ -23,6 +23,13 @@ class ClickableSlider(QSlider):
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
+            # 클릭한 위치가 핸들 영역인지 확인
+            handle_rect = self.handleRect()
+            if handle_rect.contains(event.pos()):
+                # 핸들 클릭 시, 핸들에 대한 클릭 이벤트만 처리
+                super().mousePressEvent(event)
+                return
+            
             # 클릭한 위치의 값을 계산
             pos = event.pos().x()
             value = int((pos / self.width()) * (self.maximum() - self.minimum()) + self.minimum())
@@ -31,6 +38,20 @@ class ClickableSlider(QSlider):
             self.setValue(value)  # 슬라이더 값을 직접 설정
             self.clicked.emit(value)  # 클릭 이벤트 발생
         super().mousePressEvent(event)
+
+    def handleRect(self):
+        """슬라이더 핸들의 사각형 영역을 반환합니다."""
+        handle_width = 16  # 핸들의 너비
+        handle_height = 16  # 핸들의 높
+
+        # 최대값과 최소값이 동일한 경우를 처리
+        if self.maximum() == self.minimum():
+            handle_x = 0  # 핸들을 0 위치에 고정
+        else:
+            handle_x = self.value() * (self.width() - handle_width) / (self.maximum() - self.minimum())
+
+        handle_y = (self.height() - handle_height) / 2
+        return QRect(int(handle_x), int(handle_y), handle_width, handle_height)
 
 class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
     def __init__(self):
@@ -86,6 +107,10 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
                 height: 16px;
                 margin: -4px 0;
                 border-radius: 8px;
+            }
+            QSlider::handle:horizontal:hover {
+                background: rgba(255, 255, 0, 0.8);  /* 핸들에 마우스 호버 시 색상 변경 */
+                border: 2px solid rgba(255, 255, 0, 1.0);  /* 핸들 테두리 색상 변경 */
             }
             QSlider::add-page:horizontal {
                 background: rgba(52, 73, 94, 0.3);
@@ -537,7 +562,6 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
                                     break
                         else:
                             button.setText(folder_name)  # 원래 폴더명으로 복원
-                            button.setToolTip(subfolders[index])
         
         # 이미지 정보 레이블 업데이트
         if hasattr(self, 'image_info_label') and self.image_files:
@@ -723,9 +747,9 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
         # 파일 확장자 확인 (소문자로 변환)
         file_ext = os.path.splitext(image_path)[1].lower()
 
-        # GIF가 재생 중일 경우 정지
+        # 애니메이션이 재생 중일 경우 정지
         if hasattr(self, 'current_movie') and self.current_movie.state() == QMovie.Running:
-            self.current_movie.stop()  # GIF 정지
+            self.current_movie.stop()  # 애니메이션 정지
             try:
                 self.playback_slider.valueChanged.disconnect()  # 슬라이더 연결 해제
             except TypeError:
@@ -737,62 +761,14 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
 
         if file_ext == '.gif':  # GIF 파일 처리
             self.show_gif(image_path)  # GIF를 표시하는 메서드 호출
-        elif file_ext == '.psd':  # PSD 파일
-            try:
-                # 캐시된 이미지가 있으면 사용
-                if image_path in self.psd_cache:
-                    pixmap = self.psd_cache[image_path]
-                else:
-                    # 캐시된 이미지가 없으면 변환
-                    from PIL import Image, ImageCms
-                    from io import BytesIO
-                    
-                    # PSD 파일을 PIL Image로 열기
-                    image = Image.open(image_path)
-                    
-                    # RGB 모드로 변환
-                    if image.mode != 'RGB':
-                        image = image.convert('RGB')
-                    
-                    # ICC 프로파일 처리
-                    if 'icc_profile' in image.info:
-                        try:
-                            srgb_profile = ImageCms.createProfile('sRGB')
-                            icc_profile = BytesIO(image.info['icc_profile'])
-                            image = ImageCms.profileToProfile(
-                                image,
-                                ImageCms.ImageCmsProfile(icc_profile),
-                                ImageCms.ImageCmsProfile(srgb_profile),
-                                outputMode='RGB'
-                            )
-                        except Exception:
-                            image = image.convert('RGB')
-                    
-                    # 변환된 이미지를 캐시에 저장
-                    buffer = BytesIO()
-                    image.save(buffer, format='PNG', icc_profile=None)
-                    pixmap = QPixmap()
-                    pixmap.loadFromData(buffer.getvalue())
-                    buffer.close()
-                    
-                    # 캐시 크기 관리
-                    if len(self.psd_cache) >= self.max_psd_cache_size:
-                        # 가장 오래된 항목 제거
-                        self.psd_cache.pop(next(iter(self.psd_cache)))
-                    self.psd_cache[image_path] = pixmap
-                
-                if not pixmap.isNull():
-                    scaled_pixmap = pixmap.scaled(self.image_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
-                    self.image_label.setPixmap(scaled_pixmap)
-
-            except Exception as e:
-                print(f"PSD 파일 리사이즈 중 오류 발생: {e}")
+        elif file_ext == '.psd':  # PSD 파일 처리
+            self.show_psd(image_path)  # PSD를 표시하는 메서드 호출
         elif file_ext in ['.jpg', '.jpeg', '.png']:  # JPG, JPEG, PNG 파일 처리
             pixmap = QPixmap(image_path)  # QPixmap으로 이미지 로드
             if not pixmap.isNull():  # 이미지가 정상적으로 로드되었는지 확인
                 self.image_label.setPixmap(pixmap.scaled(self.image_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))  
         elif file_ext == '.webp':  # WEBP 파일 처리
-            self.show_webp_animation(image_path)  # WEBP 애니메이션 처리
+            self.show_webp(image_path)  # WEBP 애니메이션 처리
         elif file_ext == '.mp4':  # MP4 파일 처리
             self.play_video(image_path)  # MP4 비디오 재생
 
@@ -809,78 +785,141 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
         if hasattr(self, 'image_info_label'):
             self.image_info_label.raise_()
 
+    def show_psd(self, image_path):
+        """PSD 파일을 처리하는 메서드입니다."""
+        try:
+            # 캐시된 이미지가 있으면 사용
+            if image_path in self.psd_cache:
+                pixmap = self.psd_cache[image_path]
+            else:
+                # 캐시된 이미지가 없으면 변환
+                from PIL import Image, ImageCms
+                from io import BytesIO
+                
+                # PSD 파일을 PIL Image로 열기
+                image = Image.open(image_path)
+                
+                # RGB 모드로 변환
+                if image.mode != 'RGB':
+                    image = image.convert('RGB')
+                
+                # ICC 프로파일 처리
+                if 'icc_profile' in image.info:
+                    try:
+                        srgb_profile = ImageCms.createProfile('sRGB')
+                        icc_profile = BytesIO(image.info['icc_profile'])
+                        image = ImageCms.profileToProfile(
+                            image,
+                            ImageCms.ImageCmsProfile(icc_profile),
+                            ImageCms.ImageCmsProfile(srgb_profile),
+                            outputMode='RGB'
+                        )
+                    except Exception:
+                        image = image.convert('RGB')
+                
+                # 변환된 이미지를 캐시에 저장
+                buffer = BytesIO()
+                image.save(buffer, format='PNG', icc_profile=None)
+                pixmap = QPixmap()
+                pixmap.loadFromData(buffer.getvalue())
+                buffer.close()
+                
+                # 캐시 크기 관리
+                if len(self.psd_cache) >= self.max_psd_cache_size:
+                    # 가장 오래된 항목 제거
+                    self.psd_cache.pop(next(iter(self.psd_cache)))
+                self.psd_cache[image_path] = pixmap
+            
+            if not pixmap.isNull():
+                scaled_pixmap = pixmap.scaled(self.image_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                self.image_label.setPixmap(scaled_pixmap)
+
+        except Exception as e:
+            print(f"PSD 파일 리사이즈 중 오류 발생: {e}")
+
     def show_gif(self, image_path):
-        # 이전 GIF 상태 정리
-        if hasattr(self, 'gif_timer'):
-            self.gif_timer.stop()  # 타이머 정지
-            del self.gif_timer  # 타이머 객체 삭제
+        # gif 애니메이션을 처리하기 위해 QImageReader를 사용
+        reader = QImageReader(image_path)
 
-        # 이전 QMovie 객체가 있다면 삭제
-        if hasattr(self, 'current_movie'):
-            self.current_movie.stop()  # 현재 GIF 정지
-            del self.current_movie  # 메모리 해제
+        # 이미지를 로드하고 애니메이션으로 처리
+        if reader.supportsAnimation():  # 애니메이션을 지원하면
+            if hasattr(self, 'gif_timer'):
+                self.gif_timer.stop()
+                del self.gif_timer
 
-        self.current_movie = QMovie(image_path)  # 새로운 QMovie 객체 생성
+            if hasattr(self, 'current_movie'):
+                self.current_movie.stop()
+                del self.current_movie
 
-        # GIF의 유효성 검사
-        if not self.current_movie.isValid():
-            return
+            self.current_movie = QMovie(image_path)
+            self.current_movie.setCacheMode(QMovie.CacheAll)
+            self.current_movie.jumpToFrame(0)
+            self.scale_gif()
+            self.image_label.setMovie(self.current_movie)
 
-        # GIF의 첫 번째 프레임을 로드
-        self.current_movie.jumpToFrame(0)
-        if self.current_movie.currentImage().isNull():
-            return
+            # 슬라이더 범위를 gif의 프레임 수에 맞게 설정
+            frame_count = self.current_movie.frameCount()
+            if frame_count > 1:  # 프레임이 2개 이상일 때만 애니메이션으로 처리
+                self.playback_slider.setRange(0, frame_count - 1)
+                self.playback_slider.setValue(0)
 
-        # QLabel의 크기에 맞게 GIF 크기 조정
-        original_size = QSize(self.current_movie.currentImage().width(), self.current_movie.currentImage().height())
-        label_size = self.image_label.size()
+                # 슬라이더의 값이 변경될 때 seek_animation 메서드 호출
+                self.playback_slider.valueChanged.connect(self.seek_animation)  # 슬라이더와 연결
+                self.playback_slider.sliderPressed.connect(self.slider_pressed)  # 드래그 시작 시 호출
+                self.playback_slider.sliderReleased.connect(self.slider_released)  # 드래그 종료 시 호출
 
-        if original_size.height() == 0:
-            original_size.setHeight(1)
-
-        if label_size.width() / label_size.height() > original_size.width() / original_size.height():
-            new_height = label_size.height()
-            new_width = int(new_height * (original_size.width() / original_size.height()))
-        else:
-            new_width = label_size.width()
-            new_height = int(new_width * (original_size.height() / original_size.width()))
-
-        self.current_movie.setScaledSize(QSize(new_width, new_height))
-        self.image_label.setMovie(self.current_movie)
-        self.current_movie.start()
-
-        # 슬라이더 범위를 GIF의 프레임 수에 맞게 설정
-        frame_count = self.current_movie.frameCount()
-        if frame_count > 0:
-            self.playback_slider.setRange(0, frame_count - 1)
-            self.playback_slider.setValue(0)
-
-            # 슬라이더 값 변경 시 프레임 변경 연결
-            self.playback_slider.valueChanged.connect(lambda value: self.current_movie.jumpToFrame(value))
-
-            # GIF의 프레임이 변경될 때마다 슬라이더 값을 업데이트
-            def update_slider():
-                current_frame = self.current_movie.currentFrameNumber()
-                if self.current_movie.state() == QMovie.Running:
-                    self.playback_slider.setValue(current_frame)
-                    # 현재 프레임 / 총 프레임 표시 업데이트
-                    self.time_label.setText(f"{current_frame + 1} / {self.current_movie.frameCount()}")  # 현재 프레임은 0부터 시작하므로 +1
+                # gif의 프레임이 변경될 때마다 슬라이더 값을 업데이트
+                def update_slider():
+                    current_frame = self.current_movie.currentFrameNumber()
+                    if self.current_movie.state() == QMovie.Running:
+                        self.playback_slider.setValue(current_frame)
+                        # 현재 프레임 / 총 프레임 표시 업데이트
+                        self.time_label.setText(f"{current_frame + 1} / {self.current_movie.frameCount()}")
 
                 # 타이머를 사용하여 슬라이더 업데이트
-                if not hasattr(self, 'gif_timer'):  # 타이머가 이미 존재하지 않을 때만 생성
-                    self.gif_timer = QTimer(self)
-                    self.gif_timer.timeout.connect(update_slider)
-                    self.gif_timer.start(50)  # 50ms마다 슬라이더 업데이트
+                self.gif_timer = QTimer(self)
+                self.gif_timer.timeout.connect(update_slider)
+                self.gif_timer.start(50)  # 50ms마다 슬라이더 업데이트
 
-            # 타이머를 사용하여 슬라이더 업데이트
-            self.gif_timer = QTimer(self)
-            self.gif_timer.timeout.connect(update_slider)
-            self.gif_timer.start(50)
+                self.current_movie.start()
+            else:
+                # 프레임이 1개 이하일 경우 일반 이미지로 처리
+                image = QImage(image_path)
+                if not image.isNull():
+                    pixmap = QPixmap.fromImage(image)
+                    scaled_pixmap = pixmap.scaled(
+                        self.image_label.width(),
+                        self.image_label.height(),
+                        Qt.KeepAspectRatio,
+                        Qt.SmoothTransformation
+                    )
+                    self.image_label.setPixmap(scaled_pixmap)
 
-        # GIF 반복 설정
-        self.current_movie.loopCount = 0  # 무한 반복
+                # 슬라이더 초기화
+                self.playback_slider.setRange(0, 0)
+                self.playback_slider.setValue(0)
+                self.time_label.setText("00:00 / 00:00")
+                self.time_label.show()
+        else:
+            # 일반 WEBP 이미지 처리
+            image = QImage(image_path)
+            if not image.isNull():
+                pixmap = QPixmap.fromImage(image)
+                scaled_pixmap = pixmap.scaled(
+                    self.image_label.width(),
+                    self.image_label.height(),
+                    Qt.KeepAspectRatio,
+                    Qt.SmoothTransformation
+                )
+                self.image_label.setPixmap(scaled_pixmap)
 
-    def show_webp_animation(self, image_path):
+            # 슬라이더 초기화
+            self.playback_slider.setRange(0, 0)
+            self.playback_slider.setValue(0)
+            self.time_label.setText("00:00 / 00:00")
+            self.time_label.show()
+
+    def show_webp(self, image_path):
         # WEBP 애니메이션을 처리하기 위해 QImageReader를 사용
         reader = QImageReader(image_path)
 
@@ -905,13 +944,11 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
             if frame_count > 1:  # 프레임이 2개 이상일 때만 애니메이션으로 처리
                 self.playback_slider.setRange(0, frame_count - 1)
                 self.playback_slider.setValue(0)
-
-                # 슬라이더 값 변경 시 프레임 변경 연결
-                try:
-                    self.playback_slider.valueChanged.disconnect()
-                except TypeError:
-                    pass
-                self.playback_slider.valueChanged.connect(lambda value: self.current_movie.jumpToFrame(value))
+                
+                # 슬라이더의 값이 변경될 때 seek_animation 메서드 호출
+                self.playback_slider.valueChanged.connect(self.seek_animation)  # 슬라이더와 연결
+                self.playback_slider.sliderPressed.connect(self.slider_pressed)  # 드래그 시작 시 호출
+                self.playback_slider.sliderReleased.connect(self.slider_released)  # 드래그 종료 시 호출
 
                 # WEBP의 프레임이 변경될 때마다 슬라이더 값을 업데이트
                 def update_slider():
@@ -973,7 +1010,7 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
         original_width = image.width()  # 원본 이미지의 너비
         original_height = image.height()  # 원본 이미지의 높이
 
-        # GIF의 원본 비율을 계산합니다 (가로 / 세로 비율).
+        # webp의 원본 비율을 계산합니다 (가로 / 세로 비율).
         if original_height == 0:
             original_height = 1  # 높이가 0인 경우(예외처리), 높이를 1로 설정하여 0으로 나누는 오류를 방지
         aspect_ratio = original_width / original_height  # 가로 세로 비율 계산
@@ -993,6 +1030,37 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
             new_height = int(new_width / aspect_ratio)  # 비율을 유지하며 세로 크기 계산
 
         # 새로 계산된 크기로 WEBP를 설정합니다.
+        self.current_movie.setScaledSize(QSize(new_width, new_height))  # 크기를 새로 계산된 크기로 설정
+
+    def scale_gif(self):
+        # 첫 번째 프레임으로 이동하여 이미지 데이터를 얻어옵니다.
+        self.current_movie.jumpToFrame(0)  # 첫 번째 프레임으로 이동
+        image = self.current_movie.currentImage()  # 현재 프레임의 이미지를 얻음
+
+        # 원본 이미지의 너비와 높이를 얻습니다.
+        original_width = image.width()  # 원본 이미지의 너비
+        original_height = image.height()  # 원본 이미지의 높이
+
+        # gif의 원본 비율을 계산합니다 (가로 / 세로 비율).
+        if original_height == 0:
+            original_height = 1  # 높이가 0인 경우(예외처리), 높이를 1로 설정하여 0으로 나누는 오류를 방지
+        aspect_ratio = original_width / original_height  # 가로 세로 비율 계산
+
+        # 이미지가 표시될 라벨의 크기를 얻습니다.
+        label_width = self.image_label.width()  # 라벨의 너비
+        label_height = self.image_label.height()  # 라벨의 높이
+
+        # 원본 비율을 유지하며, 라벨의 크기에 맞는 새로운 크기를 계산합니다.
+        if label_width / label_height > aspect_ratio:
+            # 라벨이 세로로 더 좁은 경우, 세로에 맞춰 크기 조정
+            new_height = label_height  # 라벨의 높이를 기준으로 새 높이 설정
+            new_width = int(new_height * aspect_ratio)  # 비율을 유지하며 가로 크기 계산
+        else:
+            # 라벨이 가로로 더 좁은 경우, 가로에 맞춰 크기 조정
+            new_width = label_width  # 라벨의 너비를 기준으로 새 너비 설정
+            new_height = int(new_width / aspect_ratio)  # 비율을 유지하며 세로 크기 계산
+
+        # 새로 계산된 크기로 gif를 설정합니다.
         self.current_movie.setScaledSize(QSize(new_width, new_height))  # 크기를 새로 계산된 크기로 설정
 
     def play_video(self, video_path):
@@ -1031,12 +1099,31 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
             self.video_timer.timeout.connect(self.update_video_playback)  # 슬라이더 업데이트 호출
             self.video_timer.start(16)  # 16ms마다 업데이트 (약 60fps)
             
+            # 비디오 종료 시 타이머 중지
+            self.player.observe_property('playback-restart', self.on_video_end)  # 비디오 종료 시 호출될 메서드 등록
+            
         except Exception as e:
             print(f"MPV 재생 오류: {e}")
+
+    def on_video_end(self, name, value):
+        """비디오가 종료될 때 호출되는 메서드입니다."""
+        self.stop_video_timer()  # 비디오 종료 시 타이머 중지
+
+    def stop_video_timer(self):
+        """타이머를 중지하는 메서드입니다."""
+        if self.video_timer.isActive():
+            QMetaObject.invokeMethod(self.video_timer, "stop", Qt.QueuedConnection)  # 타이머 중지
 
     def slider_clicked(self, value):
         """슬라이더를 클릭했을 때 호출됩니다."""
         if hasattr(self, 'player'):
+            # 현재 애니메이션이 재생 중인지 확인
+            if hasattr(self, 'current_movie') and self.current_movie.state() == QMovie.Running:
+                # 애니메이션이 재생 중일 경우, 해당 프레임으로 점프
+                frame = value  # 슬라이더 값이 프레임 번호로 사용됨
+                self.current_movie.jumpToFrame(frame)
+                return  # 애니메이션이 재생 중이면 더 이상 진행하지 않음
+
             try:
                 # 클릭한 위치의 값을 초 단위로 변환
                 seconds = value / 1000.0  # 밀리초를 초 단위로 변환
@@ -1052,17 +1139,34 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
     def slider_released(self):
         """슬라이더 드래그가 끝날 때 호출됩니다."""
         self.is_slider_dragging = False
+        if hasattr(self, 'current_movie'):
+            if self.current_movie.state() == QMovie.Running:
+                # 애니메이션이 재생 중일 경우, 슬라이더 값을 사용하여 애니메이션으로 점프
+                self.seek_animation(self.playback_slider.value())  # 슬라이더 값을 사용하여 애니메이션 프레임으로 점프
+            else:
+                # 비디오일 경우, 슬라이더 값을 초 단위로 변환하여 비디오 위치 변경
+                seconds = self.playback_slider.value() / 1000.0  # 밀리초를 초 단위로 변환
+                self.player.command('seek', seconds, 'absolute')  # MPV의 seek 함수 사용
 
     def seek_video(self, value):
         """슬라이더 값에 따라 비디오 재생 위치를 변경합니다."""
         if hasattr(self, 'player') and self.is_slider_dragging:
-            try:
-                # 슬라이더 값을 초 단위로 변환 (value는 밀리초 단위)
-                seconds = value / 1000.0  # 밀리초를 초 단위로 변환 (1000으로 나눔)
-                # MPV의 seek 함수를 사용하여 정확한 위치로 이동
-                self.player.command('seek', seconds, 'absolute')
-            except Exception as e:
-                print(f"비디오 위치 변경 중 오류 발생: {e}")
+            # MPV가 비디오를 재생 중인지 확인
+            if self.player.playback_time is None or self.player.playback_time < 0:
+                return  # MPV가 비디오를 재생 중이지 않으면 seek 명령을 실행하지 않음
+
+            # 슬라이더 값을 초 단위로 변환 (value는 밀리초 단위)
+            seconds = value / 1000.0  # 밀리초를 초 단위로 변환
+            # MPV의 seek 함수를 사용하여 정확한 위치로 이동
+            self.player.command('seek', seconds, 'absolute')
+
+    def seek_animation(self, value):
+        """슬라이더 값에 따라 애니메이션 재생 위치를 변경합니다."""
+        if hasattr(self, 'current_movie'):
+            # 슬라이더 값을 프레임 번호로 변환
+            frame = value
+            # 애니메이션이 재생 중일 경우 해당 프레임으로 점프
+            self.current_movie.jumpToFrame(frame)
 
     def update_video_playback(self):
         """MPV 비디오의 재생 위치에 따라 슬라이더 값을 업데이트합니다."""
