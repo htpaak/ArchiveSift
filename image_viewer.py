@@ -106,6 +106,9 @@ class ImageViewer(QWidget):
     def __init__(self):
         super().__init__()  # 부모 클래스 초기화 (QWidget 기본 기능 상속)
 
+        # 리소스 관리를 위한 객체 추적
+        self.timers = []  # 모든 타이머 추적 - 먼저 초기화
+
         # 화면 해상도의 75%로 초기 창 크기 설정 (화면에 맞게 조정)
         screen = QApplication.primaryScreen().geometry()
         width = int(screen.width() * 0.75)
@@ -312,6 +315,7 @@ class ImageViewer(QWidget):
         self.play_button_timer = QTimer(self)
         self.play_button_timer.timeout.connect(self.update_play_button)  # 타이머가 작동할 때마다 update_play_button 메소드 호출
         self.play_button_timer.start(100)  # 100ms마다 상태 확인 (초당 10번 업데이트)
+        self.timers.append(self.play_button_timer)  # 타이머 추적에 추가
 
         # 기존 슬라이더 (재생 바) 추가
         self.playback_slider = ClickableSlider(Qt.Horizontal, self)  # ClickableSlider로 변경 (클릭 시 해당 위치로 이동)
@@ -445,6 +449,9 @@ class ImageViewer(QWidget):
 
         self.last_wheel_time = 0  # 마지막 휠 이벤트 발생 시간 (휠 이벤트 쓰로틀링용)
         self.wheel_cooldown_ms = 1000  # 1000ms 쿨다운 (500ms에서 변경됨) - 휠 이벤트 속도 제한
+
+        # 리소스 관리를 위한 객체 추적
+        self.timers = []  # 모든 타이머 추적
 
     def ensure_maximized(self):
         """창이 최대화 상태인지 확인하고 그렇지 않으면 다시 최대화합니다."""
@@ -795,6 +802,8 @@ class ImageViewer(QWidget):
         # 비디오 프레임 업데이트 타이머 중지
         if hasattr(self, 'timer') and self.timer.isActive():
             self.timer.stop()  # 타이머 중지
+            if self.timer in self.timers:
+                self.timers.remove(self.timer)
         
         # MPV 플레이어 정지 (플레이어가 존재하고 실행 중인 경우)
         if hasattr(self, 'player') and self.player:
@@ -803,11 +812,13 @@ class ImageViewer(QWidget):
                 if self.player.playback_time is not None:  # 재생 시간이 있으면 재생 중
                     self.player.stop()  # 재생 중지
             except Exception as e:
-                pass  # 예외 발생 시 무시하고 계속 진행
+                print(f"비디오 정지 에러: {e}")  # 에러 로깅
                 
         # 비디오 타이머 정지
         if hasattr(self, 'video_timer') and self.video_timer.isActive():
             self.video_timer.stop()  # 비디오 타이머 중지
+            if self.video_timer in self.timers:
+                self.timers.remove(self.video_timer)
 
     def disconnect_all_slider_signals(self):
         """슬라이더의 모든 신호 연결 해제 (이벤트 충돌 방지)"""
@@ -840,8 +851,14 @@ class ImageViewer(QWidget):
         """이미지/미디어 파일 표시 및 관련 UI 업데이트"""
         self.stop_video()  # 기존 비디오 재생 중지
 
-        # 이전 이미지/애니메이션 정지
+        # 이전 이미지/애니메이션 정지 및 정리
         self.image_label.clear()  # 레이블 내용 지우기 (애니메이션 정지)
+        
+        # 기존 QMovie 정리
+        if hasattr(self, 'current_movie') and self.current_movie:
+            self.current_movie.stop()
+            self.current_movie.deleteLater()  # Qt 객체 명시적 삭제 요청
+            self.current_movie = None
 
         # 파일 이름을 제목표시줄에 표시
         file_name = os.path.basename(image_path) if image_path else "Image Viewer"
@@ -935,16 +952,19 @@ class ImageViewer(QWidget):
                 
                 # 변환된 이미지를 캐시에 저장
                 buffer = BytesIO()
-                image.save(buffer, format='PNG', icc_profile=None)
-                pixmap = QPixmap()
-                pixmap.loadFromData(buffer.getvalue())
-                buffer.close()
-                
-                # 캐시 크기 관리
-                if len(self.psd_cache) >= self.max_psd_cache_size:
-                    # 가장 오래된 항목 제거 (캐시 크기 관리)
-                    self.psd_cache.pop(next(iter(self.psd_cache)))
-                self.psd_cache[image_path] = pixmap  # 현재 이미지를 캐시에 저장
+                try:
+                    image.save(buffer, format='PNG', icc_profile=None)
+                    pixmap = QPixmap()
+                    pixmap.loadFromData(buffer.getvalue())
+                    
+                    # 캐시 크기 관리 - 보다 안전한 방식으로 구현
+                    while len(self.psd_cache) >= self.max_psd_cache_size and self.psd_cache:
+                        # 가장 오래된 항목 제거 (캐시 크기 관리)
+                        oldest_key = next(iter(self.psd_cache))
+                        self.psd_cache.pop(oldest_key)
+                    self.psd_cache[image_path] = pixmap  # 현재 이미지를 캐시에 저장
+                finally:
+                    buffer.close()  # 항상 버퍼 닫기
             
             # 이미지가 정상적으로 로드된 경우 화면에 표시
             if not pixmap.isNull():
@@ -952,7 +972,7 @@ class ImageViewer(QWidget):
                 self.image_label.setPixmap(scaled_pixmap)  # 크기 조정된 이미지 표시
 
         except Exception as e:
-            pass  # 예외 발생 시 무시하고 진행
+            print(f"PSD 처리 에러: {e}")  # 에러 로깅
 
     def show_gif(self, image_path):
         # gif 애니메이션을 처리하기 위해 QImageReader를 사용
@@ -961,13 +981,17 @@ class ImageViewer(QWidget):
         # 이미지를 로드하고 애니메이션으로 처리
         if reader.supportsAnimation():  # 애니메이션을 지원하면
             
-            # 기존 타이머 정지
+            # 기존 타이머 정지 및 관리
             if hasattr(self, 'gif_timer'):
                 self.gif_timer.stop()
+                if self.gif_timer in self.timers:
+                    self.timers.remove(self.gif_timer)
                 del self.gif_timer
 
-            if hasattr(self, 'current_movie'):
+            # 기존 QMovie 정리
+            if hasattr(self, 'current_movie') and self.current_movie:
                 self.current_movie.stop()
+                self.current_movie.deleteLater()  # Qt 객체 명시적 삭제 요청
                 del self.current_movie
 
             self.current_movie = QMovie(image_path)
@@ -1004,6 +1028,7 @@ class ImageViewer(QWidget):
                 self.gif_timer = QTimer(self)
                 self.gif_timer.timeout.connect(update_slider)
                 self.gif_timer.start(50)  # 50ms마다 슬라이더 업데이트
+                self.timers.append(self.gif_timer)  # 타이머 추적에 추가
 
                 # 항상 재생 상태로 시작하도록 명시적으로 설정
                 self.current_movie.start()
@@ -1056,13 +1081,17 @@ class ImageViewer(QWidget):
         # 이미지를 로드하고 애니메이션으로 처리
         if reader.supportsAnimation():  # 애니메이션을 지원하면
             
-            # 기존 타이머 정지
+            # 기존 타이머 정지 및 관리
             if hasattr(self, 'gif_timer'):
                 self.gif_timer.stop()
+                if self.gif_timer in self.timers:
+                    self.timers.remove(self.gif_timer)
                 del self.gif_timer
 
-            if hasattr(self, 'current_movie'):
+            # 기존 QMovie 정리
+            if hasattr(self, 'current_movie') and self.current_movie:
                 self.current_movie.stop()
+                self.current_movie.deleteLater()  # Qt 객체 명시적 삭제 요청
                 del self.current_movie
 
             self.current_movie = QMovie(image_path)
@@ -1099,6 +1128,7 @@ class ImageViewer(QWidget):
                 self.gif_timer = QTimer(self)
                 self.gif_timer.timeout.connect(update_slider)  # 타이머 이벤트에 함수 연결
                 self.gif_timer.start(50)  # 50ms마다 업데이트 (약 20fps)
+                self.timers.append(self.gif_timer)  # 타이머 추적에 추가
 
                 # 애니메이션 재생 시작
                 self.current_movie.start()  # 애니메이션 시작
@@ -1218,9 +1248,12 @@ class ImageViewer(QWidget):
         # 애니메이션이 재생 중일 경우 정지
         if hasattr(self, 'current_movie') and self.current_movie:
             self.current_movie.stop()
+            self.current_movie.deleteLater()  # Qt 객체 명시적 삭제 요청
             
             if hasattr(self, 'gif_timer') and self.gif_timer.isActive():
                 self.gif_timer.stop()
+                if self.gif_timer in self.timers:
+                    self.timers.remove(self.gif_timer)
         
         # MPV로 비디오 재생
         try:
@@ -1260,21 +1293,25 @@ class ImageViewer(QWidget):
             self.video_timer = QTimer(self)
             self.video_timer.timeout.connect(self.update_video_playback)  # 슬라이더 업데이트 호출
             self.video_timer.start(16)  # 16ms마다 업데이트 (약 60fps)
+            self.timers.append(self.video_timer)  # 타이머 추적에 추가
             
             # 비디오 종료 시 타이머 중지
             self.player.observe_property('playback-restart', self.on_video_end)  # 비디오 종료 시 호출될 메서드 등록
             
         except Exception as e:
-            pass
+            print(f"비디오 재생 에러: {e}")  # 에러 로깅
 
     def on_video_end(self, name, value):
         """비디오가 종료될 때 호출되는 메서드입니다."""
-        self.stop_video_timer()  # 비디오 종료 시 타이머 중지
+        # 메인 스레드에서 안전하게 타이머를 중지하기 위해 QTimer.singleShot 사용
+        QTimer.singleShot(0, self.stop_video_timer)
 
     def stop_video_timer(self):
         """타이머를 중지하는 메서드입니다."""
-        if self.video_timer.isActive():
-            QMetaObject.invokeMethod(self.video_timer, "stop", Qt.QueuedConnection)  # 타이머 중지
+        if hasattr(self, 'video_timer') and self.video_timer.isActive():
+            self.video_timer.stop()
+            if self.video_timer in self.timers:
+                self.timers.remove(self.video_timer)
 
     def slider_clicked(self, value):
         """슬라이더를 클릭했을 때 호출됩니다."""
@@ -1740,18 +1777,48 @@ class ImageViewer(QWidget):
 
     def closeEvent(self, event):
         """앱 종료 시 MPV 정리"""
+        # 모든 타이머 정리를 안전하게 처리
+        for timer in self.timers[:]:  # 복사본으로 반복하여 안전하게 처리
+            try:
+                if timer.isActive():
+                    # 메인 스레드에서 안전하게 타이머를 중지
+                    timer.deleteLater()  # Qt 객체 삭제 요청
+                if timer in self.timers:
+                    self.timers.remove(timer)
+            except Exception as e:
+                print(f"타이머 정리 에러: {e}")  # 에러 로깅
+        
+        # 비디오 정지
         self.stop_video()
+        
+        # MPV 플레이어 종료
         if hasattr(self, 'player'):
             try:
                 self.player.terminate()
+                self.player = None  # 참조 제거
             except Exception as e:
-                pass
+                print(f"MPV 종료 에러: {e}")  # 에러 로깅
+        
+        # QMovie 객체 정리
+        if hasattr(self, 'current_movie') and self.current_movie:
+            try:
+                self.current_movie.stop()
+                self.current_movie.deleteLater()
+                self.current_movie = None
+            except Exception as e:
+                print(f"QMovie 정리 에러: {e}")  # 에러 로깅
         
         # PSD 캐시 정리
-        self.psd_cache.clear()
+        if hasattr(self, 'psd_cache'):
+            self.psd_cache.clear()
         
+        # 이벤트 필터 제거
+        QApplication.instance().removeEventFilter(self)
+        
+        # 메시지 레이블 정리
         if hasattr(self, 'message_label') and self.message_label.isVisible():
             self.message_label.close()
+        
         event.accept()
 
     def toggle_mute(self):
