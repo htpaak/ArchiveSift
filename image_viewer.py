@@ -1,244 +1,294 @@
-# GIF 크기를 조정하는 메서드입니다.
-import sys
-import os
-import shutil
-import re
-from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout, QPushButton, QFileDialog, QHBoxLayout, QSizePolicy, QSlider, QLayout
-from PyQt5.QtGui import QPixmap, QImage, QImageReader, QFont, QMovie, QCursor, QIcon
-from PyQt5.QtCore import Qt, QSize, QTimer, QEvent, QPoint, pyqtSignal, QRect, QMetaObject  # QRect를 QtCore에서 가져옵니다.
-import cv2
-from PIL import Image, ImageCms
-from io import BytesIO
+# 이미지 및 비디오 뷰어 애플리케이션 (PyQt5 기반)
+import sys  # 시스템 관련 기능 제공 (프로그램 종료, 경로 관리 등)
+import os  # 운영체제 관련 기능 제공 (파일 경로, 디렉토리 처리 등)
+import shutil  # 파일 복사 및 이동 기능 제공 (고급 파일 작업)
+import re  # 정규표현식 처리 기능 제공 (패턴 검색 및 문자열 처리)
+from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout, QPushButton, QFileDialog, QHBoxLayout, QSizePolicy, QSlider, QLayout, QSpacerItem, QStyle, QStyleOptionSlider  # PyQt5 UI 위젯 (사용자 인터페이스 구성 요소)
+from PyQt5.QtGui import QPixmap, QImage, QImageReader, QFont, QMovie, QCursor, QIcon  # 그래픽 요소 처리 (이미지, 폰트, 커서 등)
+from PyQt5.QtCore import Qt, QSize, QTimer, QEvent, QPoint, pyqtSignal, QRect, QMetaObject  # Qt 코어 기능 (이벤트, 신호, 타이머 등)
+import cv2  # OpenCV 라이브러리 - 비디오 처리용 (프레임 추출, 이미지 변환 등)
+from PIL import Image, ImageCms  # Pillow 라이브러리 - 이미지 처리용 (다양한 이미지 포맷 지원)
+from io import BytesIO  # 바이트 데이터 처리용 (메모리 내 파일 스트림)
+import time  # 시간 관련 기능 (시간 측정, 지연 등)
 
-# MPV DLL 경로를 PATH에 추가 (반드시 mpv 모듈을 import하기 전에 해야 함)
+# MPV DLL 경로를 환경 변수 PATH에 추가 (mpv 모듈 import 전에 필수)
 mpv_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mpv')
 os.environ["PATH"] = mpv_path + os.pathsep + os.environ["PATH"]
 
-# 이제 mpv 모듈을 import
-import mpv
+# MPV 모듈 import (경로 설정 후에 가능)
+import mpv  # 비디오 재생 라이브러리 (고성능 미디어 플레이어)
 
-# QSlider를 상속받는 새로운 클래스 추가
+# 클릭 가능한 슬라이더 클래스 정의 (기본 QSlider 확장)
 class ClickableSlider(QSlider):
-    clicked = pyqtSignal(int)  # 클릭 이벤트 시그널 추가
-
+    clicked = pyqtSignal(int)  # 슬라이더 클릭 위치 값을 전달하는 사용자 정의 시그널
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)  # 부모 클래스 초기화 (QSlider 기본 기능 상속)
+        self.is_dragging = False  # 드래그 상태 추적 변수 (마우스 누름+이동 상태 확인용)
+        
     def mousePressEvent(self, event):
-        if event.button() == Qt.LeftButton:
+        if event.button() == Qt.LeftButton:  # 좌클릭 이벤트만 처리 (다른 마우스 버튼은 무시)
             # 클릭한 위치가 핸들 영역인지 확인
             handle_rect = self.handleRect()
-            if handle_rect.contains(event.pos()):
-                # 핸들 클릭 시, 핸들에 대한 클릭 이벤트만 처리
-                super().mousePressEvent(event)
-                return
             
-            # 클릭한 위치의 값을 계산
-            pos = event.pos().x()
-            value = int((pos / self.width()) * (self.maximum() - self.minimum()) + self.minimum())
-            # 값을 범위 내로 제한
-            value = max(self.minimum(), min(self.maximum(), value))
-            self.setValue(value)  # 슬라이더 값을 직접 설정
-            self.clicked.emit(value)  # 클릭 이벤트 발생
+            if handle_rect.contains(event.pos()):
+                # 핸들을 직접 클릭한 경우 기본 드래그 기능 활성화
+                self.is_dragging = True
+                return super().mousePressEvent(event)
+            
+            # 핸들이 아닌 슬라이더 영역 클릭 시 해당 위치로 핸들 이동
+            option = QStyleOptionSlider()
+            self.initStyleOption(option)
+            
+            # 슬라이더의 그루브(홈) 영역 계산
+            groove_rect = self.style().subControlRect(
+                QStyle.CC_Slider, option, QStyle.SC_SliderGroove, self
+            )
+            # 슬라이더의 핸들 영역 계산
+            handle_rect = self.style().subControlRect(
+                QStyle.CC_Slider, option, QStyle.SC_SliderHandle, self
+            )
+            
+            # 슬라이더의 유효 길이 계산
+            slider_length = groove_rect.width()
+            slider_start = groove_rect.x()
+            
+            # 핸들 중앙 위치 계산을 위한 핸들 너비의 절반
+            handle_half_width = handle_rect.width() / 2
+            
+            # 클릭 위치 계산 (슬라이더 시작점 기준)
+            pos = event.pos().x() - slider_start
+            
+            # 슬라이더 길이에서 핸들 너비 고려 (실제 이동 가능 영역 조정)
+            effective_length = slider_length - handle_rect.width()
+            effective_pos = max(0, min(pos, effective_length))
+            
+            # 클릭 위치에 대응하는 슬라이더 값 계산
+            value_range = self.maximum() - self.minimum()
+            
+            if value_range > 0:
+                # 클릭 위치 비율을 슬라이더 값으로 변환
+                value = self.minimum() + (effective_pos * value_range) / effective_length
+                # 슬라이더가 반전되어 있는 경우 값 조정
+                if self.invertedAppearance():
+                    value = self.maximum() - value + self.minimum()
+                
+                # 계산된 값으로 슬라이더 설정 및 시그널 발생
+                self.setValue(int(value))
+                self.clicked.emit(int(value))
+        
+        # 부모 클래스의 이벤트 처리기 호출
         super().mousePressEvent(event)
+    
+    def mouseMoveEvent(self, event):
+        # 드래그 중 슬라이더 위치 업데이트 (기본 QSlider 기능 사용)
+        super().mouseMoveEvent(event)
+    
+    def mouseReleaseEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self.is_dragging = False  # 드래그 상태 해제 (마우스 버튼 뗌)
+        super().mouseReleaseEvent(event)  # 부모 클래스의 이벤트 처리기 호출
 
     def handleRect(self):
-        """슬라이더 핸들의 사각형 영역을 반환합니다."""
-        handle_width = 16  # 핸들의 너비
-        handle_height = 16  # 핸들의 높
+        """슬라이더 핸들의 사각형 영역을 계산하여 반환 (클릭 위치 판단에 사용)"""
+        option = QStyleOptionSlider()
+        self.initStyleOption(option)  # 슬라이더 스타일 옵션 초기화
+        
+        # 현재 스타일에서 핸들 영역 계산
+        handle_rect = self.style().subControlRect(
+            QStyle.CC_Slider, option, QStyle.SC_SliderHandle, self
+        )
+        
+        return handle_rect  # 핸들 영역 반환
 
-        # 최대값과 최소값이 동일한 경우를 처리
-        if self.maximum() == self.minimum():
-            handle_x = 0  # 핸들을 0 위치에 고정
-        else:
-            handle_x = self.value() * (self.width() - handle_width) / (self.maximum() - self.minimum())
-
-        handle_y = (self.height() - handle_height) / 2
-        return QRect(int(handle_x), int(handle_y), handle_width, handle_height)
-
-class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
+# 메인 이미지 뷰어 클래스 정의
+class ImageViewer(QWidget):
     def __init__(self):
-        super().__init__()  # QWidget의 초기화 메소드 호출
+        super().__init__()  # 부모 클래스 초기화 (QWidget 기본 기능 상속)
 
-        # 화면 해상도의 75%로 초기 창 크기 설정
+        # 화면 해상도의 75%로 초기 창 크기 설정 (화면에 맞게 조정)
         screen = QApplication.primaryScreen().geometry()
         width = int(screen.width() * 0.75)
         height = int(screen.height() * 0.75)
         self.resize(width, height)
 
-        # 현재 미디어 타입 추적 변수 추가
-        self.current_media_type = None  # 'image', 'gif', 'webp', 'video' 중 하나의 값을 가짐
-        self.is_slider_dragging = False  # 슬라이더 드래그 상태 추적
+        # 미디어 타입 추적 변수 초기화
+        self.current_media_type = None  # 'image', 'gif', 'webp', 'video' 중 하나의 값 가짐
+        self.is_slider_dragging = False  # 슬라이더 드래그 상태 추적 (시크바 조작 중 확인용)
 
-        # 창을 화면 중앙에 위치
+        # 창을 화면 중앙에 위치시키기
         x = (screen.width() - width) // 2
         y = (screen.height() - height) // 2
         self.move(x, y)
 
-        # 크기 조절을 위한 변수들 추가
-        self.resize_direction = None
-        self.resizing = False
-        self.resize_start_pos = None
-        self.resize_start_geometry = None
+        # 창 크기 조절 관련 변수 초기화
+        self.resize_direction = None  # 크기 조절 방향 (좌/우/상/하/모서리)
+        self.resizing = False  # 크기 조절 중인지 여부
+        self.resize_start_pos = None  # 크기 조절 시작 위치
+        self.resize_start_geometry = None  # 크기 조절 시작 시 창 geometry
         
-        # 최소 창 크기 설정
+        # 최소 창 크기 설정 (UI 요소가 겹치지 않도록)
         self.setMinimumSize(400, 300)
 
-        # Define button style here
+        # 버튼 스타일 정의 (모든 버튼에 일관된 스타일 적용)
         button_style = """
             QPushButton {
-                background-color: rgba(52, 73, 94, 0.9);
-                color: white;
-                border: none;
-                padding: 8px;
-                border-radius: 3px;
+                background-color: rgba(52, 73, 94, 0.9);  /* 반투명 남색 배경 */
+                color: white;  /* 흰색 텍스트 */
+                border: none;  /* 테두리 없음 */
+                padding: 10px;  /* 내부 여백 */
+                border-radius: 3px;  /* 둥근 모서리 */
             }
             QPushButton:hover {
-                background-color: rgba(52, 73, 94, 1.0);  /* 마우스 오버 시 진해지는 색상 */
+                background-color: rgba(52, 73, 94, 1.0);  /* 마우스 오버 시 불투명 남색 */
             }
         """
 
-        # 슬라이더 스타일 설정 (슬라이더 배경 색상 변경)
+        # 슬라이더 스타일 정의 (재생바와 볼륨 슬라이더에 적용)
         slider_style = """
             QSlider::groove:horizontal {
-                border: none;
-                height: 10px;
-                background: rgba(52, 73, 94, 0.9);
-                margin: 0px;
-                border-radius: 5px;
+                border: none;  /* 테두리 없음 */
+                height: 10px;  /* 그루브 높이 */
+                background: rgba(52, 73, 94, 0.9);  /* 반투명 남색 배경 */
+                margin: 0px;  /* 여백 없음 */
+                border-radius: 5px;  /* 둥근 모서리 */
             }
             QSlider::handle:horizontal {
-                background: white;
-                border: 2px solid white;
-                width: 16px;
-                height: 16px;
-                margin: -4px 0;
-                border-radius: 8px;
+                background: white;  /* 흰색 핸들 */
+                border: 2px solid white;  /* 흰색 테두리 */
+                width: 16px;  /* 핸들 너비 */
+                height: 16px;  /* 핸들 높이 */
+                margin: -4px 0;  /* 상하 마진 */
+                border-radius: 8px;  /* 원형 핸들 */
             }
             QSlider::handle:horizontal:hover {
-                background: rgba(255, 255, 0, 0.8);  /* 핸들에 마우스 호버 시 색상 변경 */
-                border: 2px solid rgba(255, 255, 0, 1.0);  /* 핸들 테두리 색상 변경 */
+                background: rgba(255, 255, 255, 1.0);  /* 마우스 오버 시 불투명 흰색 */
+                border: 2px solid rgba(255, 255, 255, 1.0);  /* 불투명 흰색 테두리 */
             }
             QSlider::add-page:horizontal {
-                background: rgba(52, 73, 94, 0.3);
-                border-radius: 5px;
+                background: rgba(0, 0, 0, 1.0);  /* 검은색 배경 (핸들 오른쪽) */
+                border-radius: 5px;  /* 둥근 모서리 */
             }
             QSlider::sub-page:horizontal {
-                background: rgba(52, 73, 94, 0.9);
-                border-radius: 5px;
+                background: rgba(255, 255, 255, 1.0);  /* 흰색 배경 (핸들 왼쪽) */
+                border-radius: 5px;  /* 둥근 모서리 */
             }
         """
 
-        # 프레임리스 윈도우 설정
+        # 프레임리스 윈도우 설정 (제목 표시줄 없는 창 - 커스텀 UI용)
         self.setWindowFlags(Qt.FramelessWindowHint)
         
-        # 배경색을 흰색으로 설정
+        # 배경색을 흰색으로 설정 (기본 배경)
         self.setStyleSheet("background-color: white;")
 
         # 전체 레이아웃 설정
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(0, 0, 0, 0)
-        main_layout.setSpacing(0)
+        main_layout.setContentsMargins(0, 0, 0, 0)  # 여백 없음 (화면 전체 활용)
+        main_layout.setSpacing(0)  # 위젯 간 간격 없음 (컴팩트한 UI)
         
-        # 제목표시줄 생성
+        # 제목 표시줄 생성 (커스텀 - 기본 윈도우 타이틀바 대체)
         self.title_bar = QWidget(self)
-        self.title_bar.setStyleSheet("background-color: rgba(52, 73, 94, 1.0);")
+        self.title_bar.setStyleSheet("background-color: rgba(52, 73, 94, 1.0);")  # 남색 배경
         
         title_layout = QHBoxLayout(self.title_bar)
-        title_layout.setContentsMargins(10, 0, 10, 0)
+        title_layout.setContentsMargins(10, 0, 10, 0)  # 좌우 여백만 설정
         
-        # 제목 텍스트
+        # 제목 텍스트 레이블
         title_label = QLabel("Image Viewer")
-        title_label.setStyleSheet("color: white; font-size: 16px;")
+        title_label.setStyleSheet("color: white; font-size: 16px;")  # 흰색 텍스트, 16px 크기
         title_layout.addWidget(title_label)
-        title_layout.addStretch()
+        title_layout.addStretch()  # 가운데 빈 공간 추가 (창 컨트롤 버튼을 오른쪽으로 밀기 위함)
         
-        # 윈도우 컨트롤 버튼
-        min_btn = QPushButton("_")
-        min_btn.setStyleSheet("color: white; background: none; border: none;")
-        min_btn.setFixedSize(30, 30)
-        min_btn.clicked.connect(self.showMinimized)
+        # 창 컨트롤 버튼들 (최소화, 최대화, 닫기 - 윈도우 기본 버튼 대체)
+        min_btn = QPushButton("_")  # 최소화 버튼
+        min_btn.setStyleSheet("color: white; background: none; border: none; padding: 10px;")
+        min_btn.clicked.connect(self.showMinimized)  # 최소화 기능 연결
         
-        max_btn = QPushButton("□")
-        max_btn.setStyleSheet("color: white; background: none; border: none;")
-        max_btn.setFixedSize(30, 30)
-        max_btn.clicked.connect(self.toggle_maximize_state)
-        self.max_btn = max_btn  # 버튼 객체를 클래스 변수로 저장
+        max_btn = QPushButton("□")  # 최대화 버튼
+        max_btn.setStyleSheet("color: white; background: none; border: none; padding: 10px;")
+        max_btn.clicked.connect(self.toggle_maximize_state)  # 최대화/복원 기능 연결
+        self.max_btn = max_btn  # 버튼 객체 저장 (최대화 상태에 따라 아이콘 변경 위함)
         
-        close_btn = QPushButton("×")
-        close_btn.setStyleSheet("color: white; background: none; border: none;")
-        close_btn.setFixedSize(30, 30)
-        close_btn.clicked.connect(self.close)
+        close_btn = QPushButton("×")  # 닫기 버튼
+        close_btn.setStyleSheet("color: white; background: none; border: none; padding: 10px;")
+        close_btn.clicked.connect(self.close)  # 닫기 기능 연결
         
+        # 창 컨트롤 버튼들 레이아웃에 추가
         title_layout.addWidget(min_btn)
         title_layout.addWidget(max_btn)
         title_layout.addWidget(close_btn)
 
-        # 메인 레이아웃에 제목표시줄 추가
-        main_layout.addWidget(self.title_bar, 1)  # 1%
+        # 제목 표시줄을 메인 레이아웃에 추가 (1% 비율 - 전체 UI 중 작은 부분)
+        main_layout.addWidget(self.title_bar, 1)
         
-        # 이미지를 표시할 컨테이너 위젯
+        # 이미지 표시 컨테이너 위젯
         self.image_container = QWidget()
-        self.image_container.setStyleSheet("background-color: white;")
+        self.image_container.setStyleSheet("background-color: white;")  # 흰색 배경
         
-        # 컨테이너에 대한 레이아웃
+        # 컨테이너 레이아웃 설정
         container_layout = QVBoxLayout(self.image_container)
-        container_layout.setContentsMargins(0, 0, 0, 0)
-        container_layout.setSpacing(0)
+        container_layout.setContentsMargins(0, 0, 0, 0)  # 여백 없음
+        container_layout.setSpacing(0)  # 간격 없음
         
-        # 이미지 레이블 설정
+        # 이미지 표시 레이블
         self.image_label = QLabel()
-        self.image_label.setAlignment(Qt.AlignCenter)
-        self.image_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.image_label.setStyleSheet("background-color: black;")  # QLabel 배경색을 검은색으로 설정
+        self.image_label.setAlignment(Qt.AlignCenter)  # 중앙 정렬 (이미지 중앙 배치)
+        self.image_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)  # 확장 가능한 크기 정책
+        self.image_label.setStyleSheet("background-color: black;")  # 검은색 배경 (이미지 대비 위함)
         container_layout.addWidget(self.image_label)
         
-        # 이미지 정보 레이블 생성
+        # 이미지 정보 표시 레이블 (파일 이름, 크기 등 표시)
         self.image_info_label = QLabel(self)
-        self.image_info_label.setAlignment(Qt.AlignCenter)
-        self.image_info_label.hide()
+        self.image_info_label.setAlignment(Qt.AlignCenter)  # 중앙 정렬
+        self.image_info_label.hide()  # 처음에는 숨김 (이미지 로드 후 표시)
         
-        # 하단 버튼 레이아웃 생성
+        # 하단 컨트롤 레이아웃
         bottom_layout = QVBoxLayout()
-        bottom_layout.setContentsMargins(0, 0, 0, 0)
+        bottom_layout.setContentsMargins(0, 0, 0, 0)  # 여백 없음
 
-        # 새로운 슬라이더를 위한 위젯 추가
-        slider_widget = QWidget(self)  # 슬라이더를 감싸는 위젯 생성
-        slider_widget.setStyleSheet("background-color: rgba(52, 73, 94, 0.9);")  # 위젯 색상 설정
-
-        # 새로운 슬라이더를 위한 수평 레이아웃 추가
+        # 슬라이더 위젯과 레이아웃
+        slider_widget = QWidget()
+        slider_widget.setStyleSheet("background-color: rgba(52, 73, 94, 0.9); padding: 10px;")  # 반투명 남색 배경, 패딩 추가 (UI 요소 사이 공간)
         new_slider_layout = QHBoxLayout(slider_widget)
-        new_slider_layout.setContentsMargins(0, 0, 0, 0)
+        new_slider_layout.setContentsMargins(5, 5, 5, 5)  # 내부 여백 설정 (요소 간 간격 조정)
+        new_slider_layout.setSpacing(8)  # 위젯 간 간격 설정 (버튼과 슬라이더 사이 간격)
 
-        # Open Image Folder 버튼 (첫 번째 위치)
-        self.open_button = QPushButton('Open Image Folder', self)
+        # 왼쪽 공백 추가 (10px)
+        left_spacer = QSpacerItem(10, 10, QSizePolicy.Fixed, QSizePolicy.Minimum)
+        new_slider_layout.addItem(left_spacer)
+        
+        # 폴더 열기 버튼 (첫 번째 위치)
+        self.open_button = QPushButton('Open Folder', self)
         self.open_button.setStyleSheet("""
             QPushButton {
                 background-color: rgba(52, 73, 94, 0.6);  /* 평상시 더 연하게 */
                 color: white;
                 border: none;
-                padding: 8px;
+                padding: 10px;
                 border-radius: 3px;
             }
             QPushButton:hover {
                 background-color: rgba(52, 73, 94, 1.0);  /* 마우스 오버 시 진하게 */
             }
         """)
-        self.open_button.clicked.connect(self.open_folder)
+        self.open_button.clicked.connect(self.open_folder)  # 폴더 열기 기능 연결 (이미지 폴더 선택)
         new_slider_layout.addWidget(self.open_button)
 
         # Set Base Folder 버튼 (두 번째 위치)
-        self.set_base_folder_button = QPushButton('Set Base Folder', self)
+        self.set_base_folder_button = QPushButton('Set Folder', self)
         self.set_base_folder_button.setStyleSheet("""
             QPushButton {
                 background-color: rgba(52, 73, 94, 0.6);  /* 평상시 더 연하게 */
                 color: white;
                 border: none;
-                padding: 8px;
+                padding: 10px;
                 border-radius: 3px;
             }
             QPushButton:hover {
                 background-color: rgba(52, 73, 94, 1.0);  /* 마우스 오버 시 진하게 */
             }
         """)
-        self.set_base_folder_button.clicked.connect(self.set_base_folder)
+        self.set_base_folder_button.clicked.connect(self.set_base_folder)  # 기준 폴더 설정 기능 연결 (복사 대상 폴더)
         new_slider_layout.addWidget(self.set_base_folder_button)
 
         # 재생 버튼 (세 번째 위치)
@@ -248,191 +298,196 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
                 background-color: rgba(52, 73, 94, 0.6);  /* 평상시 더 연하게 */
                 color: white;
                 border: none;
-                padding: 8px;
+                padding: 10px;
                 border-radius: 3px;
             }
             QPushButton:hover {
                 background-color: rgba(52, 73, 94, 1.0);  /* 마우스 오버 시 진하게 */
             }
         """)
-        self.play_button.clicked.connect(self.toggle_animation_playback)  # 재생 버튼 클릭 이벤트 연결
+        self.play_button.clicked.connect(self.toggle_animation_playback)  # 재생 버튼 클릭 이벤트 연결 (재생/일시정지 전환)
         new_slider_layout.addWidget(self.play_button)
 
-        # MPV 상태 확인을 위한 타이머 설정
+        # MPV 상태 확인을 위한 타이머 설정 (주기적으로 재생 상태 업데이트)
         self.play_button_timer = QTimer(self)
-        self.play_button_timer.timeout.connect(self.update_play_button)
-        self.play_button_timer.start(100)  # 100ms마다 상태 확인
+        self.play_button_timer.timeout.connect(self.update_play_button)  # 타이머가 작동할 때마다 update_play_button 메소드 호출
+        self.play_button_timer.start(100)  # 100ms마다 상태 확인 (초당 10번 업데이트)
 
         # 기존 슬라이더 (재생 바) 추가
-        self.playback_slider = ClickableSlider(Qt.Horizontal, self)  # ClickableSlider로 변경
-        self.playback_slider.setRange(0, 100)  # 슬라이더 범위 설정
-        self.playback_slider.setValue(0)  # 초기 값을 0으로 설정
-        self.playback_slider.setStyleSheet(slider_style)  # 슬라이더 스타일 적용
-        self.playback_slider.clicked.connect(self.slider_clicked)  # 클릭 이벤트 연결
+        self.playback_slider = ClickableSlider(Qt.Horizontal, self)  # ClickableSlider로 변경 (클릭 시 해당 위치로 이동)
+        self.playback_slider.setRange(0, 100)  # 슬라이더 범위 설정 (0-100%)
+        self.playback_slider.setValue(0)  # 초기 값을 0으로 설정 (시작 위치)
+
+        self.playback_slider.clicked.connect(self.slider_clicked)  # 클릭 이벤트 연결 (클릭 위치로 미디어 이동)
         new_slider_layout.addWidget(self.playback_slider)  # 재생 바 슬라이더를 레이아웃에 추가
 
-        # 재생 시간 레이블 추가
+        # 재생 시간 레이블 추가 (현재 시간/총 시간 표시)
         self.time_label = QLabel("00:00 / 00:00", self)  # 초기 시간 표시
         self.time_label.setStyleSheet("""
             QLabel {
-                color: white;
                 background-color: rgba(52, 73, 94, 0.6);  /* 평상시 더 연하게 */
-                padding: 5px 10px;
+                color: white;
+                border: none;
+                padding: 10px;
                 border-radius: 3px;
                 font-size: 14px;
-                min-width: 100px;
-                max-width: 100px;
                 qproperty-alignment: AlignCenter;  /* 텍스트 중앙 정렬 */
             }
             QLabel:hover {
                 background-color: rgba(52, 73, 94, 1.0);  /* 마우스 오버 시 진하게 */
             }
         """)
-        self.time_label.setFixedSize(100, 30)  # 너비 100px, 높이 30px로 고정
-        self.time_label.setAlignment(Qt.AlignCenter)  # 텍스트 중앙 정렬
+        self.time_label.setAlignment(Qt.AlignCenter)  # 텍스트 중앙 정렬 (레이블 내 텍스트 위치)
         new_slider_layout.addWidget(self.time_label)  # 레이블을 재생 바 오른쪽에 추가
 
-        # 음소거 버튼 추가
+        # 음소거 버튼 추가 (오디오 켜기/끄기)
         self.mute_button = QPushButton("🔈", self)  # 음소거 해제 아이콘으로 초기화
         self.mute_button.setStyleSheet("""
             QPushButton {
                 background-color: rgba(52, 73, 94, 0.6);  /* 평상시 더 연하게 */
                 color: white;
                 border: none;
-                padding: 8px;
+                padding: 10px;
                 border-radius: 3px;
             }
             QPushButton:hover {
                 background-color: rgba(52, 73, 94, 1.0);  /* 마우스 오버 시 진하게 */
             }
         """)
-        self.mute_button.setFixedSize(30, 30)  # 버튼 크기 설정
-        self.mute_button.clicked.connect(self.toggle_mute)  # 음소거 토글 메서드 연결
-        new_slider_layout.addWidget(self.mute_button)  # 음소거 버튼을 레이아웃에 추가
+        self.mute_button.clicked.connect(self.toggle_mute)  # 음소거 토글 기능 연결
+        new_slider_layout.addWidget(self.mute_button)
 
-        # 음량 조절용 슬라이더 추가
-        self.volume_slider = ClickableSlider(Qt.Horizontal, self)  # ClickableSlider로 변경
-        self.volume_slider.setRange(0, 100)  # 슬라이더 범위 설정
-        self.volume_slider.setValue(100)  # 초기 값 설정 (100%로 시작)
-        self.volume_slider.setStyleSheet(slider_style)  # 슬라이더 스타일 적용
-        self.volume_slider.setFixedWidth(int(self.image_label.width() * 0.3))  # 슬라이더 너비를 이미지 너비의 30%로 설정
-        self.volume_slider.clicked.connect(self.adjust_volume)  # 클릭 이벤트 연결
-        self.volume_slider.valueChanged.connect(self.adjust_volume)  # 드래그 이벤트 연결
+        # 볼륨 슬라이더 추가 (음량 조절)
+        self.volume_slider = ClickableSlider(Qt.Horizontal, self)
+        self.volume_slider.setRange(0, 100)  # 볼륨 범위 0-100%
+        self.volume_slider.setValue(100)  # 기본 볼륨 100%으로 설정 (최대 음량)
+
+        # 볼륨 슬라이더에 패딩 추가 (UI 개선)
+        self.volume_slider.valueChanged.connect(self.adjust_volume)  # 슬라이더 값 변경 시 음량 조절 함수 연결
+        self.volume_slider.clicked.connect(self.adjust_volume)  # 클릭 이벤트 연결 (클릭 위치로 음량 즉시 변경)
         new_slider_layout.addWidget(self.volume_slider)  # 음량 조절 슬라이더를 레이아웃에 추가
+        
+        # 볼륨 슬라이더 오른쪽에 10px 공백 추가 (20px에서 수정) - UI 여백 확보
+        right_spacer = QSpacerItem(10, 10, QSizePolicy.Fixed, QSizePolicy.Minimum)
+        new_slider_layout.addItem(right_spacer)
 
         # 새로운 슬라이더 위젯을 하단 레이아웃에 추가
         bottom_layout.addWidget(slider_widget)
 
-        # 48개의 폴더 버튼에 스타일 적용
+        # 폴더 버튼에 스타일 적용 (하위 폴더 선택용 버튼 그리드)
         self.buttons = []
-        for _ in range(5):  # 4줄에서 5줄로 변경
+        for _ in range(5):  # 4줄에서 5줄로 변경 (더 많은 폴더 버튼 표시)
             button_layout = QHBoxLayout()
             button_row = []
-            for _ in range(20):  # 12개에서 20개로 변경
+            for _ in range(20):  # 12개에서 20개로 변경 (버튼 수 증가)
                 empty_button = QPushButton('')
                 empty_button.setStyleSheet(button_style)
-                empty_button.clicked.connect(self.on_button_click)
+                empty_button.clicked.connect(self.on_button_click)  # 버튼 클릭 이벤트 연결 (이미지 복사 기능)
                 button_row.append(empty_button)
                 button_layout.addWidget(empty_button)
             self.buttons.append(button_row)
             bottom_layout.addLayout(button_layout)
 
         # 메인 레이아웃에 위젯 추가
-        main_layout.addWidget(self.image_container, 90)  # 89%
+        main_layout.addWidget(self.image_container, 90)  # 90% (이미지가 화면의 대부분 차지)
 
         # 하단 버튼 영역을 메인 레이아웃에 추가
-        main_layout.addLayout(bottom_layout, 9)  # 10%
+        main_layout.addLayout(bottom_layout, 9)  # 9% (하단 컨트롤 영역)
 
-        self.image_files = []  # 이미지 파일 리스트 초기화
-        self.current_index = 0  # 현재 이미지의 인덱스 초기화
-        self.current_image_path = None  # 현재 이미지 경로 초기화
-        self.base_folder = None  # 기준 폴더 변수 초기화
+        self.image_files = []  # 이미지 파일 리스트 초기화 (현재 폴더의 모든 이미지 파일 경로)
+        self.current_index = 0  # 현재 이미지의 인덱스 초기화 (현재 보고 있는 이미지)
+        self.current_image_path = None  # 현재 이미지 경로 초기화 (현재 표시 중인 이미지 파일 경로)
+        self.base_folder = None  # 기준 폴더 변수 초기화 (복사 대상 폴더 경로)
 
-        self.setFocusPolicy(Qt.StrongFocus)  # 강한 포커스를 설정 (위젯이 포커스를 받을 수 있도록 설정)
+        self.setFocusPolicy(Qt.StrongFocus)  # 강한 포커스를 설정 (위젯이 포커스를 받을 수 있도록 설정 - 키보드 이벤트 처리용)
 
-        self.cap = None  # 비디오 캡처 객체 초기화
-        self.timer = QTimer(self)  # 타이머 객체 생성
+        self.cap = None  # 비디오 캡처 객체 초기화 (OpenCV 비디오 캡처)
+        self.timer = QTimer(self)  # 타이머 객체 생성 (비디오 프레임 업데이트용)
         self.timer.timeout.connect(self.update_video_frame)  # 타이머가 작동할 때마다 update_video_frame 메소드 호출
 
-        # 마우스 트래킹 활성화
+        # 마우스 트래킹 활성화 (마우스 움직임 감지를 위한 설정)
         self.setMouseTracking(True)
         self.image_container.setMouseTracking(True)
         self.image_label.setMouseTracking(True)
         
-        # 전역 이벤트 필터 설치
+        # 전역 이벤트 필터 설치 (모든 위젯의 이벤트 캡처)
         QApplication.instance().installEventFilter(self)
 
-        # MPV DLL 경로 설정
+        # MPV DLL 경로 설정 (동적 라이브러리 로드 경로)
         if getattr(sys, 'frozen', False):
-            # PyInstaller로 패키징된 경우
+            # PyInstaller로 패키징된 경우 (실행 파일 경로 기준)
             mpv_path = os.path.join(os.path.dirname(sys.executable), 'mpv')
             os.environ["MPV_DYLIB_PATH"] = os.path.join(mpv_path, "libmpv-2.dll")
         else:
-            # 일반 스크립트로 실행되는 경우
+            # 일반 스크립트로 실행되는 경우 (스크립트 경로 기준)
             mpv_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mpv')
             os.environ["MPV_DYLIB_PATH"] = os.path.join(mpv_path, "libmpv-2.dll")
 
-        self.player = mpv.MPV(ytdl=True, input_default_bindings=True, input_vo_keyboard=True, hr_seek="yes")
+        self.player = mpv.MPV(ytdl=True, input_default_bindings=True, input_vo_keyboard=True, hr_seek="yes")  # MPV 플레이어 객체 생성 (고품질 비디오 재생)
 
         # 슬라이더와 음량 조절 동기화
-        self.volume_slider.valueChanged.connect(self.adjust_volume)  # 슬라이더 값 변경 시 음량 조절 메서드 연결
+        self.volume_slider.valueChanged.connect(self.adjust_volume)  # 슬라이더 값 변경 시 음량 조절 메서드 연결 (볼륨 실시간 조절)
 
-        # 슬라이더 스타일 적용
-        self.playback_slider.setStyleSheet(slider_style)  # 슬라이더 스타일 적용
+        # 슬라이더 스타일 적용 (UI 일관성)
+        self.playback_slider.setStyleSheet(slider_style)  # 재생 슬라이더 스타일 적용
         self.volume_slider.setStyleSheet(slider_style)  # 음량 조절 슬라이더 스타일 적용
 
-        self.previous_position = None  # 클래스 변수로 이전 위치 저장
+        self.previous_position = None  # 클래스 변수로 이전 위치 저장 (시크 동작 최적화용)
 
         # 창이 완전히 로드된 후 이미지 정보 업데이트를 위한 타이머 설정
         # 초기 레이아웃 설정을 위해 바로 호출
         self.update_image_info()
-        # 창이 완전히 로드된 후 한번 더 업데이트
+        # 창이 완전히 로드된 후 한번 더 업데이트 (지연 업데이트로 화면 크기에 맞게 조정)
         QTimer.singleShot(100, self.update_image_info)
 
-        self.psd_cache = {}  # PSD 캐시를 딕셔너리로 변경
-        self.max_psd_cache_size = 5  # PSD 캐시 최대 크기
+        self.psd_cache = {}  # PSD 캐시를 딕셔너리로 변경 (메모리 최적화를 위한 이미지 캐싱)
+        self.max_psd_cache_size = 5  # PSD 캐시 최대 크기 (메모리 제한)
+
+        self.last_wheel_time = 0  # 마지막 휠 이벤트 발생 시간 (휠 이벤트 쓰로틀링용)
+        self.wheel_cooldown_ms = 1000  # 1000ms 쿨다운 (500ms에서 변경됨) - 휠 이벤트 속도 제한
 
     def ensure_maximized(self):
         """창이 최대화 상태인지 확인하고 그렇지 않으면 다시 최대화합니다."""
         if not self.isMaximized():
-            self.showMaximized()
+            self.showMaximized()  # 최대화 상태가 아니면 최대화 적용
 
     def resizeEvent(self, event):
-        """창 크기 변경 이벤트 처리"""
+        """창 크기 변경 이벤트 처리 (창 크기 변경 시 UI 요소 조정)"""
         if hasattr(self, 'title_bar'):
-            self.title_bar.setGeometry(0, 0, self.width(), 30)
-            self.title_bar.raise_()
+            self.title_bar.setGeometry(0, 0, self.width(), 30)  # 제목표시줄 위치와 크기 조정
+            self.title_bar.raise_()  # 제목표시줄을 항상 맨 위로 유지
             
-            # 제목표시줄의 버튼들 업데이트
+            # 제목표시줄의 버튼들 업데이트 (크기 변경에 맞춰 조정)
             for child in self.title_bar.children():
                 if isinstance(child, QPushButton):
-                    child.updateGeometry()
+                    child.updateGeometry()  # 버튼 위치/크기 업데이트
                     child.update()  # 버튼의 시각적 상태도 업데이트
         
-        # 현재 표시 중인 미디어 크기 조절
+        # 현재 표시 중인 미디어 크기 조절 (화면 크기에 맞게 조정)
         if hasattr(self, 'current_image_path') and self.current_image_path:
-            file_ext = os.path.splitext(self.current_image_path)[1].lower()
+            file_ext = os.path.splitext(self.current_image_path)[1].lower()  # 파일 확장자 확인 (소문자로 변환)
             
-            if file_ext == '.psd':  # PSD 파일
+            if file_ext == '.psd':  # PSD 파일 처리 (Photoshop 이미지)
                 try:
-                    # 캐시된 이미지가 있으면 사용
+                    # 캐시된 이미지가 있으면 사용 (성능 최적화)
                     if self.current_image_path in self.psd_cache:
                         pixmap = self.psd_cache[self.current_image_path]
                     else:
-                        # 캐시된 이미지가 없으면 변환
+                        # 캐시된 이미지가 없으면 변환 (PSD -> PNG)
                         from PIL import Image, ImageCms
                         from io import BytesIO
                         
                         # PSD 파일을 PIL Image로 열기
                         image = Image.open(self.current_image_path)
                         
-                        # RGB 모드로 변환
+                        # RGB 모드로 변환 (색상 모드 보정)
                         if image.mode != 'RGB':
                             image = image.convert('RGB')
                         
-                        # ICC 프로파일 처리
+                        # ICC 프로파일 처리 (색상 프로파일 관리)
                         if 'icc_profile' in image.info:
                             try:
+                                srgb_profile = ImageCms.createProfile('sRGB')  # sRGB 프로파일 생성
                                 srgb_profile = ImageCms.createProfile('sRGB')
                                 icc_profile = BytesIO(image.info['icc_profile'])
                                 image = ImageCms.profileToProfile(
@@ -453,77 +508,86 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
                         
                         # 캐시 크기 관리
                         if len(self.psd_cache) >= self.max_psd_cache_size:
-                            # 가장 오래된 항목 제거
+                            # 가장 오래된 항목 제거 (캐시 크기 관리)
                             self.psd_cache.pop(next(iter(self.psd_cache)))
-                        self.psd_cache[self.current_image_path] = pixmap
+                        self.psd_cache[self.current_image_path] = pixmap  # 현재 이미지를 캐시에 저장
                     
+                    # 이미지가 정상적으로 로드된 경우 화면에 표시
                     if not pixmap.isNull():
                         scaled_pixmap = pixmap.scaled(self.image_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
-                        self.image_label.setPixmap(scaled_pixmap)
+                        self.image_label.setPixmap(scaled_pixmap)  # 크기 조정된 이미지 표시
 
                 except Exception as e:
-                    pass
+                    pass  # 예외 발생 시 무시하고 진행
             
-            elif file_ext in ['.jpg', '.jpeg', '.png']:  # 일반 이미지
-                pixmap = QPixmap(self.current_image_path)
-                if not pixmap.isNull():
-                    scaled_pixmap = pixmap.scaled(self.image_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
-                    self.image_label.setPixmap(scaled_pixmap)
+            elif file_ext in ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.ico', '.heic', '.heif']:  # 일반 이미지 파일 처리
+                pixmap = QPixmap(self.current_image_path)  # 이미지 로드
+                if not pixmap.isNull():  # 이미지가 정상적으로 로드되었는지 확인
+                    scaled_pixmap = pixmap.scaled(self.image_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)  # 비율 유지하며 크기 조정
+                    self.image_label.setPixmap(scaled_pixmap)  # 화면에 표시
             
-            elif file_ext == '.webp':  # WEBP 파일
-                if hasattr(self, 'current_movie') and self.current_movie:
-                    # 애니메이션인 경우
+            elif file_ext == '.webp':  # WebP 이미지/애니메이션 처리
+                if hasattr(self, 'current_movie') and self.current_movie:  # 애니메이션 WebP인 경우
+                    # 현재 프레임 정보 저장
                     current_frame = self.current_movie.currentFrameNumber()
                     original_size = QSize(self.current_movie.currentImage().width(), self.current_movie.currentImage().height())
                     label_size = self.image_label.size()
                     
+                    # 높이가 0인 경우 예외 처리 (0으로 나누기 방지)
                     if original_size.height() == 0:
                         original_size.setHeight(1)
                     
+                    # 화면 비율에 맞게 새 크기 계산
                     if label_size.width() / label_size.height() > original_size.width() / original_size.height():
+                        # 세로 맞춤 (세로 기준으로 가로 계산)
                         new_height = label_size.height()
                         new_width = int(new_height * (original_size.width() / original_size.height()))
                     else:
+                        # 가로 맞춤 (가로 기준으로 세로 계산)
                         new_width = label_size.width()
                         new_height = int(new_width * (original_size.height() / original_size.width()))
                     
+                    # 애니메이션 크기 조정 및 원래 프레임으로 복원
                     self.current_movie.setScaledSize(QSize(new_width, new_height))
                     self.current_movie.jumpToFrame(current_frame)
-                else:
-                    # 일반 이미지인 경우
+                else:  # 정적 WebP 이미지인 경우
+                    # 일반 이미지처럼 처리
                     pixmap = QPixmap(self.current_image_path)
                     if not pixmap.isNull():
                         scaled_pixmap = pixmap.scaled(self.image_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
                         self.image_label.setPixmap(scaled_pixmap)
             
-            elif file_ext in ['.gif', '.webp']:  # 애니메이션
-                if hasattr(self, 'current_movie'):
+            elif file_ext in ['.gif', '.webp']:  # GIF/WebP 애니메이션 공통 처리
+                if hasattr(self, 'current_movie'):  # 애니메이션 객체가 있는 경우
                     # 현재 프레임 번호 저장
                     current_frame = self.current_movie.currentFrameNumber()
                     
-                    # 새로운 크기 계산
+                    # 원본 크기와 표시 영역 크기 정보
                     original_size = QSize(self.current_movie.currentImage().width(), self.current_movie.currentImage().height())
                     label_size = self.image_label.size()
                     
+                    # 높이가 0인 경우 예외 처리 (0으로 나누기 방지)
                     if original_size.height() == 0:
                         original_size.setHeight(1)
-                    
+                        
+                    # 화면 비율에 맞게 새 크기 계산
                     if label_size.width() / label_size.height() > original_size.width() / original_size.height():
+                        # 세로 맞춤 (세로 기준으로 가로 계산)
                         new_height = label_size.height()
                         new_width = int(new_height * (original_size.width() / original_size.height()))
                     else:
+                        # 가로 맞춤 (가로 기준으로 세로 계산)
                         new_width = label_size.width()
                         new_height = int(new_width * (original_size.height() / original_size.width()))
                     
-                    # 새로운 크기로 설정
+                    # 애니메이션 크기 조정 및 원래 프레임으로 복원
                     self.current_movie.setScaledSize(QSize(new_width, new_height))
-                    
-                    # 현재 프레임으로 복귀
                     self.current_movie.jumpToFrame(current_frame)
             
-            elif file_ext == '.mp4':  # 비디오
+            elif file_ext in ['.mp4', '.avi', '.wmv', '.ts', '.m2ts', '.mov', '.qt', '.mkv', '.flv', '.webm', '.3gp', '.m4v', '.mpg', '.mpeg', '.vob', '.wav', '.flac', '.mp3', '.aac', '.m4a', '.ogg']:  # 모든 비디오/오디오 미디어 파일
+                # MPV 플레이어를 사용하는 경우 윈도우 ID 업데이트
                 if hasattr(self, 'player'):
-                    # MPV 플레이어의 출력 크기 업데이트
+                    # MPV 플레이어의 출력 윈도우 ID 설정 (이미지 라벨에 맞춤)
                     self.player.wid = int(self.image_label.winId())
         
         # 버튼 크기 계산 및 조정
@@ -593,17 +657,17 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
         # 볼륨 슬라이더 크기 조정
         if hasattr(self, 'volume_slider'):
             window_width = self.width()
-            self.volume_slider.setFixedWidth(int(window_width * 0.15))  # 창 너비의 15%
+            self.volume_slider.setFixedWidth(int(window_width * 0.15))  # 창 너비의 15%로 볼륨 슬라이더 너비 설정
 
         # 재생 슬라이더 크기 조정
         if hasattr(self, 'playback_slider'):
             window_width = self.width()
-            min_width = int(window_width * 0.4)  # 최소 40%
-            max_width = int(window_width * 0.6)  # 최대 60%
+            min_width = int(window_width * 0.4)  # 최소 너비는 창 너비의 40%
+            max_width = int(window_width * 0.6)  # 최대 너비는 창 너비의 60%
             self.playback_slider.setMinimumWidth(min_width)
             self.playback_slider.setMaximumWidth(max_width)
         
-        # 레이아웃 강제 업데이트 추가
+        # 이미지 컨테이너 레이아웃 강제 업데이트
         if hasattr(self, 'image_container'):
             self.image_container.updateGeometry()
         
@@ -612,7 +676,7 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
             for button in row:
                 button.updateGeometry()
         
-        # 슬라이더 위젯의 레이아웃 업데이트
+        # 슬라이더 위젯 레이아웃 업데이트
         if hasattr(self, 'playback_slider'):
             self.playback_slider.updateGeometry()
         if hasattr(self, 'volume_slider'):
@@ -622,123 +686,131 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
         self.updateGeometry()
         self.layout().update()
         
+        # 부모 클래스의 resizeEvent 호출
         super().resizeEvent(event)
 
     def mouseDoubleClickEvent(self, event):
-        """더블 클릭 시 최대화 및 일반 창 상태를 전환합니다."""
+        """더블 클릭 시 최대화/일반 창 상태 전환"""
         if self.isMaximized():
-            self.showNormal()
+            self.showNormal()  # 최대화 상태면 일반 크기로 복원
         else:
-            self.showMaximized()
+            self.showMaximized()  # 일반 상태면 최대화
 
     def set_base_folder(self):
-        folder_path = QFileDialog.getExistingDirectory(self, "Set Base Folder")
-        if folder_path:
-            self.base_folder = folder_path
-            print(f"Base folder set to: {self.base_folder}")
+        """기준 폴더 설정 (하위 폴더 버튼 자동 생성용)"""
+        folder_path = QFileDialog.getExistingDirectory(self, "Set Base Folder")  # 폴더 선택 대화상자
+        if folder_path:  # 폴더가 선택된 경우
+            self.base_folder = folder_path  # 기준 폴더 경로 저장
+            print(f"Base folder set to: {self.base_folder}")  # 콘솔에 설정된 경로 출력
 
-            # 버튼들 초기화
+            # 모든 버튼 초기화 (텍스트 및 툴팁 제거)
             for row in self.buttons:
                 for button in row:
                     button.setText('')
                     button.setToolTip('')
 
-            # 하위 폴더들을 가져와서 자연스러운 순서로 정렬
+            # 자연스러운 정렬을 위한 함수 정의 (숫자가 포함된 텍스트 정렬용)
             def natural_keys(text):
                 import re
                 def atoi(text):
-                    return int(text) if text.isdigit() else text
-                return [atoi(c) for c in re.split('([0-9]+)', text)]
+                    return int(text) if text.isdigit() else text  # 숫자는 정수로 변환
+                return [atoi(c) for c in re.split('([0-9]+)', text)]  # 숫자와 텍스트 부분 분리
 
-            subfolders = [f.path for f in os.scandir(self.base_folder) if f.is_dir()]
-            subfolders.sort(key=lambda x: natural_keys(os.path.basename(x).lower()))
+            # 하위 폴더 목록 가져오기
+            subfolders = [f.path for f in os.scandir(self.base_folder) if f.is_dir()]  # 디렉토리만 선택
+            subfolders.sort(key=lambda x: natural_keys(os.path.basename(x).lower()))  # 자연스러운 순서로 정렬
 
             # 버튼 너비 계산
-            button_width = self.width() // 20
+            button_width = self.width() // 20  # 창 너비의 1/20로 설정
 
-            # 빈 버튼에 하위 폴더 경로를 순서대로 설정
+            # 폴더 버튼 업데이트
             for i, row in enumerate(self.buttons):
                 for j, button in enumerate(row):
-                    index = i * 20 + j
-                    if index < len(subfolders):
-                        folder_name = os.path.basename(subfolders[index])
-                        button.setFixedWidth(button_width)
+                    index = i * 20 + j  # 버튼 인덱스 계산 (5행 20열)
+                    if index < len(subfolders):  # 유효한 폴더가 있는 경우
+                        folder_name = os.path.basename(subfolders[index])  # 폴더명 추출
+                        button.setFixedWidth(button_width)  # 버튼 너비 설정
                         
-                        # 버튼의 실제 사용 가능한 너비 계산 (패딩 고려)
+                        # 버튼 텍스트 영역 계산 (패딩 고려)
                         available_width = button_width - 16  # 좌우 패딩 8px씩 제외
                         
-                        # QFontMetrics를 사용하여 텍스트 너비 계산
+                        # 텍스트 너비 측정
                         font_metrics = button.fontMetrics()
                         text_width = font_metrics.horizontalAdvance(folder_name)
                         
-                        # 텍스트가 버튼 너비를 초과하면 자동으로 줄임
+                        # 텍스트가 버튼 너비를 초과하면 자동으로 축약
                         if text_width > available_width:
                             # 적절한 길이를 찾을 때까지 텍스트 줄임
                             for k in range(len(folder_name), 0, -1):
-                                truncated = folder_name[:k] + ".."
+                                truncated = folder_name[:k] + ".."  # 텍스트 뒷부분 생략 표시
                                 if font_metrics.horizontalAdvance(truncated) <= available_width:
-                                    button.setText(truncated)
-                                    button.setToolTip(subfolders[index])  # 전체 경로는 툴큐로
+                                    button.setText(truncated)  # 축약된 텍스트 설정
+                                    button.setToolTip(subfolders[index])  # 툴팁으로 전체 경로 표시
                                     break
                         else:
-                            button.setText(folder_name)
-                            button.setToolTip(subfolders[index])
+                            button.setText(folder_name)  # 원본 폴더명 표시
+                            button.setToolTip(subfolders[index])  # 툴팁으로 전체 경로 표시
 
     def on_button_click(self):
-        button = self.sender()  # 클릭된 버튼을 가져옴
-        folder_path = button.toolTip()  # 버튼의 툴큐에서 폴더 경로 가져오기
+        """하위 폴더 버튼 클릭 처리 - 현재 이미지를 선택된 폴더로 복사"""
+        button = self.sender()  # 클릭된 버튼 객체 참조
+        folder_path = button.toolTip()  # 버튼 툴팁에서 폴더 경로 가져오기
         print(f"Selected folder: {folder_path}")  # 선택된 폴더 경로 출력
 
-        # 커서를 일반 커서로 설정
+        # 커서를 일반 모양으로 복원
         QApplication.restoreOverrideCursor()  # 모래시계에서 일반 커서로 복원
 
-        self.copy_image_to_folder(folder_path)  # 해당 폴더로 이미지를 복사하는 메소드 호출
+        # 현재 이미지를 선택된 폴더로 복사
+        self.copy_image_to_folder(folder_path)
 
     def open_folder(self):
-        folder_path = QFileDialog.getExistingDirectory(self, "Open Image Folder")  # 폴더 선택 대화상자 열기
+        """이미지 폴더 열기 대화상자 표시 및 처리"""
+        folder_path = QFileDialog.getExistingDirectory(self, "Open Image Folder")  # 폴더 선택 대화상자
 
-        if folder_path:  # 폴더가 선택되었으면
-            self.image_files = self.get_image_files(folder_path)  # 이미지 파일 목록 가져오기
+        if folder_path:  # 폴더가 선택된 경우
+            self.image_files = self.get_image_files(folder_path)  # 지원되는 미디어 파일 목록 가져오기
 
-            if self.image_files:  # 유효한 이미지 파일이 있으면
-                self.image_files.sort()  # 이미지 파일을 정렬
-                self.show_image(self.image_files[0])  # 첫 번째 이미지를 화면에 표시
-                self.current_index = 0  # 현재 이미지 인덱스를 0으로 설정
+            if self.image_files:  # 유효한 파일이 있는 경우
+                self.image_files.sort()  # 파일 목록 정렬
+                self.show_image(self.image_files[0])  # 첫 번째 이미지 표시
+                self.current_index = 0  # 현재 이미지 인덱스 초기화
             else:
-                print("No valid image files found in the folder.")  # 유효한 이미지 파일이 없으면 출력
+                print("No valid image files found in the folder.")  # 유효한 파일이 없는 경우 메시지 출력
 
     def get_image_files(self, folder_path):
-        # 유효한 이미지 확장자 목록
-        valid_extensions = ['.jpg', '.jpeg', '.png', '.webp', '.psd', '.gif', '.mp4']
-        # 폴더 내의 유효한 이미지 파일 경로 목록을 반환
+        """지원하는 모든 미디어 파일 목록 가져오기"""
+        # 지원하는 파일 확장자 목록 (이미지, 비디오, 오디오 파일)
+        valid_extensions = ['.jpg', '.jpeg', '.png', '.webp', '.psd', '.gif', '.bmp', '.tiff', '.tif', '.ico', '.heic', '.heif', '.mp4', '.avi', '.wav', '.ts', '.m2ts', '.mov', '.qt', '.mkv', '.flv', '.webm', '.3gp', '.m4v', '.mpg', '.mpeg', '.vob', '.wmv', '.mp3', '.flac', '.aac', '.m4a', '.ogg']
+        # 폴더 내에서 지원하는 확장자를 가진 모든 파일 경로 목록 반환
         return [os.path.join(folder_path, f) for f in os.listdir(folder_path) if any(f.lower().endswith(ext) for ext in valid_extensions)]
 
     def stop_video(self):
-        """비디오 재생 중지"""
+        """비디오 재생 중지 및 관련 리소스 정리"""
         
-        # OpenCV 객체 정리
+        # OpenCV 비디오 캡처 객체 정리
         if self.cap is not None:
-            self.cap.release()
-            self.cap = None
+            self.cap.release()  # 비디오 캡처 객체 해제
+            self.cap = None  # 참조 제거
         
+        # 비디오 프레임 업데이트 타이머 중지
         if hasattr(self, 'timer') and self.timer.isActive():
-            self.timer.stop()
+            self.timer.stop()  # 타이머 중지
         
-        # MPV 정지 - 플레이어가 존재하고 실행 중일 때만 중지
+        # MPV 플레이어 정지 (플레이어가 존재하고 실행 중인 경우)
         if hasattr(self, 'player') and self.player:
             try:
-                # 플레이어가 실행 중인지 확인
-                if self.player.playback_time is not None:  # 재생 중인지 확인
-                    self.player.stop()
+                # 플레이어가 재생 중인지 확인
+                if self.player.playback_time is not None:  # 재생 시간이 있으면 재생 중
+                    self.player.stop()  # 재생 중지
             except Exception as e:
-                pass
+                pass  # 예외 발생 시 무시하고 계속 진행
                 
         # 비디오 타이머 정지
         if hasattr(self, 'video_timer') and self.video_timer.isActive():
-            self.video_timer.stop()
+            self.video_timer.stop()  # 비디오 타이머 중지
 
     def disconnect_all_slider_signals(self):
-        """슬라이더의 모든 신호 연결을 해제하는 함수"""
+        """슬라이더의 모든 신호 연결 해제 (이벤트 충돌 방지)"""
         
         try:
             # valueChanged 시그널 연결 해제
@@ -765,15 +837,16 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
             pass  # 연결된 슬롯이 없으면 무시
 
     def show_image(self, image_path):
-        self.stop_video()  # 비디오 중지
+        """이미지/미디어 파일 표시 및 관련 UI 업데이트"""
+        self.stop_video()  # 기존 비디오 재생 중지
 
-        # 이전 이미지 애니메이션 정지
-        self.image_label.clear()  # QLabel의 내용을 지워서 애니메이션 정지
+        # 이전 이미지/애니메이션 정지
+        self.image_label.clear()  # 레이블 내용 지우기 (애니메이션 정지)
 
-        # 파일 이름과 확장자를 제목표시줄에 표시
+        # 파일 이름을 제목표시줄에 표시
         file_name = os.path.basename(image_path) if image_path else "Image Viewer"
         title_text = f"Image Viewer - {file_name}" if image_path else "Image Viewer"
-        # title_label을 찾아서 텍스트 업데이트
+        # 제목표시줄 라벨 찾아서 텍스트 업데이트
         for child in self.title_bar.children():
             if isinstance(child, QLabel):
                 child.setText(title_text)
@@ -785,7 +858,6 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
         # 애니메이션이 재생 중일 경우 정지
         if hasattr(self, 'current_movie') and self.current_movie:
             self.current_movie.stop()  # 애니메이션 정지
-            
         # 슬라이더 신호 연결 해제
         self.disconnect_all_slider_signals()
 
@@ -802,7 +874,7 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
         elif file_ext == '.psd':  # PSD 파일 처리
             self.current_media_type = 'image'  # 미디어 타입 업데이트
             self.show_psd(image_path)  # PSD를 표시하는 메서드 호출
-        elif file_ext in ['.jpg', '.jpeg', '.png']:  # JPG, JPEG, PNG 파일 처리
+        elif file_ext in ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.ico', '.heic', '.heif']:  # JPG, JPEG, PNG 파일 처리
             self.current_media_type = 'image'  # 미디어 타입 업데이트
             pixmap = QPixmap(image_path)  # QPixmap으로 이미지 로드
             if not pixmap.isNull():  # 이미지가 정상적으로 로드되었는지 확인
@@ -810,7 +882,7 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
         elif file_ext == '.webp':  # WEBP 파일 처리
             self.current_media_type = 'webp'  # 미디어 타입 업데이트
             self.show_webp(image_path)  # WEBP 애니메이션 처리
-        elif file_ext == '.mp4':  # MP4 파일 처리
+        elif file_ext in ['.mp4', '.avi', '.wmv', '.ts', '.m2ts', '.mov', '.qt', '.mkv', '.flv', '.webm', '.3gp', '.m4v', '.mpg', '.mpeg', '.vob', '.wav', '.flac', '.mp3', '.aac', '.m4a', '.ogg']:  # MP4 파일 처리-
             self.current_media_type = 'video'  # 미디어 타입 업데이트
             self.play_video(image_path)  # MP4 비디오 재생
         else:
@@ -870,16 +942,17 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
                 
                 # 캐시 크기 관리
                 if len(self.psd_cache) >= self.max_psd_cache_size:
-                    # 가장 오래된 항목 제거
+                    # 가장 오래된 항목 제거 (캐시 크기 관리)
                     self.psd_cache.pop(next(iter(self.psd_cache)))
-                self.psd_cache[image_path] = pixmap
+                self.psd_cache[image_path] = pixmap  # 현재 이미지를 캐시에 저장
             
+            # 이미지가 정상적으로 로드된 경우 화면에 표시
             if not pixmap.isNull():
                 scaled_pixmap = pixmap.scaled(self.image_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
-                self.image_label.setPixmap(scaled_pixmap)
+                self.image_label.setPixmap(scaled_pixmap)  # 크기 조정된 이미지 표시
 
         except Exception as e:
-            pass
+            pass  # 예외 발생 시 무시하고 진행
 
     def show_gif(self, image_path):
         # gif 애니메이션을 처리하기 위해 QImageReader를 사용
@@ -939,40 +1012,42 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
                 self.play_button.setText("❚❚")  # 재생 중이므로 일시정지 아이콘 표시
             else:
                 # 프레임이 1개 이하일 경우 일반 이미지로 처리
-                image = QImage(image_path)
+                image = QImage(image_path)  # 이미지 로드
                 if not image.isNull():
-                    pixmap = QPixmap.fromImage(image)
+                    pixmap = QPixmap.fromImage(image)  # QImage를 QPixmap으로 변환
+                    # 화면 크기에 맞게 이미지 조정 (비율 유지, 고품질 보간)
                     scaled_pixmap = pixmap.scaled(
                         self.image_label.width(),
                         self.image_label.height(),
                         Qt.KeepAspectRatio,
                         Qt.SmoothTransformation
                     )
-                    self.image_label.setPixmap(scaled_pixmap)
+                    self.image_label.setPixmap(scaled_pixmap)  # 이미지 표시
 
-                # 슬라이더 초기화
-                self.playback_slider.setRange(0, 0)
-                self.playback_slider.setValue(0)
-                self.time_label.setText("00:00 / 00:00")
-                self.time_label.show()
+                # 슬라이더 초기화 (단일 프레임 이미지인 경우)
+                self.playback_slider.setRange(0, 0)  # 범위 초기화
+                self.playback_slider.setValue(0)  # 값 초기화
+                self.time_label.setText("00:00 / 00:00")  # 시간 표시 초기화
+                self.time_label.show()  # 시간 레이블 표시
         else:
             # 일반 GIF 이미지 처리
-            image = QImage(image_path)
+            image = QImage(image_path)  # 이미지 로드
             if not image.isNull():
-                pixmap = QPixmap.fromImage(image)
+                pixmap = QPixmap.fromImage(image)  # QImage를 QPixmap으로 변환
+                # 화면 크기에 맞게 이미지 조정 (비율 유지, 고품질 보간)
                 scaled_pixmap = pixmap.scaled(
                     self.image_label.width(),
                     self.image_label.height(),
                     Qt.KeepAspectRatio,
                     Qt.SmoothTransformation
                 )
-                self.image_label.setPixmap(scaled_pixmap)
+                self.image_label.setPixmap(scaled_pixmap)  # 이미지 표시
 
-            # 슬라이더 초기화
-            self.playback_slider.setRange(0, 0)
-            self.playback_slider.setValue(0)
-            self.time_label.setText("00:00 / 00:00")
-            self.time_label.show()
+            # 슬라이더 초기화 (정적 이미지인 경우)
+            self.playback_slider.setRange(0, 0)  # 범위 초기화
+            self.playback_slider.setValue(0)  # 값 초기화
+            self.time_label.setText("00:00 / 00:00")  # 시간 표시 초기화
+            self.time_label.show()  # 시간 레이블 표시
 
     def show_webp(self, image_path):
         # WEBP 애니메이션을 처리하기 위해 QImageReader를 사용
@@ -1011,75 +1086,80 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
                 self.playback_slider.sliderReleased.connect(self.slider_released)  # 드래그 종료 시 호출
                 self.playback_slider.clicked.connect(self.slider_clicked)  # 클릭 시 호출
 
-                # WEBP의 프레임이 변경될 때마다 슬라이더 값을 업데이트
+                # WebP 프레임 변경 시 슬라이더 업데이트 함수
                 def update_slider():
                     if hasattr(self, 'current_movie') and self.current_movie:
-                        current_frame = self.current_movie.currentFrameNumber()
-                        if self.current_movie.state() == QMovie.Running:
-                            self.playback_slider.setValue(current_frame)
-                            # 현재 프레임 / 총 프레임 표시 업데이트
+                        current_frame = self.current_movie.currentFrameNumber()  # 현재 프레임 번호
+                        if self.current_movie.state() == QMovie.Running:  # 애니메이션이 재생 중인 경우
+                            self.playback_slider.setValue(current_frame)  # 슬라이더 위치 업데이트
+                            # 프레임 정보 업데이트 (현재/총 프레임)
                             self.time_label.setText(f"{current_frame + 1} / {self.current_movie.frameCount()}")
 
-                # 타이머를 사용하여 슬라이더 업데이트
+                # 타이머를 사용하여 슬라이더 주기적 업데이트
                 self.gif_timer = QTimer(self)
-                self.gif_timer.timeout.connect(update_slider)
-                self.gif_timer.start(50)  # 50ms마다 슬라이더 업데이트
+                self.gif_timer.timeout.connect(update_slider)  # 타이머 이벤트에 함수 연결
+                self.gif_timer.start(50)  # 50ms마다 업데이트 (약 20fps)
 
-                # 항상 재생 상태로 시작하도록 명시적으로 설정
-                self.current_movie.start()
+                # 애니메이션 재생 시작
+                self.current_movie.start()  # 애니메이션 시작
                 self.current_movie.setPaused(False)  # 일시정지 상태 해제
                 # 재생 버튼 상태 업데이트
-                self.play_button.setText("❚❚")  # 재생 중이므로 일시정지 아이콘 표시
+                self.play_button.setText("❚❚")  # 일시정지 아이콘 표시 (재생 중)
             else:
                 # 프레임이 1개 이하일 경우 일반 이미지로 처리
-                image = QImage(image_path)
+                image = QImage(image_path)  # 이미지 로드
                 if not image.isNull():
-                    pixmap = QPixmap.fromImage(image)
+                    pixmap = QPixmap.fromImage(image)  # QImage를 QPixmap으로 변환
+                    # 화면 크기에 맞게 이미지 조정 (비율 유지, 고품질 보간)
                     scaled_pixmap = pixmap.scaled(
                         self.image_label.width(),
                         self.image_label.height(),
                         Qt.KeepAspectRatio,
                         Qt.SmoothTransformation
                     )
-                    self.image_label.setPixmap(scaled_pixmap)
+                    self.image_label.setPixmap(scaled_pixmap)  # 이미지 표시
 
-                # 슬라이더 초기화
-                self.playback_slider.setRange(0, 0)
-                self.playback_slider.setValue(0)
-                self.time_label.setText("00:00 / 00:00")
-                self.time_label.show()
+                # 슬라이더 초기화 (단일 프레임 이미지인 경우)
+                self.playback_slider.setRange(0, 0)  # 범위 초기화
+                self.playback_slider.setValue(0)  # 값 초기화
+                self.time_label.setText("00:00 / 00:00")  # 시간 표시 초기화
+                self.time_label.show()  # 시간 레이블 표시
         else:
-            # 일반 WEBP 이미지 처리
-            image = QImage(image_path)
+            # 애니메이션을 지원하지 않는 일반 WebP 이미지 처리
+            image = QImage(image_path)  # 이미지 로드
             if not image.isNull():
-                pixmap = QPixmap.fromImage(image)
+                pixmap = QPixmap.fromImage(image)  # QImage를 QPixmap으로 변환
+                # 화면 크기에 맞게 이미지 조정 (비율 유지, 고품질 보간)
                 scaled_pixmap = pixmap.scaled(
                     self.image_label.width(),
                     self.image_label.height(),
                     Qt.KeepAspectRatio,
                     Qt.SmoothTransformation
                 )
-                self.image_label.setPixmap(scaled_pixmap)
+                self.image_label.setPixmap(scaled_pixmap)  # 이미지 표시
 
-            # 슬라이더 초기화
-            self.playback_slider.setRange(0, 0)
-            self.playback_slider.setValue(0)
-            self.time_label.setText("00:00 / 00:00")
-            self.time_label.show()
+            # 슬라이더 초기화 (정적 이미지인 경우)
+            self.playback_slider.setRange(0, 0)  # 범위 초기화
+            self.playback_slider.setValue(0)  # 값 초기화
+            self.time_label.setText("00:00 / 00:00")  # 시간 표시 초기화
+            self.time_label.show()  # 시간 레이블 표시
 
     def scale_webp(self):
-        # 첫 번째 프레임으로 이동하여 이미지 데이터를 얻어옵니다.
+        """WebP 애니메이션 크기를 화면에 맞게 조정하는 메서드"""
+        # 첫 번째 프레임으로 이동하여 이미지 데이터 가져오기
         self.current_movie.jumpToFrame(0)  # 첫 번째 프레임으로 이동
-        image = self.current_movie.currentImage()  # 현재 프레임의 이미지를 얻음
+        image = self.current_movie.currentImage()  # 현재 프레임 이미지 가져오기
 
-        # 원본 이미지의 너비와 높이를 얻습니다.
-        original_width = image.width()  # 원본 이미지의 너비
-        original_height = image.height()  # 원본 이미지의 높이
+        # 원본 이미지 크기 정보
+        original_width = image.width()  # 원본 너비
+        original_height = image.height()  # 원본 높이
 
-        # webp의 원본 비율을 계산합니다 (가로 / 세로 비율).
+        # 높이가 0인 경우 예외 처리 (0으로 나누기 방지)
         if original_height == 0:
-            original_height = 1  # 높이가 0인 경우(예외처리), 높이를 1로 설정하여 0으로 나누는 오류를 방지
-        aspect_ratio = original_width / original_height  # 가로 세로 비율 계산
+            original_height = 1  # 높이를 1로 설정
+            
+        # 원본 화면 비율 계산 (가로/세로)
+        aspect_ratio = original_width / original_height
 
         # 이미지가 표시될 라벨의 크기를 얻습니다.
         label_width = self.image_label.width()  # 라벨의 너비
@@ -1511,10 +1591,20 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
 
     # 마우스 휠 이벤트를 처리하는 메서드입니다.
     def wheelEvent(self, event):
-        if event.angleDelta().y() > 0:  # 마우스 휠을 위로 굴렸을 때
-            self.show_previous_image()  # 이전 이미지로 이동
-        elif event.angleDelta().y() < 0:  # 마우스 휠을 아래로 굴렸을 때
-            self.show_next_image()  # 다음 이미지로 이동
+        current_time = time.time() * 1000  # 현재 시간(밀리초)
+        
+        # 쿨다운 체크 - 상수 시간 연산 O(1)
+        if current_time - self.last_wheel_time < self.wheel_cooldown_ms:
+            event.accept()  # 이벤트 처리됨으로 표시하고 무시
+            return
+        
+        # 방향 체크 후 이미지 전환
+        if event.angleDelta().y() > 0:
+            self.show_previous_image()
+        elif event.angleDelta().y() < 0:
+            self.show_next_image()
+        
+        self.last_wheel_time = current_time  # 마지막 처리 시간 업데이트
 
     def eventFilter(self, obj, event):
         """모든 마우스 이벤트를 필터링"""
@@ -1670,9 +1760,9 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
             self.player.mute = not self.player.mute  # MPV의 음소거 상태를 토글
             # 버튼 아이콘 변경 (음소거 상태에 따라)
             if self.player.mute:
-                self.mute_button.setText("🔇")  # 음소거 해제 아이콘
+                self.mute_button.setText("🔇")  # 음소거 상태 아이콘 (소리 없음)
             else:
-                self.mute_button.setText("🔈")  # 음소거 아이콘
+                self.mute_button.setText("🔈")  # 음소거 해제 상태 아이콘 (소리 있음)
 
     def adjust_volume(self, volume):
         """음량을 조절합니다."""
@@ -1691,18 +1781,15 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
         # 미디어 타입에 따라 처리
         if self.current_media_type in ['gif', 'webp'] and hasattr(self, 'current_movie') and self.current_movie:
             # GIF나 WEBP 애니메이션 처리
-            if self.current_movie.state() == QMovie.Running:
-                self.current_movie.setPaused(True)  # 애니메이션 일시정지
-                self.play_button.setText("▶")  # 재생 아이콘으로 변경
-            else:
-                self.current_movie.setPaused(False)  # 애니메이션 재생
-                self.play_button.setText("❚❚")  # 일시정지 아이콘으로 변경
+            is_paused = self.current_movie.state() != QMovie.Running
+            self.current_movie.setPaused(not is_paused)  # 상태 토글
+            self.play_button.setText("▶" if not is_paused else "❚❚")  # 토글된 상태에 따라 아이콘 설정
                 
         # 비디오 처리
         elif self.current_media_type == 'video' and hasattr(self, 'player'):
             try:
-                paused_state = self.player.pause
-                self.player.pause = not paused_state  # 비디오 재생/일시정지 토글
+                is_paused = self.player.pause
+                self.player.pause = not is_paused  # 비디오 재생/일시정지 토글
                 self.play_button.setText("▶" if self.player.pause else "❚❚")  # 버튼 상태 업데이트
             except Exception as e:
                 pass  # 예외 발생 시 무시
