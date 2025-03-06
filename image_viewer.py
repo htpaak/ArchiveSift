@@ -63,6 +63,10 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
         height = int(screen.height() * 0.75)
         self.resize(width, height)
 
+        # 현재 미디어 타입 추적 변수 추가
+        self.current_media_type = None  # 'image', 'gif', 'webp', 'video' 중 하나의 값을 가짐
+        self.is_slider_dragging = False  # 슬라이더 드래그 상태 추적
+
         # 창을 화면 중앙에 위치
         x = (screen.width() - width) // 2
         y = (screen.height() - height) // 2
@@ -251,6 +255,7 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
                 background-color: rgba(52, 73, 94, 1.0);  /* 마우스 오버 시 진하게 */
             }
         """)
+        self.play_button.clicked.connect(self.toggle_animation_playback)  # 재생 버튼 클릭 이벤트 연결
         new_slider_layout.addWidget(self.play_button)
 
         # MPV 상태 확인을 위한 타이머 설정
@@ -387,8 +392,6 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
         self.psd_cache = {}  # PSD 캐시를 딕셔너리로 변경
         self.max_psd_cache_size = 5  # PSD 캐시 최대 크기
 
-        self.is_slider_dragging = False  # 슬라이더 드래그 상태를 추적하는 변수 추가
-
     def ensure_maximized(self):
         """창이 최대화 상태인지 확인하고 그렇지 않으면 다시 최대화합니다."""
         if not self.isMaximized():
@@ -459,7 +462,7 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
                         self.image_label.setPixmap(scaled_pixmap)
 
                 except Exception as e:
-                    print(f"PSD 파일 리사이즈 중 오류 발생: {e}")
+                    pass
             
             elif file_ext in ['.jpg', '.jpeg', '.png']:  # 일반 이미지
                 pixmap = QPixmap(self.current_image_path)
@@ -712,12 +715,13 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
 
     def stop_video(self):
         """비디오 재생 중지"""
+        
         # OpenCV 객체 정리
         if self.cap is not None:
             self.cap.release()
             self.cap = None
         
-        if self.timer.isActive():
+        if hasattr(self, 'timer') and self.timer.isActive():
             self.timer.stop()
         
         # MPV 정지 - 플레이어가 존재하고 실행 중일 때만 중지
@@ -727,7 +731,38 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
                 if self.player.playback_time is not None:  # 재생 중인지 확인
                     self.player.stop()
             except Exception as e:
-                print(f"MPV 플레이어 종료 중 오류 발생: {e}")
+                pass
+                
+        # 비디오 타이머 정지
+        if hasattr(self, 'video_timer') and self.video_timer.isActive():
+            self.video_timer.stop()
+
+    def disconnect_all_slider_signals(self):
+        """슬라이더의 모든 신호 연결을 해제하는 함수"""
+        
+        try:
+            # valueChanged 시그널 연결 해제
+            self.playback_slider.valueChanged.disconnect()
+        except (TypeError, RuntimeError):
+            pass  # 연결된 슬롯이 없으면 무시
+            
+        try:
+            # sliderPressed 시그널 연결 해제
+            self.playback_slider.sliderPressed.disconnect()
+        except (TypeError, RuntimeError):
+            pass  # 연결된 슬롯이 없으면 무시
+            
+        try:
+            # sliderReleased 시그널 연결 해제
+            self.playback_slider.sliderReleased.disconnect()
+        except (TypeError, RuntimeError):
+            pass  # 연결된 슬롯이 없으면 무시
+            
+        try:
+            # clicked 시그널 연결 해제
+            self.playback_slider.clicked.disconnect()
+        except (TypeError, RuntimeError):
+            pass  # 연결된 슬롯이 없으면 무시
 
     def show_image(self, image_path):
         self.stop_video()  # 비디오 중지
@@ -748,29 +783,38 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
         file_ext = os.path.splitext(image_path)[1].lower()
 
         # 애니메이션이 재생 중일 경우 정지
-        if hasattr(self, 'current_movie') and self.current_movie.state() == QMovie.Running:
+        if hasattr(self, 'current_movie') and self.current_movie:
             self.current_movie.stop()  # 애니메이션 정지
-            try:
-                self.playback_slider.valueChanged.disconnect()  # 슬라이더 연결 해제
-            except TypeError:
-                pass  # 연결된 시그널이 없으면 무시
+            
+        # 슬라이더 신호 연결 해제
+        self.disconnect_all_slider_signals()
 
         # 슬라이더 초기화
         self.playback_slider.setRange(0, 0)  # 슬라이더 범위를 0으로 설정
         self.playback_slider.setValue(0)  # 슬라이더 초기값을 0으로 설정
 
+        # 재생 버튼을 재생 상태로 초기화 (파일이 변경될 때마다 항상 재생 상태로 시작)
+        self.play_button.setText("❚❚")  # 일시정지 아이콘으로 변경 (재생 중 상태)
+
         if file_ext == '.gif':  # GIF 파일 처리
+            self.current_media_type = 'gif'  # 미디어 타입 업데이트
             self.show_gif(image_path)  # GIF를 표시하는 메서드 호출
         elif file_ext == '.psd':  # PSD 파일 처리
+            self.current_media_type = 'image'  # 미디어 타입 업데이트
             self.show_psd(image_path)  # PSD를 표시하는 메서드 호출
         elif file_ext in ['.jpg', '.jpeg', '.png']:  # JPG, JPEG, PNG 파일 처리
+            self.current_media_type = 'image'  # 미디어 타입 업데이트
             pixmap = QPixmap(image_path)  # QPixmap으로 이미지 로드
             if not pixmap.isNull():  # 이미지가 정상적으로 로드되었는지 확인
                 self.image_label.setPixmap(pixmap.scaled(self.image_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))  
         elif file_ext == '.webp':  # WEBP 파일 처리
+            self.current_media_type = 'webp'  # 미디어 타입 업데이트
             self.show_webp(image_path)  # WEBP 애니메이션 처리
         elif file_ext == '.mp4':  # MP4 파일 처리
+            self.current_media_type = 'video'  # 미디어 타입 업데이트
             self.play_video(image_path)  # MP4 비디오 재생
+        else:
+            self.current_media_type = 'unknown'  # 미디어 타입 업데이트
 
         self.current_image_path = image_path  # 현재 이미지 경로 업데이트
         self.update_image_info()  # 이미지 정보 업데이트 메소드 호출
@@ -835,7 +879,7 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
                 self.image_label.setPixmap(scaled_pixmap)
 
         except Exception as e:
-            print(f"PSD 파일 리사이즈 중 오류 발생: {e}")
+            pass
 
     def show_gif(self, image_path):
         # gif 애니메이션을 처리하기 위해 QImageReader를 사용
@@ -843,6 +887,8 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
 
         # 이미지를 로드하고 애니메이션으로 처리
         if reader.supportsAnimation():  # 애니메이션을 지원하면
+            
+            # 기존 타이머 정지
             if hasattr(self, 'gif_timer'):
                 self.gif_timer.stop()
                 del self.gif_timer
@@ -863,25 +909,34 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
                 self.playback_slider.setRange(0, frame_count - 1)
                 self.playback_slider.setValue(0)
 
-                # 슬라이더의 값이 변경될 때 seek_animation 메서드 호출
+                # 슬라이더 시그널 연결 전에 기존 연결 해제
+                self.disconnect_all_slider_signals()
+                
+                # 슬라이더의 시그널 연결
                 self.playback_slider.valueChanged.connect(self.seek_animation)  # 슬라이더와 연결
                 self.playback_slider.sliderPressed.connect(self.slider_pressed)  # 드래그 시작 시 호출
                 self.playback_slider.sliderReleased.connect(self.slider_released)  # 드래그 종료 시 호출
+                self.playback_slider.clicked.connect(self.slider_clicked)  # 클릭 시 호출
 
                 # gif의 프레임이 변경될 때마다 슬라이더 값을 업데이트
                 def update_slider():
-                    current_frame = self.current_movie.currentFrameNumber()
-                    if self.current_movie.state() == QMovie.Running:
-                        self.playback_slider.setValue(current_frame)
-                        # 현재 프레임 / 총 프레임 표시 업데이트
-                        self.time_label.setText(f"{current_frame + 1} / {self.current_movie.frameCount()}")
+                    if hasattr(self, 'current_movie') and self.current_movie:
+                        current_frame = self.current_movie.currentFrameNumber()
+                        if self.current_movie.state() == QMovie.Running:
+                            self.playback_slider.setValue(current_frame)
+                            # 현재 프레임 / 총 프레임 표시 업데이트
+                            self.time_label.setText(f"{current_frame + 1} / {self.current_movie.frameCount()}")
 
                 # 타이머를 사용하여 슬라이더 업데이트
                 self.gif_timer = QTimer(self)
                 self.gif_timer.timeout.connect(update_slider)
                 self.gif_timer.start(50)  # 50ms마다 슬라이더 업데이트
 
+                # 항상 재생 상태로 시작하도록 명시적으로 설정
                 self.current_movie.start()
+                self.current_movie.setPaused(False)  # 일시정지 상태 해제
+                # 재생 버튼 상태 업데이트
+                self.play_button.setText("❚❚")  # 재생 중이므로 일시정지 아이콘 표시
             else:
                 # 프레임이 1개 이하일 경우 일반 이미지로 처리
                 image = QImage(image_path)
@@ -901,7 +956,7 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
                 self.time_label.setText("00:00 / 00:00")
                 self.time_label.show()
         else:
-            # 일반 WEBP 이미지 처리
+            # 일반 GIF 이미지 처리
             image = QImage(image_path)
             if not image.isNull():
                 pixmap = QPixmap.fromImage(image)
@@ -925,6 +980,8 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
 
         # 이미지를 로드하고 애니메이션으로 처리
         if reader.supportsAnimation():  # 애니메이션을 지원하면
+            
+            # 기존 타이머 정지
             if hasattr(self, 'gif_timer'):
                 self.gif_timer.stop()
                 del self.gif_timer
@@ -945,25 +1002,34 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
                 self.playback_slider.setRange(0, frame_count - 1)
                 self.playback_slider.setValue(0)
                 
-                # 슬라이더의 값이 변경될 때 seek_animation 메서드 호출
+                # 슬라이더 시그널 연결 전에 기존 연결 해제
+                self.disconnect_all_slider_signals()
+                
+                # 슬라이더의 시그널 연결
                 self.playback_slider.valueChanged.connect(self.seek_animation)  # 슬라이더와 연결
                 self.playback_slider.sliderPressed.connect(self.slider_pressed)  # 드래그 시작 시 호출
                 self.playback_slider.sliderReleased.connect(self.slider_released)  # 드래그 종료 시 호출
+                self.playback_slider.clicked.connect(self.slider_clicked)  # 클릭 시 호출
 
                 # WEBP의 프레임이 변경될 때마다 슬라이더 값을 업데이트
                 def update_slider():
-                    current_frame = self.current_movie.currentFrameNumber()
-                    if self.current_movie.state() == QMovie.Running:
-                        self.playback_slider.setValue(current_frame)
-                        # 현재 프레임 / 총 프레임 표시 업데이트
-                        self.time_label.setText(f"{current_frame + 1} / {self.current_movie.frameCount()}")
+                    if hasattr(self, 'current_movie') and self.current_movie:
+                        current_frame = self.current_movie.currentFrameNumber()
+                        if self.current_movie.state() == QMovie.Running:
+                            self.playback_slider.setValue(current_frame)
+                            # 현재 프레임 / 총 프레임 표시 업데이트
+                            self.time_label.setText(f"{current_frame + 1} / {self.current_movie.frameCount()}")
 
                 # 타이머를 사용하여 슬라이더 업데이트
                 self.gif_timer = QTimer(self)
                 self.gif_timer.timeout.connect(update_slider)
                 self.gif_timer.start(50)  # 50ms마다 슬라이더 업데이트
 
+                # 항상 재생 상태로 시작하도록 명시적으로 설정
                 self.current_movie.start()
+                self.current_movie.setPaused(False)  # 일시정지 상태 해제
+                # 재생 버튼 상태 업데이트
+                self.play_button.setText("❚❚")  # 재생 중이므로 일시정지 아이콘 표시
             else:
                 # 프레임이 1개 이하일 경우 일반 이미지로 처리
                 image = QImage(image_path)
@@ -1065,8 +1131,16 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
 
     def play_video(self, video_path):
         """MPV를 사용하여 비디오 재생"""
+        
         # 기존 비디오 중지
         self.stop_video()
+        
+        # 애니메이션이 재생 중일 경우 정지
+        if hasattr(self, 'current_movie') and self.current_movie:
+            self.current_movie.stop()
+            
+            if hasattr(self, 'gif_timer') and self.gif_timer.isActive():
+                self.gif_timer.stop()
         
         # MPV로 비디오 재생
         try:
@@ -1078,6 +1152,7 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
             self.player.loop = True  # 비디오 반복 재생
             self.player.volume = 100  # 볼륨 100%로 설정
             self.player.seekable = True  # seek 가능하도록 설정
+            self.player.pause = False  # 항상 재생 상태로 시작
             
             # 비디오 파일 재생
             self.player.play(video_path)
@@ -1089,10 +1164,17 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
             self.playback_slider.setRange(0, 0)  # 슬라이더 범위를 0으로 설정
             self.playback_slider.setValue(0)  # 슬라이더 초기값을 0으로 설정
             
+            # 재생 버튼 상태 업데이트
+            self.play_button.setText("❚❚")  # 재생 중이므로 일시정지 아이콘 표시
+            
+            # 슬라이더 시그널 연결 전에 기존 연결 해제
+            self.disconnect_all_slider_signals()
+            
             # 슬라이더 이벤트 연결
             self.playback_slider.sliderPressed.connect(self.slider_pressed)
             self.playback_slider.sliderReleased.connect(self.slider_released)
             self.playback_slider.valueChanged.connect(self.seek_video)
+            self.playback_slider.clicked.connect(self.slider_clicked)
             
             # MPV의 재생 상태를 주기적으로 업데이트하기 위한 타이머 설정
             self.video_timer = QTimer(self)
@@ -1103,7 +1185,7 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
             self.player.observe_property('playback-restart', self.on_video_end)  # 비디오 종료 시 호출될 메서드 등록
             
         except Exception as e:
-            print(f"MPV 재생 오류: {e}")
+            pass
 
     def on_video_end(self, name, value):
         """비디오가 종료될 때 호출되는 메서드입니다."""
@@ -1116,21 +1198,28 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
 
     def slider_clicked(self, value):
         """슬라이더를 클릭했을 때 호출됩니다."""
-        if hasattr(self, 'player'):
-            # 현재 애니메이션이 재생 중인지 확인
-            if hasattr(self, 'current_movie') and self.current_movie.state() == QMovie.Running:
-                # 애니메이션이 재생 중일 경우, 해당 프레임으로 점프
-                frame = value  # 슬라이더 값이 프레임 번호로 사용됨
-                self.current_movie.jumpToFrame(frame)
-                return  # 애니메이션이 재생 중이면 더 이상 진행하지 않음
-
+        
+        # 애니메이션 처리
+        if self.current_media_type in ['gif', 'webp'] and hasattr(self, 'current_movie') and self.current_movie:
             try:
-                # 클릭한 위치의 값을 초 단위로 변환
-                seconds = value / 1000.0  # 밀리초를 초 단위로 변환
-                # MPV의 seek 함수를 사용하여 정확한 위치로 이동
-                self.player.command('seek', seconds, 'absolute')
+                # 유효한 프레임 번호인지 확인
+                max_frame = self.current_movie.frameCount() - 1
+                frame = min(max(0, value), max_frame)  # 범위 내로 제한
+                self.current_movie.jumpToFrame(frame)
+                return
             except Exception as e:
-                print(f"비디오 위치 변경 중 오류 발생: {e}")
+                pass  # 예외 발생 시 무시
+        
+        # 비디오 처리
+        if self.current_media_type == 'video' and hasattr(self, 'player') and self.player:
+            try:
+                if self.player.playback_time is not None:  # 재생 중인지 확인
+                    # 클릭한 위치의 값을 초 단위로 변환
+                    seconds = value / 1000.0  # 밀리초를 초 단위로 변환
+                    # MPV의 seek 함수를 사용하여 정확한 위치로 이동
+                    self.player.command('seek', seconds, 'absolute')
+            except Exception as e:
+                pass  # 예외 발생 시 무시
 
     def slider_pressed(self):
         """슬라이더를 드래그하기 시작할 때 호출됩니다."""
@@ -1139,14 +1228,25 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
     def slider_released(self):
         """슬라이더 드래그가 끝날 때 호출됩니다."""
         self.is_slider_dragging = False
-        if hasattr(self, 'current_movie'):
-            if self.current_movie.state() == QMovie.Running:
-                # 애니메이션이 재생 중일 경우, 슬라이더 값을 사용하여 애니메이션으로 점프
-                self.seek_animation(self.playback_slider.value())  # 슬라이더 값을 사용하여 애니메이션 프레임으로 점프
-            else:
-                # 비디오일 경우, 슬라이더 값을 초 단위로 변환하여 비디오 위치 변경
-                seconds = self.playback_slider.value() / 1000.0  # 밀리초를 초 단위로 변환
-                self.player.command('seek', seconds, 'absolute')  # MPV의 seek 함수 사용
+        
+        # 애니메이션 처리
+        if self.current_media_type in ['gif', 'webp'] and hasattr(self, 'current_movie') and self.current_movie:
+            try:
+                value = self.playback_slider.value()
+                max_frame = self.current_movie.frameCount() - 1
+                frame = min(max(0, value), max_frame)  # 범위 내로 제한
+                self.current_movie.jumpToFrame(frame)
+            except Exception as e:
+                pass  # 예외 발생 시 무시
+                
+        # 비디오 처리
+        elif self.current_media_type == 'video' and hasattr(self, 'player') and self.player:
+            try:
+                if self.player.playback_time is not None:  # 재생 중인지 확인
+                    seconds = self.playback_slider.value() / 1000.0  # 밀리초를 초 단위로 변환
+                    self.player.command('seek', seconds, 'absolute')  # MPV의 seek 함수 사용
+            except Exception as e:
+                pass  # 예외 발생 시 무시
 
     def seek_video(self, value):
         """슬라이더 값에 따라 비디오 재생 위치를 변경합니다."""
@@ -1206,14 +1306,20 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
         return f"{minutes:02}:{seconds:02}"
 
     def update_play_button(self):
-        """MPV의 재생 상태에 따라 버튼 텍스트 업데이트 및 슬라이더 동기화"""
-        if hasattr(self, 'player'):
+        """재생 상태에 따라 버튼 텍스트 업데이트"""
+        # 미디어 타입에 따른 버튼 텍스트 업데이트
+        if self.current_media_type in ['gif', 'webp'] and hasattr(self, 'current_movie') and self.current_movie:
+            # 애니메이션(GIF, WEBP) 재생 상태 확인
+            if self.current_movie.state() == QMovie.Running:
+                self.play_button.setText("❚❚")  # 일시정지 아이콘
+            else:
+                self.play_button.setText("▶")  # 재생 아이콘
+        elif self.current_media_type == 'video' and hasattr(self, 'player') and self.player:
+            # 비디오 재생 상태 확인
             try:
-                if not self.player:  # MPV가 유효한지 확인
-                    return  # 슬라이더 업데이트를 건너뜁니다.
-
-                self.play_button.setText("❚❚" if not self.player.pause else "▶")
-                self.update_video_playback()  # 슬라이더 업데이트 호출
+                if self.player.playback_time is not None:  # 비디오가 로드되었는지 확인
+                    self.play_button.setText("❚❚" if not self.player.pause else "▶")
+                    self.update_video_playback()  # 슬라이더 업데이트 호출
             except mpv.ShutdownError:
                 self.play_button.setEnabled(False)  # 버튼 비활성화
 
@@ -1374,7 +1480,7 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
                 # 이미지 복사 후 자동으로 다음 이미지로 이동합니다.
                 self.show_next_image()  # 복사 후 다음 이미지 표시
             except Exception as e:
-                print(f"Error copying {self.current_image_path} to {folder_path}: {e}")  # 에러 발생 시 출력
+                pass  # 에러 발생 시 출력
 
     # 고유한 파일 경로를 생성하는 메서드입니다.
     def get_unique_file_path(self, folder_path, image_path):
@@ -1549,7 +1655,7 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
             try:
                 self.player.terminate()
             except Exception as e:
-                print(f"MPV 종료 중 오류 발생: {e}")
+                pass
         
         # PSD 캐시 정리
         self.psd_cache.clear()
@@ -1574,6 +1680,32 @@ class ImageViewer(QWidget):  # 이미지 뷰어 클래스를 정의
             # 현재 슬라이더 값을 가져와서 볼륨을 설정
             volume_value = self.volume_slider.value()  # 슬라이더의 현재 값
             self.player.volume = volume_value  # MPV의 볼륨 설정
+
+    def toggle_animation_playback(self):
+        """애니메이션(GIF, WEBP) 또는 비디오 재생/일시정지 토글"""
+        
+        # 현재 열려있는 파일 확인
+        if not self.current_image_path:
+            return
+            
+        # 미디어 타입에 따라 처리
+        if self.current_media_type in ['gif', 'webp'] and hasattr(self, 'current_movie') and self.current_movie:
+            # GIF나 WEBP 애니메이션 처리
+            if self.current_movie.state() == QMovie.Running:
+                self.current_movie.setPaused(True)  # 애니메이션 일시정지
+                self.play_button.setText("▶")  # 재생 아이콘으로 변경
+            else:
+                self.current_movie.setPaused(False)  # 애니메이션 재생
+                self.play_button.setText("❚❚")  # 일시정지 아이콘으로 변경
+                
+        # 비디오 처리
+        elif self.current_media_type == 'video' and hasattr(self, 'player'):
+            try:
+                paused_state = self.player.pause
+                self.player.pause = not paused_state  # 비디오 재생/일시정지 토글
+                self.play_button.setText("▶" if self.player.pause else "❚❚")  # 버튼 상태 업데이트
+            except Exception as e:
+                pass  # 예외 발생 시 무시
 
 # 메인 함수
 def main():
