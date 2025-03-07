@@ -3,9 +3,10 @@ import sys  # 시스템 관련 기능 제공 (프로그램 종료, 경로 관리
 import os  # 운영체제 관련 기능 제공 (파일 경로, 디렉토리 처리 등)
 import shutil  # 파일 복사 및 이동 기능 제공 (고급 파일 작업)
 import re  # 정규표현식 처리 기능 제공 (패턴 검색 및 문자열 처리)
-from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout, QPushButton, QFileDialog, QHBoxLayout, QSizePolicy, QSlider, QLayout, QSpacerItem, QStyle, QStyleOptionSlider  # PyQt5 UI 위젯 (사용자 인터페이스 구성 요소)
-from PyQt5.QtGui import QPixmap, QImage, QImageReader, QFont, QMovie, QCursor, QIcon  # 그래픽 요소 처리 (이미지, 폰트, 커서 등)
-from PyQt5.QtCore import Qt, QSize, QTimer, QEvent, QPoint, pyqtSignal, QRect, QMetaObject  # Qt 코어 기능 (이벤트, 신호, 타이머 등)
+import json  # JSON 파일 처리를 위한 모듈
+from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout, QPushButton, QFileDialog, QHBoxLayout, QSizePolicy, QSlider, QLayout, QSpacerItem, QStyle, QStyleOptionSlider, QMenu, QAction, QScrollArea, QListWidgetItem, QListWidget, QAbstractItemView  # PyQt5 UI 위젯 (사용자 인터페이스 구성 요소)
+from PyQt5.QtGui import QPixmap, QImage, QImageReader, QFont, QMovie, QCursor, QIcon, QColor, QPalette, QFontMetrics  # 그래픽 요소 처리 (이미지, 폰트, 커서 등)
+from PyQt5.QtCore import Qt, QSize, QTimer, QEvent, QPoint, pyqtSignal, QRect, QMetaObject, QObject, QUrl, QThread  # Qt 코어 기능 (이벤트, 신호, 타이머 등)
 import cv2  # OpenCV 라이브러리 - 비디오 처리용 (프레임 추출, 이미지 변환 등)
 from PIL import Image, ImageCms  # Pillow 라이브러리 - 이미지 처리용 (다양한 이미지 포맷 지원)
 from io import BytesIO  # 바이트 데이터 처리용 (메모리 내 파일 스트림)
@@ -101,13 +102,115 @@ class ClickableSlider(QSlider):
         
         return handle_rect  # 핸들 영역 반환
 
+# 스크롤 가능한 메뉴 구현
+class ScrollableMenu(QMenu):
+    """스크롤을 지원하는 메뉴 클래스"""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowFlags(self.windowFlags() | Qt.FramelessWindowHint)
+        self.setAttribute(Qt.WA_TranslucentBackground)
+        # 스크롤 지원을 위한 설정
+        self.setProperty("_q_scrollable", True)
+        # 최대 높이 제한 - 항목을 더 많이 표시하기 위해 높이 증가
+        self.setMaximumHeight(800)
+        self.setStyleSheet("""
+            QMenu {
+                background-color: #2c3e50;
+                color: #ecf0f1;
+                border: 1px solid #34495e;
+                padding: 5px;
+                min-width: 300px;
+                max-height: 800px;
+            }
+            QMenu::item {
+                padding: 3px 20px 3px 20px;  /* 패딩 줄여서 항목 높이 감소 */
+                border: 1px solid transparent;
+                color: #ecf0f1;
+                max-width: 600px;
+                font-size: 9pt;  /* 글자 크기 축소 */
+            }
+            QMenu::item:selected {
+                background-color: #34495e;
+                color: #ecf0f1;
+            }
+            QMenu::separator {
+                height: 1px;
+                background: #34495e;
+                margin: 3px 0;  /* 구분선 간격 축소 */
+            }
+            QMenu::item:disabled {
+                color: #7f8c8d;
+            }
+            QScrollBar:vertical {
+                background: #2c3e50;
+                width: 10px;
+                margin: 0px;
+            }
+            QScrollBar::handle:vertical {
+                background: #34495e;
+                min-height: 20px;
+                border-radius: 5px;
+            }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                height: 0px;
+            }
+        """)
+    
+    def wheelEvent(self, event):
+        # 마우스 휠 이벤트 처리
+        super().wheelEvent(event)
+        # 이벤트가 처리되었음을 표시
+        event.accept()
+        
+    def showEvent(self, event):
+        # 메뉴가 표시될 때 호출되는 이벤트
+        super().showEvent(event)
+        # 스크롤을 지원하도록 다시 설정
+        self.setProperty("_q_scrollable", True)
+        # 스타일시트 재적용
+        self.setStyle(self.style())
+        
+        # 화면 크기에 맞게 최대 높이 조절
+        desktop = QApplication.desktop().availableGeometry()
+        self.setMaximumHeight(min(800, desktop.height() * 0.7))
+    
+    def addMultipleActions(self, actions):
+        """여러 액션을 추가하고 필요시 스크롤을 활성화합니다"""
+        for action in actions:
+            self.addAction(action)
+        
+        # 액션이 많으면 스크롤 속성을 다시 설정
+        if len(actions) > 7:
+            self.setProperty("_q_scrollable", True)
+            self.setStyle(self.style())
+
 # 메인 이미지 뷰어 클래스 정의
 class ImageViewer(QWidget):
     def __init__(self):
-        super().__init__()  # 부모 클래스 초기화 (QWidget 기본 기능 상속)
-
+        """이미지 뷰어 초기화"""
+        super().__init__()
+        
+        # 변수 초기화
+        self.image_files = []  # 이미지 파일 목록
+        self.current_index = 0  # 현재 표시 중인 이미지 인덱스 (0으로 초기화)
+        self.current_image_path = ""  # 현재 이미지 경로
+        self.base_folder = ""  # 기준 폴더 경로
+        self.folder_buttons = []  # 폴더 버튼 목록
+        # 북마크 관련 변수 초기화
+        self.bookmarks = []  # 책갈피된 파일 경로 리스트
+        self.bookmark_menu = None  # 북마크 메뉴 객체
+        # 페이지 관련 변수 제거
+        # self.current_bookmark_page = 0  # 현재 북마크 페이지
+        # self.bookmarks_per_page = 7  # 페이지당 북마크 수
+        
+        # 북마크 데이터 불러오기
+        self.load_bookmarks()
+        
         # 리소스 관리를 위한 객체 추적
         self.timers = []  # 모든 타이머 추적 - 먼저 초기화
+
+        # 책갈피 관련 변수 초기화
+        self.bookmark_menu = None  # 책갈피 드롭다운 메뉴 객체
 
         # 화면 해상도의 75%로 초기 창 크기 설정 (화면에 맞게 조정)
         screen = QApplication.primaryScreen().geometry()
@@ -224,9 +327,13 @@ class ImageViewer(QWidget):
         # 제목 표시줄을 메인 레이아웃에 추가 (1% 비율 - 전체 UI 중 작은 부분)
         main_layout.addWidget(self.title_bar, 1)
         
+        # 상단 툴바 컨테이너 생성 코드를 제거합니다.
         # 이미지 표시 컨테이너 위젯
         self.image_container = QWidget()
         self.image_container.setStyleSheet("background-color: white;")  # 흰색 배경
+        
+        # 책갈피 메뉴 초기화
+        self.update_bookmark_menu()
         
         # 컨테이너 레이아웃 설정
         container_layout = QVBoxLayout(self.image_container)
@@ -259,6 +366,25 @@ class ImageViewer(QWidget):
         # 왼쪽 공백 추가 (10px)
         left_spacer = QSpacerItem(10, 10, QSizePolicy.Fixed, QSizePolicy.Minimum)
         new_slider_layout.addItem(left_spacer)
+        
+        # 북마크 버튼 추가 (오픈 폴더 버튼 왼쪽)
+        self.slider_bookmark_btn = QPushButton('★', self)
+        self.slider_bookmark_btn.setStyleSheet("""
+            QPushButton {
+                background-color: rgba(52, 73, 94, 0.6);
+                color: white;
+                border: none;
+                padding: 10px;
+                border-radius: 3px;
+                font-size: 14px;
+            }
+            QPushButton:hover {
+                background-color: rgba(52, 73, 94, 1.0);
+            }
+        """)
+        # 북마크 토글 기능 대신 위로 펼쳐지는 메뉴 표시 기능으로 변경
+        self.slider_bookmark_btn.clicked.connect(self.show_bookmark_menu_above)
+        new_slider_layout.addWidget(self.slider_bookmark_btn)
         
         # 폴더 열기 버튼 (첫 번째 위치)
         self.open_button = QPushButton('Open Folder', self)
@@ -371,6 +497,24 @@ class ImageViewer(QWidget):
         self.volume_slider.clicked.connect(self.adjust_volume)  # 클릭 이벤트 연결 (클릭 위치로 음량 즉시 변경)
         new_slider_layout.addWidget(self.volume_slider)  # 음량 조절 슬라이더를 레이아웃에 추가
         
+        # 메뉴 버튼 추가 (가장 오른쪽)
+        self.menu_button = QPushButton('☰', self)  # 메뉴 아이콘 (햄버거 스타일)
+        self.menu_button.setStyleSheet("""
+            QPushButton {
+                background-color: rgba(52, 73, 94, 0.6);
+                color: white;
+                border: none;
+                padding: 10px;
+                border-radius: 3px;
+                font-size: 14px;
+            }
+            QPushButton:hover {
+                background-color: rgba(52, 73, 94, 1.0);
+            }
+        """)
+        self.menu_button.clicked.connect(self.show_menu_above)  # 메뉴 표시 함수 연결
+        new_slider_layout.addWidget(self.menu_button)
+        
         # 볼륨 슬라이더 오른쪽에 10px 공백 추가 (20px에서 수정) - UI 여백 확보
         right_spacer = QSpacerItem(10, 10, QSizePolicy.Fixed, QSizePolicy.Minimum)
         new_slider_layout.addItem(right_spacer)
@@ -403,11 +547,6 @@ class ImageViewer(QWidget):
 
         # 하단 버튼 영역을 메인 레이아웃에 추가
         main_layout.addLayout(bottom_layout, 9)  # 9% (하단 컨트롤 영역)
-
-        self.image_files = []  # 이미지 파일 리스트 초기화 (현재 폴더의 모든 이미지 파일 경로)
-        self.current_index = 0  # 현재 이미지의 인덱스 초기화 (현재 보고 있는 이미지)
-        self.current_image_path = None  # 현재 이미지 경로 초기화 (현재 표시 중인 이미지 파일 경로)
-        self.base_folder = None  # 기준 폴더 변수 초기화 (복사 대상 폴더 경로)
 
         self.setFocusPolicy(Qt.StrongFocus)  # 강한 포커스를 설정 (위젯이 포커스를 받을 수 있도록 설정 - 키보드 이벤트 처리용)
 
@@ -458,6 +597,9 @@ class ImageViewer(QWidget):
 
         # 리소스 관리를 위한 객체 추적
         self.timers = []  # 모든 타이머 추적
+
+        # 메뉴 관련 변수 초기화
+        self.dropdown_menu = None  # 드롭다운 메뉴 객체
 
     def ensure_maximized(self):
         """창이 최대화 상태인지 확인하고 그렇지 않으면 다시 최대화합니다."""
@@ -531,7 +673,7 @@ class ImageViewer(QWidget):
                         self.image_label.setPixmap(scaled_pixmap)  # 크기 조정된 이미지 표시
 
                 except Exception as e:
-                    pass  # 예외 발생 시 무시하고 진행
+                    pass  # 예외 발생 시 무시
             
             elif file_ext in ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.ico', '.heic', '.heif']:  # 일반 이미지 파일 처리
                 pixmap = QPixmap(self.current_image_path)  # 이미지 로드
@@ -785,8 +927,9 @@ class ImageViewer(QWidget):
 
             if self.image_files:  # 유효한 파일이 있는 경우
                 self.image_files.sort()  # 파일 목록 정렬
-                self.show_image(self.image_files[0])  # 첫 번째 이미지 표시
                 self.current_index = 0  # 현재 이미지 인덱스 초기화
+                self.show_image(self.image_files[0])  # 첫 번째 이미지 표시
+                self.update_image_info()  # 이미지 정보 업데이트 (인덱스 표시 업데이트)
             else:
                 print("No valid image files found in the folder.")  # 유효한 파일이 없는 경우 메시지 출력
 
@@ -857,6 +1000,9 @@ class ImageViewer(QWidget):
         """이미지/미디어 파일 표시 및 관련 UI 업데이트"""
         self.stop_video()  # 기존 비디오 재생 중지
 
+        # 현재 이미지 경로 저장
+        self.current_image_path = image_path
+
         # 이전 이미지/애니메이션 정지 및 정리
         self.image_label.clear()  # 레이블 내용 지우기 (애니메이션 정지)
         
@@ -874,6 +1020,12 @@ class ImageViewer(QWidget):
             if isinstance(child, QLabel):
                 child.setText(title_text)
                 break
+        
+        # 책갈피 버튼 상태 업데이트
+        self.update_bookmark_button_state()
+        
+        # 북마크 메뉴 업데이트 추가 - 이미지 변경 시 메뉴 상태도 함께 업데이트
+        self.update_bookmark_menu()
         
         # 파일 확장자 확인 (소문자로 변환)
         file_ext = os.path.splitext(image_path)[1].lower()
@@ -911,7 +1063,6 @@ class ImageViewer(QWidget):
         else:
             self.current_media_type = 'unknown'  # 미디어 타입 업데이트
 
-        self.current_image_path = image_path  # 현재 이미지 경로 업데이트
         self.update_image_info()  # 이미지 정보 업데이트 메소드 호출
 
         # 시간 레이블 초기화
@@ -1500,9 +1651,10 @@ class ImageViewer(QWidget):
             # 레이블 크기와 위치 조정
             self.image_info_label.adjustSize()
             
-            # 우측 상단에 위치 (여백은 창 크기에 비례)
+            # 우측 상단에 위치 (여백은 창 크기에 비례, 툴바 높이 고려)
+            toolbar_height = 90  # 제목바(30) + 툴바(40) + 추가 여백(20)
             x = self.width() - self.image_info_label.width() - margin
-            y = margin + 20
+            y = toolbar_height + margin
             
             self.image_info_label.move(x, y)
             self.image_info_label.show()
@@ -1557,8 +1709,10 @@ class ImageViewer(QWidget):
         self.message_label.show()
         self.message_label.adjustSize()
         
-        # 좌측 상단에 위치 (여백은 창 크기에 비례)
-        self.message_label.move(margin, margin + 20)
+        # 좌측 상단에 위치 (image_info_label과 동일한 높이 사용)
+        toolbar_height = 90  # 제목바(30) + 툴바(40) + 추가 여백(20)
+        self.message_label.move(margin, toolbar_height + margin)
+        self.message_label.raise_()  # 항상 위에 표시되도록 함
         
         QTimer.singleShot(2000, self.message_label.close)
 
@@ -1567,10 +1721,6 @@ class ImageViewer(QWidget):
         # 현재 이미지 경로가 존재하고, 폴더 경로도 제공되었으면 복사를 시작합니다.
         if self.current_image_path and folder_path:
             try:
-                # 이전에 표시된 메시지 레이블이 존재하면 닫습니다.
-                if hasattr(self, 'message_label') and self.message_label.isVisible():
-                    self.message_label.close()
-
                 # 이미지 복사할 대상 경로를 생성합니다.
                 target_path = self.get_unique_file_path(folder_path, self.current_image_path)  # 고유한 파일 경로 생성
 
@@ -1578,27 +1728,18 @@ class ImageViewer(QWidget):
                 shutil.copy2(self.current_image_path, target_path)  # 파일 복사 (메타데이터도 함께 복사)
                 print(f"Copied: {self.current_image_path} -> {target_path}")  # 복사된 경로 출력
 
-                # 사용자에게 복사 완료 메시지를 보여줍니다.
-                self.message_label = QLabel(f"경로 {target_path}로 이미지가 복사되었습니다.", self)
-                self.message_label.setStyleSheet("QLabel {"
-                    "color: white;"
-                    "background-color: rgba(52, 73, 94, 0.9);"
-                    "font-size: 32px;"
-                    "padding: 8px 12px;"
-                    "border-radius: 3px;"
-                    "font-weight: normal;"
-                "}")
-                self.message_label.setAlignment(Qt.AlignCenter)  # 텍스트를 중앙 정렬
-                self.message_label.show()  # 레이블을 화면에 표시
-
-                # 메시지 레이블 크기를 자동으로 조정합니다.
-                self.message_label.adjustSize()
-
-                # 메시지 레이블을 좌측 상단에 위치시킵니다 (x+30, y+50)
-                self.message_label.move(30, 50)
-
-                # 2초 후 메시지 레이블을 자동으로 닫습니다.
-                QTimer.singleShot(2000, self.message_label.close)  # 2000ms 후에 메시지 박스를 닫음
+                # 전체 경로가 너무 길 경우 축약
+                path_display = target_path
+                if len(path_display) > 60:  # 경로가 60자 이상인 경우
+                    # 드라이브와 마지막 2개 폴더만 표시
+                    drive, tail = os.path.splitdrive(path_display)
+                    parts = tail.split(os.sep)
+                    if len(parts) > 2:
+                        # 드라이브 + '...' + 마지막 2개 폴더
+                        path_display = f"{drive}{os.sep}...{os.sep}{os.sep.join(parts[-2:])}"
+                
+                # 새로운 메시지 형식으로 표시
+                self.show_message(f"{path_display} 으로 이미지 복사")
 
                 # 이미지 복사 후 자동으로 다음 이미지로 이동합니다.
                 self.show_next_image()  # 복사 후 다음 이미지 표시
@@ -1783,6 +1924,9 @@ class ImageViewer(QWidget):
 
     def closeEvent(self, event):
         """앱 종료 시 MPV 정리"""
+        # 북마크 저장
+        self.save_bookmarks()
+        
         # 모든 타이머 정리를 안전하게 처리
         for timer in self.timers[:]:  # 복사본으로 반복하여 안전하게 처리
             try:
@@ -1866,6 +2010,428 @@ class ImageViewer(QWidget):
                 self.play_button.setText("▶" if self.player.pause else "❚❚")  # 버튼 상태 업데이트
             except Exception as e:
                 pass  # 예외 발생 시 무시
+
+    def toggle_bookmark(self):
+        """현재 이미지를 책갈피에 추가하거나 제거합니다."""
+        if not hasattr(self, 'current_image_path') or not self.current_image_path:
+            self.show_message("북마크할 이미지가 없습니다")
+            return
+            
+        # 이미 책갈피되어 있는지 확인
+        if self.current_image_path in self.bookmarks:
+            # 책갈피 제거
+            self.bookmarks.remove(self.current_image_path)
+            self.show_message("북마크에서 제거되었습니다")
+        else:
+            # 책갈피 추가
+            self.bookmarks.append(self.current_image_path)
+            self.show_message("북마크에 추가되었습니다")
+            
+        # 북마크 버튼 상태 업데이트
+        self.update_bookmark_button_state()
+            
+        # 책갈피 메뉴 업데이트
+        self.update_bookmark_menu()
+
+    def update_bookmark_menu(self):
+        """책갈피 메뉴를 업데이트합니다."""
+        # 기존 메뉴가 없으면 생성
+        if not self.bookmark_menu:
+            self.bookmark_menu = ScrollableMenu(self)
+        else:
+            # 메뉴가 있으면 비우기
+            self.bookmark_menu.clear()
+        
+        # 북마크 관리 액션 추가 - 항상 표시
+        add_bookmark_action = QAction("북마크 추가", self)
+        add_bookmark_action.triggered.connect(self.add_bookmark)  # 추가 기능 연결
+        self.bookmark_menu.addAction(add_bookmark_action)
+        
+        # 현재 북마크 삭제 버튼 - 항상 표시
+        remove_bookmark_action = QAction("현재 북마크 삭제", self)
+        remove_bookmark_action.triggered.connect(self.remove_bookmark)  # 삭제 기능 연결
+        
+        # 현재 이미지가 북마크되어 있지 않을 경우 비활성화
+        if not hasattr(self, 'current_image_path') or self.current_image_path not in self.bookmarks:
+            remove_bookmark_action.setEnabled(False)
+            
+        self.bookmark_menu.addAction(remove_bookmark_action)
+        
+        # 모든 책갈피 지우기 액션 - 항상 표시 (북마크 삭제 바로 아래로 이동)
+        clear_action = QAction("모든 북마크 지우기", self)
+        clear_action.triggered.connect(self.clear_bookmarks)
+        # 북마크가 없을 경우 비활성화
+        if not self.bookmarks:
+            clear_action.setEnabled(False)
+            
+        self.bookmark_menu.addAction(clear_action)
+            
+        # 구분선 추가
+        self.bookmark_menu.addSeparator()
+            
+        # 북마크 목록 섹션
+        if not self.bookmarks:
+            empty_action = QAction("북마크 없음", self)
+            empty_action.setEnabled(False)
+            self.bookmark_menu.addAction(empty_action)
+        else:
+            # 북마크 수 표시
+            bookmark_count_action = QAction(f"총 북마크: {len(self.bookmarks)}개", self)
+            bookmark_count_action.setEnabled(False)
+            self.bookmark_menu.addAction(bookmark_count_action)
+            
+            # 구분선 추가
+            self.bookmark_menu.addSeparator()
+            
+            # 최대 100개까지 표시 (기존 30개에서 변경)
+            max_bookmarks = min(100, len(self.bookmarks))
+            
+            # 책갈피 목록 추가
+            for idx, path in enumerate(self.bookmarks[:max_bookmarks]):
+                # 파일 이름만 추출
+                filename = os.path.basename(path)
+                
+                # 경로 처리 - 너무 길면 축약
+                path_display = path
+                if len(path_display) > 60:  # 경로가 60자 이상인 경우
+                    # 드라이브와 마지막 2개 폴더만 표시
+                    drive, tail = os.path.splitdrive(path_display)
+                    parts = tail.split(os.sep)
+                    if len(parts) > 2:
+                        # 드라이브 + '...' + 마지막 2개 폴더 + 파일명
+                        path_parts = parts[:-1]  # 파일명 제외한 부분
+                        path_display = f"{drive}{os.sep}...{os.sep}{os.sep.join(path_parts[-2:])}{os.sep}{filename}"
+                
+                # 표시 번호 추가 (간결하게 수정)
+                display_text = f"{idx + 1}. {filename}"  # 경로 없이 파일명만 표시
+                
+                # 메뉴 항목에 파일명만 표시하고 툴팁에 전체 경로 표시
+                bookmark_action = QAction(display_text, self)
+                bookmark_action.setToolTip(path_display)  # 전체 경로는 툴팁으로 표시
+                
+                # 클릭 시 해당 이미지로 이동하는 함수 생성 (람다 함수의 캡처 문제 해결)
+                def create_bookmark_handler(bookmark_path):
+                    return lambda: self.load_bookmarked_image(bookmark_path)
+                
+                # 각 북마크 항목마다 고유한 핸들러 함수 생성
+                bookmark_action.triggered.connect(create_bookmark_handler(path))
+                self.bookmark_menu.addAction(bookmark_action)
+            
+            # 북마크가 100개 이상이면 메시지 표시
+            if len(self.bookmarks) > 100:
+                more_action = QAction(f"... 외 {len(self.bookmarks) - 100}개 더 있습니다.", self)
+                more_action.setEnabled(False)
+                self.bookmark_menu.addAction(more_action)
+
+        # 메뉴에 직접 스크롤 활성화 속성 설정
+        self.bookmark_menu.setProperty("_q_scrollable", True)
+        
+        # 북마크가 7개 이상이면 스크롤을 위한 추가 설정
+        if len(self.bookmarks) > 7:
+            # 메뉴 크기 제한 설정
+            desktop = QApplication.desktop().availableGeometry()
+            max_height = min(800, desktop.height() * 0.7)
+            self.bookmark_menu.setMaximumHeight(int(max_height))
+            
+            # 스타일시트 재적용
+            self.bookmark_menu.setStyle(self.bookmark_menu.style())
+
+    def load_bookmarked_image(self, path):
+        """책갈피된 이미지를 로드합니다."""
+        if os.path.exists(path):
+            # 이미지가 위치한 폴더 경로 추출
+            folder_path = os.path.dirname(path)
+            
+            # 폴더 내의 이미지 목록 가져오기
+            self.image_files = self.get_image_files(folder_path)
+            
+            if self.image_files:
+                # 파일 목록 정렬
+                self.image_files.sort()
+                
+                # 현재 이미지의 인덱스 찾기
+                if path in self.image_files:
+                    self.current_index = self.image_files.index(path)
+                    
+                    # 이미지 표시
+                    self.show_image(path)
+                    
+                    # 이미지 정보 업데이트
+                    self.update_image_info()
+                    
+                    self.show_message(f"북마크 폴더 열기: {os.path.basename(folder_path)}")
+                else:
+                    # 정렬된 목록에 이미지가 없는 경우 (드물게 발생 가능)
+                    self.show_image(path)
+                    self.show_message(f"북마크 이미지를 표시합니다: {os.path.basename(path)}")
+            else:
+                # 폴더에 이미지가 없는 경우 (드물게 발생 가능)
+                self.show_image(path)
+                self.show_message(f"북마크 이미지를 표시합니다: {os.path.basename(path)}")
+            
+            # 북마크 메뉴 업데이트
+            self.update_bookmark_menu()
+        else:
+            self.show_message(f"파일을 찾을 수 없습니다: {os.path.basename(path)}")
+            # 존재하지 않는 책갈피 제거
+            if path in self.bookmarks:
+                self.bookmarks.remove(path)
+                self.update_bookmark_menu()
+
+    def clear_bookmarks(self):
+        """모든 책갈피를 지웁니다."""
+        self.bookmarks = []
+        # 페이지 관련 변수 제거
+        # self.current_bookmark_page = 0  # 현재 북마크 페이지
+        # 북마크 버튼 상태 업데이트
+        self.update_bookmark_button_state()
+        # 북마크 메뉴 업데이트
+        self.update_bookmark_menu()
+        # 메시지 표시
+        self.show_message("모든 북마크가 삭제되었습니다")
+        # 북마크 저장
+        self.save_bookmarks()
+        
+    def update_bookmark_button_state(self):
+        if self.current_image_path:
+            if self.current_image_path in self.bookmarks:
+                # 슬라이더바 북마크 버튼 업데이트 (노란색 별표)
+                if hasattr(self, 'slider_bookmark_btn'):
+                    self.slider_bookmark_btn.setStyleSheet("""
+                        QPushButton {
+                            background-color: rgba(52, 73, 94, 0.6);
+                            color: #FFD700;  /* 노란색(Gold) 별표 */
+                            border: none;
+                            padding: 10px;
+                            border-radius: 3px;
+                            font-size: 14px;
+                        }
+                        QPushButton:hover {
+                            background-color: rgba(52, 73, 94, 1.0);
+                        }
+                    """)
+            else:
+                # 슬라이더바 북마크 버튼 업데이트 (흰색 별표)
+                if hasattr(self, 'slider_bookmark_btn'):
+                    self.slider_bookmark_btn.setStyleSheet("""
+                        QPushButton {
+                            background-color: rgba(52, 73, 94, 0.6);
+                            color: white;
+                            border: none;
+                            padding: 10px;
+                            border-radius: 3px;
+                            font-size: 14px;
+                        }
+                        QPushButton:hover {
+                            background-color: rgba(52, 73, 94, 1.0);
+                        }
+                    """)
+
+    def add_bookmark(self):
+        """현재 이미지를 북마크에 추가합니다."""
+        if not hasattr(self, 'current_image_path') or not self.current_image_path:
+            self.show_message("북마크할 이미지가 없습니다")
+            return
+            
+        # 이미 북마크되어 있는지 확인
+        if self.current_image_path in self.bookmarks:
+            self.show_message("이미 북마크되어 있습니다")
+            return
+            
+        # 북마크 추가
+        self.bookmarks.append(self.current_image_path)
+        
+        # 북마크 버튼 상태 업데이트
+        self.update_bookmark_button_state()
+        
+        # 북마크 메뉴 업데이트
+        self.update_bookmark_menu()
+        
+        self.show_message("북마크에 추가되었습니다")
+        
+        # 북마크 저장
+        self.save_bookmarks()
+        
+    def remove_bookmark(self):
+        """현재 이미지를 북마크에서 제거합니다."""
+        if not hasattr(self, 'current_image_path') or not self.current_image_path:
+            self.show_message("북마크 제거할 이미지가 없습니다")
+            return
+            
+        # 북마크에 있는지 확인
+        if self.current_image_path not in self.bookmarks:
+            self.show_message("북마크에 없는 이미지입니다")
+            return
+            
+        # 북마크 제거
+        self.bookmarks.remove(self.current_image_path)
+        
+        # 북마크 버튼 상태 업데이트
+        self.update_bookmark_button_state()
+        
+        # 북마크 메뉴 업데이트
+        self.update_bookmark_menu()
+        
+        self.show_message("북마크에서 제거되었습니다")
+        
+        # 북마크 저장
+        self.save_bookmarks()
+
+    def save_bookmarks(self):
+        """북마크 정보를 JSON 파일로 저장합니다."""
+        try:
+            # 앱 데이터 폴더 확인 및 생성
+            app_data_dir = os.path.join(os.path.expanduser("~"), "ImageViewer_Data")
+            if not os.path.exists(app_data_dir):
+                os.makedirs(app_data_dir)
+                
+            # 북마크 파일 저장 경로
+            bookmarks_file = os.path.join(app_data_dir, "bookmarks.json")
+            
+            # 현재 북마크 목록을 JSON으로 저장
+            with open(bookmarks_file, 'w', encoding='utf-8') as f:
+                json.dump(self.bookmarks, f, ensure_ascii=False, indent=4)
+                
+            # 디버깅용 메시지 (실제 사용 시 제거)
+            print(f"북마크가 저장되었습니다: {bookmarks_file}")
+        except Exception as e:
+            print(f"북마크 저장 중 오류 발생: {e}")
+    
+    def load_bookmarks(self):
+        """JSON 파일에서 북마크 정보를 불러옵니다."""
+        try:
+            # 앱 데이터 폴더 경로
+            app_data_dir = os.path.join(os.path.expanduser("~"), "ImageViewer_Data")
+            bookmarks_file = os.path.join(app_data_dir, "bookmarks.json")
+            
+            # 파일이 존재하면 불러오기
+            if os.path.exists(bookmarks_file):
+                with open(bookmarks_file, 'r', encoding='utf-8') as f:
+                    loaded_bookmarks = json.load(f)
+                    
+                # 북마크 중 존재하는 파일만 리스트에 추가
+                valid_bookmarks = []
+                for bookmark in loaded_bookmarks:
+                    if os.path.exists(bookmark):
+                        valid_bookmarks.append(bookmark)
+                
+                # 유효한 북마크만 설정
+                self.bookmarks = valid_bookmarks
+                
+                # 디버깅용 메시지 (실제 사용 시 제거)
+                print(f"북마크 {len(self.bookmarks)}개가 로드되었습니다")
+        except Exception as e:
+            print(f"북마크 불러오기 중 오류 발생: {e}")
+            # 오류 발생 시 빈 리스트로 초기화
+            self.bookmarks = []
+
+    def show_bookmark_menu_above(self):
+        """북마크 메뉴를 버튼 위에 표시"""
+        if self.bookmark_menu:
+            # 메뉴를 표시하기 전에 업데이트하여 크기를 정확히 계산
+            self.update_bookmark_menu()
+            
+            # 버튼 좌표를 전역 좌표로 변환
+            pos = self.slider_bookmark_btn.mapToGlobal(QPoint(0, 0))
+            
+            # 메뉴 사이즈 계산
+            menu_width = self.bookmark_menu.sizeHint().width()
+            button_width = self.slider_bookmark_btn.width()
+            
+            # 최대 높이 설정
+            desktop = QApplication.desktop().availableGeometry()
+            max_height = min(800, desktop.height() * 0.8)  # 화면 높이의 80%까지 사용
+            self.bookmark_menu.setMaximumHeight(int(max_height))
+            
+            # 메뉴 높이가 화면 높이보다 크면 화면의 80%로 제한
+            menu_height = min(self.bookmark_menu.sizeHint().height(), max_height)
+            
+            # 화면 정보 가져오기
+            desktop = QApplication.desktop().availableGeometry()
+            
+            # 기본적으로 버튼 왼쪽에 맞춤
+            x_pos = pos.x()
+            y_pos = pos.y() - menu_height
+            
+            # 메뉴가 화면 왼쪽 경계를 벗어나는지 확인
+            if x_pos < desktop.left():
+                x_pos = desktop.left()
+            
+            # 메뉴가 화면 오른쪽 경계를 벗어나는지 확인
+            if x_pos + menu_width > desktop.right():
+                # 오른쪽으로 넘어간다면 버튼 오른쪽 끝에서 메뉴 너비만큼 왼쪽으로 이동
+                x_pos = max(desktop.left(), pos.x() + button_width - menu_width)
+            
+            # 메뉴가 화면 위로 넘어가지 않도록 조정
+            if y_pos < desktop.top():
+                # 화면 위로 넘어가면 버튼 아래에 표시
+                y_pos = pos.y() + self.slider_bookmark_btn.height()
+            
+            # 메뉴가 화면 아래로 넘어가지 않도록 조정
+            if y_pos + menu_height > desktop.bottom():
+                # 화면 아래로 넘어가면 버튼 위에 표시하되, 필요한 만큼만 위로 올림
+                y_pos = desktop.bottom() - menu_height
+            
+            # 메뉴 팝업 (스크롤이 필요한 경우를 위해 높이 속성 명시적 설정)
+            self.bookmark_menu.setProperty("_q_scrollable", True)
+            self.bookmark_menu.popup(QPoint(x_pos, y_pos))
+    
+    def show_menu_above(self):
+        """메뉴 버튼 위에 드롭업 메뉴를 표시합니다."""
+        # 메뉴가 없으면 생성
+        if not self.dropdown_menu:
+            self.dropdown_menu = ScrollableMenu(self)
+            
+            # 빈 메뉴 생성 (예시 항목 추가)
+            self.dropdown_menu.addAction(QAction("메뉴 항목 1", self))
+            self.dropdown_menu.addAction(QAction("메뉴 항목 2", self))
+            self.dropdown_menu.addAction(QAction("메뉴 항목 3", self))
+            self.dropdown_menu.addSeparator()
+            self.dropdown_menu.addAction(QAction("설정", self))
+            
+            # 메뉴에 스크롤 속성 설정
+            self.dropdown_menu.setProperty("_q_scrollable", True)
+        
+        # 버튼 좌표를 전역 좌표로 변환
+        pos = self.menu_button.mapToGlobal(QPoint(0, 0))
+        
+        # 메뉴 사이즈 계산
+        menu_width = self.dropdown_menu.sizeHint().width()
+        button_width = self.menu_button.width()
+        
+        # 최대 높이 설정
+        desktop = QApplication.desktop().availableGeometry()
+        max_height = min(800, desktop.height() * 0.8)  # 화면 높이의 80%까지 사용
+        self.dropdown_menu.setMaximumHeight(int(max_height))
+        
+        # 메뉴 높이가 화면 높이보다 크면 화면의 80%로 제한
+        menu_height = min(self.dropdown_menu.sizeHint().height(), max_height)
+        
+        # 화면 정보 가져오기
+        desktop = QApplication.desktop().availableGeometry()
+        
+        # 기준을 버튼의 오른쪽 변으로 설정 (메뉴의 오른쪽 가장자리를 버튼의 오른쪽 가장자리에 맞춤)
+        button_right_edge = pos.x() + button_width
+        x_pos = button_right_edge - menu_width  # 메뉴의 오른쪽 끝이 버튼의 오른쪽 끝과 일치하도록 계산
+        y_pos = pos.y() - menu_height  # 버튼 위에 메뉴가 나타나도록 설정
+        
+        # 메뉴가 화면 왼쪽 경계를 벗어나는지 확인
+        if x_pos < desktop.left():
+            x_pos = desktop.left()  # 화면 왼쪽 경계에 맞춤
+        
+        # 메뉴가 화면 위로 넘어가지 않도록 조정
+        if y_pos < desktop.top():
+            # 화면 위로 넘어가면 버튼 아래에 표시
+            y_pos = pos.y() + self.menu_button.height()
+        
+        # 메뉴가 화면 아래로 넘어가지 않도록 조정
+        if y_pos + menu_height > desktop.bottom():
+            # 화면 아래로 넘어가면 버튼 위에 표시하되, 필요한 만큼만 위로 올림
+            y_pos = desktop.bottom() - menu_height
+        
+        # 메뉴 팝업 (스크롤이 필요한 경우를 위해 높이 속성 명시적 설정)
+        self.dropdown_menu.setProperty("_q_scrollable", True)
+        self.dropdown_menu.popup(QPoint(x_pos, y_pos))
 
 # 메인 함수
 def main():
