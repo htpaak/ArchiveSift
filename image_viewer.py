@@ -151,17 +151,17 @@ class ImageViewer(QWidget):
         slider_style = """
             QSlider::groove:horizontal {
                 border: none;  /* 테두리 없음 */
-                height: 10px;  /* 그루브 높이 */
+                height: 30px;  /* 그루브 높이 - 10px에서 30px로 3배 증가 */
                 background: rgba(52, 73, 94, 0.9);  /* 반투명 남색 배경 */
                 margin: 0px;  /* 여백 없음 */
-                border-radius: 5px;  /* 둥근 모서리 */
+                border-radius: 15px;  /* 둥근 모서리 - 높이에 맞게 조정 */
             }
             QSlider::handle:horizontal {
                 background: white;  /* 흰색 핸들 */
                 border: 2px solid white;  /* 흰색 테두리 */
                 width: 16px;  /* 핸들 너비 */
                 height: 16px;  /* 핸들 높이 */
-                margin: -4px 0;  /* 상하 마진 */
+                margin: -14px 0;  /* 상하 마진 - 그루브 높이에 맞게 조정 */
                 border-radius: 8px;  /* 원형 핸들 */
             }
             QSlider::handle:horizontal:hover {
@@ -377,6 +377,12 @@ class ImageViewer(QWidget):
 
         # 새로운 슬라이더 위젯을 하단 레이아웃에 추가
         bottom_layout.addWidget(slider_widget)
+
+        # 슬라이더바와 폴더 버튼 사이에 20px의 빈 공간 추가 (색상 지정)
+        vertical_spacer = QWidget()
+        vertical_spacer.setFixedHeight(20)  # 높이를 20px로 고정
+        vertical_spacer.setStyleSheet("background-color: rgba(52, 73, 94, 0.9);")  # 색상 지정
+        bottom_layout.addWidget(vertical_spacer)
 
         # 폴더 버튼에 스타일 적용 (하위 폴더 선택용 버튼 그리드)
         self.buttons = []
