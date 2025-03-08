@@ -86,15 +86,18 @@ class ImageLoaderThread(QThread):
                 from io import BytesIO
                 
                 # PSD 파일을 PIL Image로 열기
+                print(f"PSD 파일 로딩 시작: {self.image_path}")
                 image = Image.open(self.image_path)
                 
                 # RGB 모드로 변환
                 if image.mode != 'RGB':
+                    print(f"이미지 모드 변환: {image.mode} → RGB")
                     image = image.convert('RGB')
                 
                 # ICC 프로파일 처리
                 if 'icc_profile' in image.info:
                     try:
+                        print("ICC 프로파일 변환 중...")
                         srgb_profile = ImageCms.createProfile('sRGB')
                         icc_profile = BytesIO(image.info['icc_profile'])
                         image = ImageCms.profileToProfile(
@@ -103,17 +106,27 @@ class ImageLoaderThread(QThread):
                             ImageCms.ImageCmsProfile(srgb_profile),
                             outputMode='RGB'
                         )
-                    except Exception:
+                    except Exception as icc_e:
+                        print(f"ICC 프로파일 변환 실패: {icc_e}")
                         image = image.convert('RGB')
                 
                 # 변환된 이미지를 QPixmap으로 변환
                 buffer = BytesIO()
+                print("이미지를 PNG로 변환하는 중...")
                 image.save(buffer, format='PNG', icc_profile=None)
                 pixmap = QPixmap()
-                pixmap.loadFromData(buffer.getvalue())
+                
+                buffer_value = buffer.getvalue()
+                print(f"Buffer 크기: {len(buffer_value) / 1024:.2f} KB")
+                
+                if not pixmap.loadFromData(buffer_value):
+                    raise ValueError("QPixmap에 이미지 데이터를 로드할 수 없습니다")
+                    
                 buffer.close()
+                print("PSD 변환 완료")
                 
             else:  # 일반 이미지
+                print(f"일반 이미지 로딩 시작: {self.image_path}")
                 pixmap = QPixmap(self.image_path)
             
             if not pixmap.isNull():
@@ -122,9 +135,12 @@ class ImageLoaderThread(QThread):
                 # 로딩 완료 신호 발생
                 self.loaded.emit(self.image_path, pixmap, img_size_mb)
             else:
-                self.error.emit(self.image_path, "이미지를 로드할 수 없습니다")
+                self.error.emit(self.image_path, "이미지 데이터가 유효하지 않습니다")
                 
         except Exception as e:
+            import traceback
+            error_details = traceback.format_exc()
+            print(f"이미지 로딩 오류: {e}\n{error_details}")
             self.error.emit(self.image_path, str(e))
 
 # 클릭 가능한 슬라이더 클래스 정의 (기본 QSlider 확장)
