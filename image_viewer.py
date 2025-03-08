@@ -77,12 +77,55 @@ class ClickableSlider(QSlider):
                 # 계산된 값으로 슬라이더 설정 및 시그널 발생
                 self.setValue(int(value))
                 self.clicked.emit(int(value))
+                
+                # 그루브 영역 클릭 시에도 드래그 상태로 설정
+                self.is_dragging = True
         
         # 부모 클래스의 이벤트 처리기 호출
         super().mousePressEvent(event)
     
     def mouseMoveEvent(self, event):
-        # 드래그 중 슬라이더 위치 업데이트 (기본 QSlider 기능 사용)
+        # 마우스 왼쪽 버튼을 누른 상태에서 드래그 중인 경우
+        if self.is_dragging and event.buttons() & Qt.LeftButton:
+            # 드래그 위치에 따라 슬라이더 값 계산 및 설정
+            option = QStyleOptionSlider()
+            self.initStyleOption(option)
+            
+            # 슬라이더 그루브 영역 계산
+            groove_rect = self.style().subControlRect(
+                QStyle.CC_Slider, option, QStyle.SC_SliderGroove, self
+            )
+            handle_rect = self.style().subControlRect(
+                QStyle.CC_Slider, option, QStyle.SC_SliderHandle, self
+            )
+            
+            # 슬라이더의 유효 길이 계산
+            slider_length = groove_rect.width()
+            slider_start = groove_rect.x()
+            
+            # 드래그 위치 계산 (슬라이더 시작점 기준)
+            pos = event.pos().x() - slider_start
+            
+            # 슬라이더 길이에서 핸들 너비 고려
+            effective_length = slider_length - handle_rect.width()
+            effective_pos = max(0, min(pos, effective_length))
+            
+            # 드래그 위치에 대응하는 슬라이더 값 계산
+            value_range = self.maximum() - self.minimum()
+            
+            if value_range > 0:
+                # 드래그 위치 비율을 슬라이더 값으로 변환
+                value = self.minimum() + (effective_pos * value_range) / effective_length
+                # 슬라이더가 반전되어 있는 경우 값 조정
+                if self.invertedAppearance():
+                    value = self.maximum() - value + self.minimum()
+                
+                # 계산된 값으로 슬라이더 설정 및 시그널 발생
+                self.setValue(int(value))
+                self.clicked.emit(int(value))
+                return
+        
+        # 드래그 상태가 아니거나 다른 마우스 버튼을 사용하는 경우 기본 동작 수행
         super().mouseMoveEvent(event)
     
     def mouseReleaseEvent(self, event):
@@ -253,37 +296,38 @@ class ImageViewer(QWidget):
         # 슬라이더 스타일 정의 (재생바와 볼륨 슬라이더에 적용)
         self.slider_style = """
             QSlider {
-                background: transparent;
-                padding: 0px;
-                margin: 0px;
+                background-color: rgba(52, 73, 94, 0.6);
                 border: none;
+                border-radius: 3px;
+                padding: 0px;
+                min-height: 50px;
+                max-height: 50px;
+            }
+            QSlider:hover {
+                background-color: rgba(52, 73, 94, 1.0);
             }
             QSlider::groove:horizontal {
-                border: none;  /* 테두리 없음 */
-                height: 10px;  /* 그루브 높이를 30px에서 10px로 줄임 */
-                background: rgba(52, 73, 94, 0.9);  /* 반투명 남색 배경 */
-                margin: 0px;  /* 여백 없음 */
-                border-radius: 5px;  /* 둥근 모서리 - 높이에 맞게 조정 */
+                border: none;
+                height: 8px;
+                background: rgba(30, 30, 30, 0.8);
+                border-radius: 4px;
+                margin: 0px;
             }
             QSlider::handle:horizontal {
-                background: white;  /* 흰색 핸들 */
-                border: 2px solid white;  /* 흰색 테두리 */
-                width: 14px;  /* 핸들 너비 약간 줄임 */
-                height: 14px;  /* 핸들 높이 약간 줄임 */
-                margin: -3px 0;  /* 상하 마진 - 그루브 높이에 맞게 조정 */
-                border-radius: 7px;  /* 원형 핸들 */
-            }
-            QSlider::handle:horizontal:hover {
-                background: rgba(255, 255, 255, 1.0);  /* 마우스 오버 시 불투명 흰색 */
-                border: 2px solid rgba(255, 255, 255, 1.0);  /* 불투명 흰색 테두리 */
+                background: #ffffff;
+                border: 2px solid #ffffff;
+                width: 16px;
+                height: 16px;
+                margin: -5px 0;
+                border-radius: 8px;
             }
             QSlider::add-page:horizontal {
-                background: rgba(0, 0, 0, 0.5);  /* 검은색 배경 (핸들 오른쪽), 더 투명하게 */
-                border-radius: 5px;  /* 둥근 모서리 */
+                background: rgba(0, 0, 0, 0.5);
+                border-radius: 4px;
             }
             QSlider::sub-page:horizontal {
-                background: rgba(255, 255, 255, 0.8);  /* 흰색 배경 (핸들 왼쪽), 약간 투명하게 */
-                border-radius: 5px;  /* 둥근 모서리 */
+                background: rgba(255, 255, 255, 0.8);
+                border-radius: 4px;
             }
             """
 
@@ -447,7 +491,7 @@ class ImageViewer(QWidget):
         self.playback_slider.setRange(0, 100)  # 슬라이더 범위 설정 (0-100%)
         self.playback_slider.setValue(0)  # 초기 값을 0으로 설정 (시작 위치)
         self.playback_slider.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)  # 가로 방향으로 확장 가능하도록 설정
-        self.playback_slider.setFixedHeight(10)  # 슬라이더 높이를 10px로 고정
+        self.playback_slider.setFixedHeight(50)  # 슬라이더 높이를 50px로 고정
         
         # 슬라이더에 추가 스타일 설정
         # additional_style = "QSlider { background: transparent; padding: 0px; margin: 0px; }"
@@ -500,7 +544,7 @@ class ImageViewer(QWidget):
         self.volume_slider.setRange(0, 100)  # 볼륨 범위 0-100%
         self.volume_slider.setValue(100)  # 기본 볼륨 100%으로 설정 (최대 음량)
         self.volume_slider.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)  # 고정 크기 사용
-        self.volume_slider.setFixedHeight(10)  # 슬라이더 높이를 10px로 고정
+        self.volume_slider.setFixedHeight(50)  # 슬라이더 높이를 50px로 고정
         
         # 볼륨 슬라이더에 추가 스타일 설정
         # self.volume_slider.setStyleSheet(additional_style)
@@ -553,11 +597,11 @@ class ImageViewer(QWidget):
         # 중복된 슬라이더 위젯 할당 제거 (이미 위에서 self.slider_widget을 만들었음)
         # self.slider_widget = slider_widget
 
-        # 슬라이더바와 폴더 버튼 사이에 20px의 빈 공간 추가 (색상 지정)
-        vertical_spacer = QWidget()
-        vertical_spacer.setFixedHeight(20)  # 높이를 20px로 고정
-        vertical_spacer.setStyleSheet("background-color: rgba(52, 73, 94, 0.9);")  # 색상 지정
-        bottom_layout.addWidget(vertical_spacer)
+        # 슬라이더바와 폴더 버튼 사이에 20px의 빈 공간 추가 (색상 지정) - 제거
+        # vertical_spacer = QWidget()
+        # vertical_spacer.setFixedHeight(20)  # 높이를 20px로 고정
+        # vertical_spacer.setStyleSheet("background-color: rgba(52, 73, 94, 0.9);")  # 색상 지정
+        # bottom_layout.addWidget(vertical_spacer)
 
         # 폴더 버튼에 스타일 적용 (하위 폴더 선택용 버튼 그리드)
         self.buttons = []
@@ -2608,9 +2652,48 @@ class ImageViewer(QWidget):
 
     # 초기 및 resizeEvent에서 동적으로 호출되는 커스텀 UI 설정 메서드
     def setup_custom_ui(self):
+        # 버튼 높이 측정 (open_button 기준)
+        button_height = 50  # 실측으로 확인한 버튼 높이
+        
         # 슬라이더 스타일 적용 (UI 일관성)
         self.playback_slider.setStyleSheet(self.slider_style)  # 재생 슬라이더 스타일 적용
         self.volume_slider.setStyleSheet(self.slider_style)  # 음량 조절 슬라이더 스타일 적용
+        
+        # 슬라이더를 버튼과 동일한 높이로 직접 설정
+        self.playback_slider.setFixedHeight(button_height)  # 재생 슬라이더 높이 설정
+        self.volume_slider.setFixedHeight(button_height)    # 볼륨 슬라이더 높이 설정
+        
+        # 슬라이더의 부모 위젯인 slider_widget에 배경 스타일을 적용
+        self.slider_widget.setStyleSheet("""
+            QWidget {
+                background-color: transparent;
+            }
+        """)
+        
+        # 슬라이더 컨테이너에 대한 스타일 설정
+        playback_container = self.playback_slider.parentWidget()
+        volume_container = self.volume_slider.parentWidget()
+        if playback_container:
+            playback_container.setStyleSheet("""
+                QWidget {
+                    background-color: rgba(52, 73, 94, 0.6);
+                    border-radius: 3px;
+                }
+                QWidget:hover {
+                    background-color: rgba(52, 73, 94, 1.0);
+                }
+            """)
+            
+        if volume_container:
+            volume_container.setStyleSheet("""
+                QWidget {
+                    background-color: rgba(52, 73, 94, 0.6);
+                    border-radius: 3px;
+                }
+                QWidget:hover {
+                    background-color: rgba(52, 73, 94, 1.0);
+                }
+            """)
         
         # 연결 추가 (이벤트와 함수 연결)
         self.volume_slider.valueChanged.connect(self.adjust_volume)  # 슬라이더 값 변경 시 음량 조절 메서드 연결 (볼륨 실시간 조절)
