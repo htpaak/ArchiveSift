@@ -251,35 +251,41 @@ class ImageViewer(QWidget):
         """
 
         # 슬라이더 스타일 정의 (재생바와 볼륨 슬라이더에 적용)
-        slider_style = """
+        self.slider_style = """
+            QSlider {
+                background: transparent;
+                padding: 0px;
+                margin: 0px;
+                border: none;
+            }
             QSlider::groove:horizontal {
                 border: none;  /* 테두리 없음 */
-                height: 30px;  /* 그루브 높이 - 10px에서 30px로 3배 증가 */
+                height: 10px;  /* 그루브 높이를 30px에서 10px로 줄임 */
                 background: rgba(52, 73, 94, 0.9);  /* 반투명 남색 배경 */
                 margin: 0px;  /* 여백 없음 */
-                border-radius: 15px;  /* 둥근 모서리 - 높이에 맞게 조정 */
+                border-radius: 5px;  /* 둥근 모서리 - 높이에 맞게 조정 */
             }
             QSlider::handle:horizontal {
                 background: white;  /* 흰색 핸들 */
                 border: 2px solid white;  /* 흰색 테두리 */
-                width: 16px;  /* 핸들 너비 */
-                height: 16px;  /* 핸들 높이 */
-                margin: -14px 0;  /* 상하 마진 - 그루브 높이에 맞게 조정 */
-                border-radius: 8px;  /* 원형 핸들 */
+                width: 14px;  /* 핸들 너비 약간 줄임 */
+                height: 14px;  /* 핸들 높이 약간 줄임 */
+                margin: -3px 0;  /* 상하 마진 - 그루브 높이에 맞게 조정 */
+                border-radius: 7px;  /* 원형 핸들 */
             }
             QSlider::handle:horizontal:hover {
                 background: rgba(255, 255, 255, 1.0);  /* 마우스 오버 시 불투명 흰색 */
                 border: 2px solid rgba(255, 255, 255, 1.0);  /* 불투명 흰색 테두리 */
             }
             QSlider::add-page:horizontal {
-                background: rgba(0, 0, 0, 1.0);  /* 검은색 배경 (핸들 오른쪽) */
+                background: rgba(0, 0, 0, 0.5);  /* 검은색 배경 (핸들 오른쪽), 더 투명하게 */
                 border-radius: 5px;  /* 둥근 모서리 */
             }
             QSlider::sub-page:horizontal {
-                background: rgba(255, 255, 255, 1.0);  /* 흰색 배경 (핸들 왼쪽) */
+                background: rgba(255, 255, 255, 0.8);  /* 흰색 배경 (핸들 왼쪽), 약간 투명하게 */
                 border-radius: 5px;  /* 둥근 모서리 */
             }
-        """
+            """
 
         # 프레임리스 윈도우 설정 (제목 표시줄 없는 창 - 커스텀 UI용)
         self.setWindowFlags(Qt.FramelessWindowHint)
@@ -289,8 +295,8 @@ class ImageViewer(QWidget):
 
         # 전체 레이아웃 설정
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(0, 0, 0, 0)  # 여백 없음 (화면 전체 활용)
-        main_layout.setSpacing(0)  # 위젯 간 간격 없음 (컴팩트한 UI)
+        main_layout.setContentsMargins(0, 0, 0, 0)  # 여백 완전히 제거
+        main_layout.setSpacing(0)  # 레이아웃 간 간격 완전히 제거
         
         # 제목 표시줄 생성 (커스텀 - 기본 윈도우 타이틀바 대체)
         self.title_bar = QWidget(self)
@@ -355,37 +361,25 @@ class ImageViewer(QWidget):
         # 하단 컨트롤 레이아웃
         bottom_layout = QVBoxLayout()
         bottom_layout.setContentsMargins(0, 0, 0, 0)  # 여백 없음
+        bottom_layout.setSpacing(0)  # 레이아웃 사이 간격 제거
 
         # 슬라이더 위젯과 레이아웃
-        slider_widget = QWidget()
-        slider_widget.setStyleSheet("background-color: rgba(52, 73, 94, 0.9); padding: 10px;")  # 반투명 남색 배경, 패딩 추가 (UI 요소 사이 공간)
-        new_slider_layout = QHBoxLayout(slider_widget)
-        new_slider_layout.setContentsMargins(5, 5, 5, 5)  # 내부 여백 설정 (요소 간 간격 조정)
-        new_slider_layout.setSpacing(8)  # 위젯 간 간격 설정 (버튼과 슬라이더 사이 간격)
+        self.slider_widget = QWidget()
+        self.slider_widget.setStyleSheet("""
+            background-color: rgba(52, 73, 94, 0.9);
+            padding: 0px;
+            margin: 0px;
+            border: none;
+        """)  # 패딩과 마진 완전히 제거
+        self.slider_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)  # 가로로 최대한 확장, 세로는 고정
+        new_slider_layout = QHBoxLayout(self.slider_widget)
+        new_slider_layout.setContentsMargins(0, 0, 0, 0)  # 여백을 완전히 제거
+        new_slider_layout.setSpacing(0)  # 위젯 간 간격도 0으로 설정
 
-        # 왼쪽 공백 추가 (10px)
-        left_spacer = QSpacerItem(10, 10, QSizePolicy.Fixed, QSizePolicy.Minimum)
-        new_slider_layout.addItem(left_spacer)
-        
-        # 북마크 버튼 추가 (오픈 폴더 버튼 왼쪽)
-        self.slider_bookmark_btn = QPushButton('★', self)
-        self.slider_bookmark_btn.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)  # 고정 크기 사용
-        self.slider_bookmark_btn.setStyleSheet("""
-            QPushButton {
-                background-color: rgba(52, 73, 94, 0.6);
-                color: white;
-                border: none;
-                padding: 8px;  /* 패딩을 10px에서 8px로 줄임 */
-                border-radius: 3px;
-                font-size: 12px;  /* 폰트 크기를 14px에서 12px로 줄임 */
-            }
-            QPushButton:hover {
-                background-color: rgba(52, 73, 94, 1.0);
-            }
-        """)
-        # 북마크 토글 기능 대신 위로 펼쳐지는 메뉴 표시 기능으로 변경
-        self.slider_bookmark_btn.clicked.connect(self.show_bookmark_menu_above)
-        new_slider_layout.addWidget(self.slider_bookmark_btn)
+        # 왼쪽 공백 추가 (창 너비에 비례하게 resizeEvent에서 동적 조정)
+        # 왼쪽 spacer 제거
+        # self.left_spacer = QSpacerItem(10, 10, QSizePolicy.Fixed, QSizePolicy.Minimum)
+        # new_slider_layout.addItem(self.left_spacer)
         
         # 폴더 열기 버튼 (첫 번째 위치)
         self.open_button = QPushButton('Open Folder', self)
@@ -453,6 +447,11 @@ class ImageViewer(QWidget):
         self.playback_slider.setRange(0, 100)  # 슬라이더 범위 설정 (0-100%)
         self.playback_slider.setValue(0)  # 초기 값을 0으로 설정 (시작 위치)
         self.playback_slider.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)  # 가로 방향으로 확장 가능하도록 설정
+        self.playback_slider.setFixedHeight(10)  # 슬라이더 높이를 10px로 고정
+        
+        # 슬라이더에 추가 스타일 설정
+        # additional_style = "QSlider { background: transparent; padding: 0px; margin: 0px; }"
+        # self.playback_slider.setStyleSheet(additional_style)
 
         self.playback_slider.clicked.connect(self.slider_clicked)  # 클릭 이벤트 연결 (클릭 위치로 미디어 이동)
         new_slider_layout.addWidget(self.playback_slider, 10)  # 재생 바 슬라이더를 레이아웃에 추가, stretch factor 10 적용
@@ -501,13 +500,15 @@ class ImageViewer(QWidget):
         self.volume_slider.setRange(0, 100)  # 볼륨 범위 0-100%
         self.volume_slider.setValue(100)  # 기본 볼륨 100%으로 설정 (최대 음량)
         self.volume_slider.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)  # 고정 크기 사용
-
-        # 볼륨 슬라이더에 패딩 추가 (UI 개선)
+        self.volume_slider.setFixedHeight(10)  # 슬라이더 높이를 10px로 고정
+        
+        # 볼륨 슬라이더에 추가 스타일 설정
+        # self.volume_slider.setStyleSheet(additional_style)
         self.volume_slider.valueChanged.connect(self.adjust_volume)  # 슬라이더 값 변경 시 음량 조절 함수 연결
         self.volume_slider.clicked.connect(self.adjust_volume)  # 클릭 이벤트 연결 (클릭 위치로 음량 즉시 변경)
         new_slider_layout.addWidget(self.volume_slider)  # 음량 조절 슬라이더를 레이아웃에 추가
         
-        # 메뉴 버튼 추가 (가장 오른쪽)
+        # 메뉴 버튼 추가 
         self.menu_button = QPushButton('☰', self)  # 메뉴 아이콘 (햄버거 스타일)
         self.menu_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)  # 고정 크기 사용
         self.menu_button.setStyleSheet("""
@@ -526,12 +527,31 @@ class ImageViewer(QWidget):
         self.menu_button.clicked.connect(self.show_menu_above)  # 메뉴 표시 함수 연결
         new_slider_layout.addWidget(self.menu_button)
         
-        # 볼륨 슬라이더 오른쪽에 10px 공백 추가 (20px에서 수정) - UI 여백 확보
-        right_spacer = QSpacerItem(10, 10, QSizePolicy.Fixed, QSizePolicy.Minimum)
-        new_slider_layout.addItem(right_spacer)
+        # 북마크 버튼 추가 (가장 오른쪽에 위치)
+        self.slider_bookmark_btn = QPushButton('★', self)
+        self.slider_bookmark_btn.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)  # 고정 크기 사용
+        self.slider_bookmark_btn.setStyleSheet("""
+            QPushButton {
+                background-color: rgba(52, 73, 94, 0.6);
+                color: white;
+                border: none;
+                padding: 8px;  /* 패딩을 10px에서 8px로 줄임 */
+                border-radius: 3px;
+                font-size: 12px;  /* 폰트 크기를 14px에서 12px로 줄임 */
+            }
+            QPushButton:hover {
+                background-color: rgba(52, 73, 94, 1.0);
+            }
+        """)
+        # 북마크 토글 기능 대신 위로 펼쳐지는 메뉴 표시 기능으로 변경
+        self.slider_bookmark_btn.clicked.connect(self.show_bookmark_menu_above)
+        new_slider_layout.addWidget(self.slider_bookmark_btn)
 
         # 새로운 슬라이더 위젯을 하단 레이아웃에 추가
-        bottom_layout.addWidget(slider_widget)
+        bottom_layout.addWidget(self.slider_widget, 0, Qt.AlignLeft | Qt.AlignTop)  # 좌측 정렬로 변경하여 최대한 넓게 표시
+        
+        # 중복된 슬라이더 위젯 할당 제거 (이미 위에서 self.slider_widget을 만들었음)
+        # self.slider_widget = slider_widget
 
         # 슬라이더바와 폴더 버튼 사이에 20px의 빈 공간 추가 (색상 지정)
         vertical_spacer = QWidget()
@@ -589,8 +609,8 @@ class ImageViewer(QWidget):
         self.volume_slider.valueChanged.connect(self.adjust_volume)  # 슬라이더 값 변경 시 음량 조절 메서드 연결 (볼륨 실시간 조절)
 
         # 슬라이더 스타일 적용 (UI 일관성)
-        self.playback_slider.setStyleSheet(slider_style)  # 재생 슬라이더 스타일 적용
-        self.volume_slider.setStyleSheet(slider_style)  # 음량 조절 슬라이더 스타일 적용
+        self.playback_slider.setStyleSheet(self.slider_style)  # 재생 슬라이더 스타일 적용
+        self.volume_slider.setStyleSheet(self.slider_style)  # 음량 조절 슬라이더 스타일 적용
 
         self.previous_position = None  # 클래스 변수로 이전 위치 저장 (시크 동작 최적화용)
 
@@ -612,8 +632,15 @@ class ImageViewer(QWidget):
         # 메뉴 관련 변수 초기화
         self.dropdown_menu = None  # 드롭다운 메뉴 객체
 
-        # 슬라이더 위젯을 인스턴스 변수로 저장
-        self.slider_widget = slider_widget
+        # 초기 및 resizeEvent에서 동적으로 호출되는 커스텀 UI 설정 메서드
+        self.setup_custom_ui()  # 초기 호출 (창 크기에 맞게 UI 요소 조정)
+        
+        # 스타일시트 기본 적용 (슬라이더 외관 디자인 정의)
+        self.playback_slider.setStyleSheet(self.slider_style)  # 재생 슬라이더 스타일 적용
+        self.volume_slider.setStyleSheet(self.slider_style)  # 음량 조절 슬라이더 스타일 적용
+        
+        # 연결 추가 (이벤트와 함수 연결)
+        self.volume_slider.valueChanged.connect(self.adjust_volume)  # 슬라이더 값 변경 시 음량 조절 메서드 연결 (볼륨 실시간 조절)
 
     def ensure_maximized(self):
         """창이 최대화 상태인지 확인하고 그렇지 않으면 다시 최대화합니다."""
@@ -622,6 +649,13 @@ class ImageViewer(QWidget):
 
     def resizeEvent(self, event):
         """창 크기 변경 이벤트 처리 (창 크기 변경 시 UI 요소 조정)"""
+        # 창 너비 구하기
+        window_width = self.width()
+        
+        # 슬라이더 위젯의 너비를 창 너비와 동일하게 설정
+        if hasattr(self, 'slider_widget'):
+            self.slider_widget.setFixedWidth(window_width)
+        
         if hasattr(self, 'title_bar'):
             self.title_bar.setGeometry(0, 0, self.width(), 30)  # 제목표시줄 위치와 크기 조정
             self.title_bar.raise_()  # 제목표시줄을 항상 맨 위로 유지
@@ -834,8 +868,8 @@ class ImageViewer(QWidget):
         if hasattr(self, 'playback_slider'):
             window_width = self.width()
             # 작은 창에서도 작동하도록 최소 너비를 더 작게 조정
-            min_width = max(100, int(window_width * 0.3))  # 최소 100px, 기본 창 너비의 30%
-            max_width = int(window_width * 0.6)  # 최대 창 너비의 60%
+            min_width = max(100, int(window_width * 0.45))  # 최소 100px, 기본 창 너비의 45%
+            max_width = int(window_width * 0.85)  # 최대 창 너비의 85%
             self.playback_slider.setMinimumWidth(min_width)
             self.playback_slider.setMaximumWidth(max_width)
             
@@ -875,17 +909,17 @@ class ImageViewer(QWidget):
                         layout.insertItem(layout.count(), new_right_spacer)
         
         # 1. 버튼 크기 계산 (창 너비의 일정 비율)
-        button_width = max(60, min(120, int(window_width * 0.06)))  # 창 너비의 6%, 최소 60px, 최대 120px
-        button_height = max(25, min(40, int(button_width * 0.5)))   # 버튼 너비의 50%, 최소 25px, 최대 40px
+        button_width = max(50, min(150, int(window_width * 0.06)))  # 창 너비의 6%, 최소 50px, 최대 150px
+        button_height = max(25, min(45, int(button_width * 0.5)))   # 버튼 너비의 50%, 최소 25px, 최대 45px
         
         # 2. 버튼별 가중치 설정 (각 버튼마다 상대적 크기 조정)
         button_config = {
-            'slider_bookmark_btn': 0.7,      # 북마크 버튼은 작게 (0.7배)
-            'open_button': 1.2,              # 열기 버튼은 크게 (1.2배)
-            'set_base_folder_button': 1.2,   # 폴더 설정 버튼은 크게 (1.2배)
-            'play_button': 0.7,              # 재생 버튼은 작게 (0.7배)
-            'mute_button': 0.7,              # 음소거 버튼은 작게 (0.7배)
-            'menu_button': 0.7,              # 메뉴 버튼은 작게 (0.7배)
+            'slider_bookmark_btn': 0.7,      # 북마크 버튼 (★) - 아이콘 버튼
+            'open_button': 1.0,              # 열기 버튼
+            'set_base_folder_button': 1.0,   # 폴더 설정 버튼
+            'play_button': 0.7,              # 재생 버튼 (▶) - 아이콘 버튼
+            'mute_button': 0.7,              # 음소거 버튼 (🔈) - 아이콘 버튼
+            'menu_button': 0.7,              # 메뉴 버튼 (☰) - 아이콘 버튼
         }
         
         # 버튼들 크기 조정 적용
@@ -897,7 +931,7 @@ class ImageViewer(QWidget):
                 button.setFixedSize(adjusted_width, button_height)
                 
                 # 폰트 크기도 창 크기에 맞게 조정 (버튼 크기의 비율로 설정)
-                font_size = max(9, min(16, int(adjusted_width * 0.25)))  # 버튼 너비의 25%, 최소 9px, 최대 16px
+                font_size = max(9, min(16, int(adjusted_width * 0.40)))  # 버튼 너비의 40%, 최소 9px, 최대 16px (버튼과 동일한 비율)
                 
                 # 버튼 스타일시트 업데이트 (폰트 크기 포함)
                 button.setStyleSheet(f"""
@@ -1781,7 +1815,7 @@ class ImageViewer(QWidget):
             self.time_label.setFixedSize(label_width, button_height)
             
             # 폰트 크기도 창 크기에 맞게 조정 (더 큰 폰트 크기 적용)
-            font_size = max(12, min(18, int(label_width * 0.16)))  # 레이블 너비의 16%, 최소 12px, 최대 18px로 증가
+            font_size = max(9, min(16, int(label_width * 0.40)))  # 레이블 너비의 40%, 최소 9px, 최대 16px로 변경 (버튼과 동일)
             
             # 레이블 스타일시트 업데이트
             self.time_label.setStyleSheet(f"""
@@ -2492,18 +2526,14 @@ class ImageViewer(QWidget):
             # 화면 정보 가져오기
             desktop = QApplication.desktop().availableGeometry()
             
-            # 기본적으로 버튼 왼쪽에 맞춤
-            x_pos = pos.x()
-            y_pos = pos.y() - menu_height
+            # 기준을 버튼의 오른쪽 변으로 설정 (메뉴의 오른쪽 가장자리를 버튼의 오른쪽 가장자리에 맞춤)
+            button_right_edge = pos.x() + button_width
+            x_pos = button_right_edge - menu_width  # 메뉴의 오른쪽 끝이 버튼의 오른쪽 끝과 일치하도록 계산
+            y_pos = pos.y() - menu_height  # 버튼 위에 메뉴가 나타나도록 설정
             
             # 메뉴가 화면 왼쪽 경계를 벗어나는지 확인
             if x_pos < desktop.left():
                 x_pos = desktop.left()
-            
-            # 메뉴가 화면 오른쪽 경계를 벗어나는지 확인
-            if x_pos + menu_width > desktop.right():
-                # 오른쪽으로 넘어간다면 버튼 오른쪽 끝에서 메뉴 너비만큼 왼쪽으로 이동
-                x_pos = max(desktop.left(), pos.x() + button_width - menu_width)
             
             # 메뉴가 화면 위로 넘어가지 않도록 조정
             if y_pos < desktop.top():
@@ -2575,6 +2605,15 @@ class ImageViewer(QWidget):
         # 메뉴 팝업 (스크롤이 필요한 경우를 위해 높이 속성 명시적 설정)
         self.dropdown_menu.setProperty("_q_scrollable", True)
         self.dropdown_menu.popup(QPoint(x_pos, y_pos))
+
+    # 초기 및 resizeEvent에서 동적으로 호출되는 커스텀 UI 설정 메서드
+    def setup_custom_ui(self):
+        # 슬라이더 스타일 적용 (UI 일관성)
+        self.playback_slider.setStyleSheet(self.slider_style)  # 재생 슬라이더 스타일 적용
+        self.volume_slider.setStyleSheet(self.slider_style)  # 음량 조절 슬라이더 스타일 적용
+        
+        # 연결 추가 (이벤트와 함수 연결)
+        self.volume_slider.valueChanged.connect(self.adjust_volume)  # 슬라이더 값 변경 시 음량 조절 메서드 연결 (볼륨 실시간 조절)
 
 # 메인 함수
 def main():
