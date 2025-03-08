@@ -4,6 +4,7 @@ import os  # 운영체제 관련 기능 제공 (파일 경로, 디렉토리 처�
 import shutil  # 파일 복사 및 이동 기능 제공 (고급 파일 작업)
 import re  # 정규표현식 처리 기능 제공 (패턴 검색 및 문자열 처리)
 import json  # JSON 파일 처리를 위한 모듈
+from collections import OrderedDict  # LRU 캐시 구현을 위한 정렬된 딕셔너리
 from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout, QPushButton, QFileDialog, QHBoxLayout, QSizePolicy, QSlider, QLayout, QSpacerItem, QStyle, QStyleOptionSlider, QMenu, QAction, QScrollArea, QListWidgetItem, QListWidget, QAbstractItemView  # PyQt5 UI 위젯 (사용자 인터페이스 구성 요소)
 from PyQt5.QtGui import QPixmap, QImage, QImageReader, QFont, QMovie, QCursor, QIcon, QColor, QPalette, QFontMetrics  # 그래픽 요소 처리 (이미지, 폰트, 커서 등)
 from PyQt5.QtCore import Qt, QSize, QTimer, QEvent, QPoint, pyqtSignal, QRect, QMetaObject, QObject, QUrl, QThread  # Qt 코어 기능 (이벤트, 신호, 타이머 등)
@@ -12,12 +13,119 @@ from PIL import Image, ImageCms  # Pillow 라이브러리 - 이미지 처리용 
 from io import BytesIO  # 바이트 데이터 처리용 (메모리 내 파일 스트림)
 import time  # 시간 관련 기능 (시간 측정, 지연 등)
 
+# LRU 캐시 클래스 구현 (OrderedDict를 사용하여 최근 사용 항목 추적)
+class LRUCache:
+    def __init__(self, capacity):
+        self.cache = OrderedDict()
+        self.capacity = capacity
+        self.memory_usage = 0  # 메모리 사용량 추적 (MB)
+        self.max_memory = 500  # 최대 메모리 사용량 (MB)
+        
+    def get(self, key):
+        if key not in self.cache:
+            return None
+        # 사용된 항목을 맨 뒤로 이동 (최근 사용)
+        self.cache.move_to_end(key)
+        return self.cache[key]
+    
+    def put(self, key, value, size_mb=0):
+        # 이미 있는 항목이면 먼저 메모리 사용량에서 제외
+        if key in self.cache:
+            old_item = self.cache[key]
+            if hasattr(old_item, 'cached_size'):
+                self.memory_usage -= old_item.cached_size
+            self.cache.move_to_end(key)
+        
+        # 메모리 사용량 업데이트
+        self.memory_usage += size_mb
+        
+        # 새 항목에 크기 정보 저장
+        if hasattr(value, 'cached_size') == False:
+            value.cached_size = size_mb
+            
+        # 새로운 항목 추가
+        self.cache[key] = value
+        
+        # 메모리 제한 또는 용량 제한 초과 시 오래된 항목 제거
+        while (len(self.cache) > self.capacity or 
+               self.memory_usage > self.max_memory) and len(self.cache) > 0:
+            _, oldest_item = self.cache.popitem(last=False)
+            if hasattr(oldest_item, 'cached_size'):
+                self.memory_usage -= oldest_item.cached_size
+    
+    def __len__(self):
+        return len(self.cache)
+    
+    def clear(self):
+        self.cache.clear()
+        self.memory_usage = 0
+
 # MPV DLL 경로를 환경 변수 PATH에 추가 (mpv 모듈 import 전에 필수)
 mpv_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mpv')
 os.environ["PATH"] = mpv_path + os.pathsep + os.environ["PATH"]
 
 # MPV 모듈 import (경로 설정 후에 가능)
 import mpv  # 비디오 재생 라이브러리 (고성능 미디어 플레이어)
+
+# 이미지 로딩용 작업자 스레드 클래스
+class ImageLoaderThread(QThread):
+    # 작업 완료 시 발생하는 신호 (경로, 픽스맵, 크기)
+    loaded = pyqtSignal(str, object, float)
+    error = pyqtSignal(str, str)  # 오류 발생 시 신호 (경로, 오류 메시지)
+    
+    def __init__(self, image_path, file_type='image'):
+        super().__init__()
+        self.image_path = image_path
+        self.file_type = file_type  # 'image', 'psd', 'gif' 등
+        
+    def run(self):
+        try:
+            if self.file_type == 'psd':
+                # PSD 파일 로딩 로직
+                from PIL import Image, ImageCms
+                from io import BytesIO
+                
+                # PSD 파일을 PIL Image로 열기
+                image = Image.open(self.image_path)
+                
+                # RGB 모드로 변환
+                if image.mode != 'RGB':
+                    image = image.convert('RGB')
+                
+                # ICC 프로파일 처리
+                if 'icc_profile' in image.info:
+                    try:
+                        srgb_profile = ImageCms.createProfile('sRGB')
+                        icc_profile = BytesIO(image.info['icc_profile'])
+                        image = ImageCms.profileToProfile(
+                            image,
+                            ImageCms.ImageCmsProfile(icc_profile),
+                            ImageCms.ImageCmsProfile(srgb_profile),
+                            outputMode='RGB'
+                        )
+                    except Exception:
+                        image = image.convert('RGB')
+                
+                # 변환된 이미지를 QPixmap으로 변환
+                buffer = BytesIO()
+                image.save(buffer, format='PNG', icc_profile=None)
+                pixmap = QPixmap()
+                pixmap.loadFromData(buffer.getvalue())
+                buffer.close()
+                
+            else:  # 일반 이미지
+                pixmap = QPixmap(self.image_path)
+            
+            if not pixmap.isNull():
+                # 메모리 사용량 계산
+                img_size_mb = (pixmap.width() * pixmap.height() * 4) / (1024 * 1024)
+                # 로딩 완료 신호 발생
+                self.loaded.emit(self.image_path, pixmap, img_size_mb)
+            else:
+                self.error.emit(self.image_path, "이미지를 로드할 수 없습니다")
+                
+        except Exception as e:
+            self.error.emit(self.image_path, str(e))
 
 # 클릭 가능한 슬라이더 클래스 정의 (기본 QSlider 확장)
 class ClickableSlider(QSlider):
@@ -242,12 +350,24 @@ class ImageViewer(QWidget):
         # 북마크 관련 변수 초기화
         self.bookmarks = []  # 책갈피된 파일 경로 리스트
         self.bookmark_menu = None  # 북마크 메뉴 객체
-        # 페이지 관련 변수 제거
-        # self.current_bookmark_page = 0  # 현재 북마크 페이지
-        # self.bookmarks_per_page = 7  # 페이지당 북마크 수
         
         # 북마크 데이터 불러오기
         self.load_bookmarks()
+        
+        # 비동기 이미지 로딩 관련 변수 초기화
+        self.loader_threads = {}  # 로더 스레드 추적용 딕셔너리 (경로: 스레드)
+        self.loading_label = QLabel("로딩 중...", self)  # 로딩 중 표시용 레이블
+        self.loading_label.setAlignment(Qt.AlignCenter)  # 중앙 정렬
+        self.loading_label.setStyleSheet("""
+            QLabel {
+                color: white;
+                background-color: rgba(52, 73, 94, 0.8);
+                font-size: 24px;
+                padding: 20px;
+                border-radius: 10px;
+            }
+        """)
+        self.loading_label.hide()  # 처음에는 숨김
         
         # 리소스 관리를 위한 객체 추적
         self.timers = []  # 모든 타이머 추적 - 먼저 초기화
@@ -664,8 +784,10 @@ class ImageViewer(QWidget):
         # 창이 완전히 로드된 후 한번 더 업데이트 (지연 업데이트로 화면 크기에 맞게 조정)
         QTimer.singleShot(100, self.update_image_info)
 
-        self.psd_cache = {}  # PSD 캐시를 딕셔너리로 변경 (메모리 최적화를 위한 이미지 캐싱)
-        self.max_psd_cache_size = 5  # PSD 캐시 최대 크기 (메모리 제한)
+        # 이미지 캐시 초기화
+        self.image_cache = LRUCache(30)  # 일반 이미지용 캐시 (30개 항목)
+        self.psd_cache = LRUCache(5)     # PSD 파일용 캐시 (5개 항목)
+        self.gif_cache = LRUCache(10)    # GIF/애니메이션용 캐시 (10개 항목)
 
         self.last_wheel_time = 0  # 마지막 휠 이벤트 발생 시간 (휠 이벤트 쓰로틀링용)
         self.wheel_cooldown_ms = 1000  # 1000ms 쿨다운 (500ms에서 변경됨) - 휠 이벤트 속도 제한
@@ -767,7 +889,7 @@ class ImageViewer(QWidget):
                 except Exception as e:
                     pass  # 예외 발생 시 무시
             
-            elif file_ext in ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.ico', '.heic', '.heif']:  # 일반 이미지 파일 처리
+            elif file_ext in ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.ico', '.heic', '.heif']:  # JPG, JPEG, PNG 파일 처리
                 pixmap = QPixmap(self.current_image_path)  # 이미지 로드
                 if not pixmap.isNull():  # 이미지가 정상적으로 로드되었는지 확인
                     scaled_pixmap = pixmap.scaled(self.image_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)  # 비율 유지하며 크기 조정
@@ -1237,9 +1359,31 @@ class ImageViewer(QWidget):
             self.show_psd(image_path)  # PSD를 표시하는 메서드 호출
         elif file_ext in ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.ico', '.heic', '.heif']:  # JPG, JPEG, PNG 파일 처리
             self.current_media_type = 'image'  # 미디어 타입 업데이트
-            pixmap = QPixmap(image_path)  # QPixmap으로 이미지 로드
-            if not pixmap.isNull():  # 이미지가 정상적으로 로드되었는지 확인
-                self.image_label.setPixmap(pixmap.scaled(self.image_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))  
+            
+            # 캐시에서 먼저 확인
+            cached_pixmap = self.image_cache.get(image_path)
+            
+            if cached_pixmap is not None:
+                # 캐시에서 찾은 경우 바로 사용
+                pixmap = cached_pixmap
+                print(f"이미지 캐시 히트: {os.path.basename(image_path)}")
+                # 이미지 바로 표시
+                self.image_label.setPixmap(pixmap.scaled(self.image_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            else:
+                # 로딩 중 표시
+                self.show_loading_indicator()
+                
+                # 기존 스레드 정리
+                self.cleanup_loader_threads()
+                
+                # 비동기 로딩 시작
+                loader = ImageLoaderThread(image_path, 'image')
+                loader.loaded.connect(self.on_image_loaded)
+                loader.error.connect(self.on_image_error)
+                
+                # 스레드 추적
+                self.loader_threads[image_path] = loader
+                loader.start()
         elif file_ext == '.webp':  # WEBP 파일 처리
             self.current_media_type = 'webp'  # 미디어 타입 업데이트
             self.show_webp(image_path)  # WEBP 애니메이션 처리
@@ -1263,59 +1407,30 @@ class ImageViewer(QWidget):
 
     def show_psd(self, image_path):
         """PSD 파일을 처리하는 메서드입니다."""
-        try:
-            # 캐시된 이미지가 있으면 사용
-            if image_path in self.psd_cache:
-                pixmap = self.psd_cache[image_path]
-            else:
-                # 캐시된 이미지가 없으면 변환
-                from PIL import Image, ImageCms
-                from io import BytesIO
-                
-                # PSD 파일을 PIL Image로 열기
-                image = Image.open(image_path)
-                
-                # RGB 모드로 변환
-                if image.mode != 'RGB':
-                    image = image.convert('RGB')
-                
-                # ICC 프로파일 처리
-                if 'icc_profile' in image.info:
-                    try:
-                        srgb_profile = ImageCms.createProfile('sRGB')
-                        icc_profile = BytesIO(image.info['icc_profile'])
-                        image = ImageCms.profileToProfile(
-                            image,
-                            ImageCms.ImageCmsProfile(icc_profile),
-                            ImageCms.ImageCmsProfile(srgb_profile),
-                            outputMode='RGB'
-                        )
-                    except Exception:
-                        image = image.convert('RGB')
-                
-                # 변환된 이미지를 캐시에 저장
-                buffer = BytesIO()
-                try:
-                    image.save(buffer, format='PNG', icc_profile=None)
-                    pixmap = QPixmap()
-                    pixmap.loadFromData(buffer.getvalue())
-                    
-                    # 캐시 크기 관리 - 보다 안전한 방식으로 구현
-                    while len(self.psd_cache) >= self.max_psd_cache_size and self.psd_cache:
-                        # 가장 오래된 항목 제거 (캐시 크기 관리)
-                        oldest_key = next(iter(self.psd_cache))
-                        self.psd_cache.pop(oldest_key)
-                    self.psd_cache[image_path] = pixmap  # 현재 이미지를 캐시에 저장
-                finally:
-                    buffer.close()  # 항상 버퍼 닫기
+        # LRUCache에서 캐시된 이미지 확인
+        pixmap = self.psd_cache.get(image_path)
+        
+        if pixmap is not None:
+            # 캐시에서 찾은 경우 바로 사용
+            print(f"PSD 캐시 히트: {os.path.basename(image_path)}")
+            # 이미지 바로 표시
+            scaled_pixmap = pixmap.scaled(self.image_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            self.image_label.setPixmap(scaled_pixmap)
+        else:
+            # 로딩 중 표시
+            self.show_loading_indicator()
             
-            # 이미지가 정상적으로 로드된 경우 화면에 표시
-            if not pixmap.isNull():
-                scaled_pixmap = pixmap.scaled(self.image_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
-                self.image_label.setPixmap(scaled_pixmap)  # 크기 조정된 이미지 표시
-
-        except Exception as e:
-            print(f"PSD 처리 에러: {e}")  # 에러 로깅
+            # 기존 스레드 정리
+            self.cleanup_loader_threads()
+            
+            # 비동기 로딩 시작
+            loader = ImageLoaderThread(image_path, 'psd')
+            loader.loaded.connect(self.on_image_loaded)
+            loader.error.connect(self.on_image_error)
+            
+            # 스레드 추적
+            self.loader_threads[image_path] = loader
+            loader.start()
 
     def show_gif(self, image_path):
         # gif 애니메이션을 처리하기 위해 QImageReader를 사용
@@ -2144,52 +2259,48 @@ class ImageViewer(QWidget):
             self.max_btn.setText("❐")  # 최대화 상태일 때는 ❐ 표시
 
     def closeEvent(self, event):
-        """앱 종료 시 MPV 정리"""
-        # 북마크 저장
-        self.save_bookmarks()
-        
-        # 모든 타이머 정리를 안전하게 처리
-        for timer in self.timers[:]:  # 복사본으로 반복하여 안전하게 처리
-            try:
-                if timer.isActive():
-                    # 메인 스레드에서 안전하게 타이머를 중지
-                    timer.deleteLater()  # Qt 객체 삭제 요청
-                if timer in self.timers:
-                    self.timers.remove(timer)
-            except Exception as e:
-                print(f"타이머 정리 에러: {e}")  # 에러 로깅
-        
-        # 비디오 정지
+        """창이 닫힐 때 호출되는 이벤트, 리소스 정리를 수행합니다."""
+        # 비디오 정지 및 플레이어 종료
         self.stop_video()
         
-        # MPV 플레이어 종료
+        # 로더 스레드 종료
+        for path, loader in self.loader_threads.items():
+            if loader.isRunning():
+                loader.terminate()
+                loader.wait()  # 스레드가 완전히 종료될 때까지 대기
+        self.loader_threads.clear()
+        
+        # MPV 플레이어 정리
         if hasattr(self, 'player'):
             try:
-                self.player.terminate()
+                self.player.terminate()  # 플레이어 종료
                 self.player = None  # 참조 제거
-            except Exception as e:
-                print(f"MPV 종료 에러: {e}")  # 에러 로깅
+            except:
+                pass
         
-        # QMovie 객체 정리
-        if hasattr(self, 'current_movie') and self.current_movie:
-            try:
-                self.current_movie.stop()
-                self.current_movie.deleteLater()
-                self.current_movie = None
-            except Exception as e:
-                print(f"QMovie 정리 에러: {e}")  # 에러 로깅
-        
-        # PSD 캐시 정리
+        # 캐시 정리
+        if hasattr(self, 'image_cache'):
+            self.image_cache.clear()
         if hasattr(self, 'psd_cache'):
             self.psd_cache.clear()
+        if hasattr(self, 'gif_cache'):
+            self.gif_cache.clear()
+            
+        # QMovie 정리
+        if hasattr(self, 'current_movie') and self.current_movie:
+            self.current_movie.stop()
+            self.current_movie.deleteLater()
+            self.current_movie = None
+            
+        # 타이머 정리
+        for timer in self.timers:
+            if timer.isActive():
+                timer.stop()
+                
+        # 책갈피 저장
+        self.save_bookmarks()
         
-        # 이벤트 필터 제거
-        QApplication.instance().removeEventFilter(self)
-        
-        # 메시지 레이블 정리
-        if hasattr(self, 'message_label') and self.message_label.isVisible():
-            self.message_label.close()
-        
+        # 이벤트 처리 계속 (창 닫기)
         event.accept()
 
     def toggle_mute(self):
@@ -2697,6 +2808,61 @@ class ImageViewer(QWidget):
         
         # 연결 추가 (이벤트와 함수 연결)
         self.volume_slider.valueChanged.connect(self.adjust_volume)  # 슬라이더 값 변경 시 음량 조절 메서드 연결 (볼륨 실시간 조절)
+
+    def show_loading_indicator(self):
+        """로딩 인디케이터를 화면 중앙에 표시합니다."""
+        # 로딩 레이블을 이미지 레이블 중앙에 위치시킴
+        self.loading_label.resize(200, 80)  # 크기 설정
+        
+        # 이미지 레이블 중앙 좌표 계산
+        x = self.image_label.x() + (self.image_label.width() - self.loading_label.width()) // 2
+        y = self.image_label.y() + (self.image_label.height() - self.loading_label.height()) // 2
+        
+        # 로딩 레이블 위치 설정
+        self.loading_label.move(x, y)
+        self.loading_label.raise_()  # 맨 앞으로 가져오기
+        self.loading_label.show()
+        
+        # UI 즉시 업데이트
+        QApplication.processEvents()
+
+    def cleanup_loader_threads(self):
+        for path, loader in list(self.loader_threads.items()):
+            if not loader.isRunning():
+                del self.loader_threads[path]
+
+    def on_image_loaded(self, path, image, size_mb):
+        """이미지 로딩이 완료되면 호출되는 콜백 메서드"""
+        # 로딩 표시 숨기기
+        self.loading_label.hide()
+        
+        # 캐시에 이미지 저장
+        self.image_cache.put(path, image, size_mb)
+        
+        # 현재 경로가 로드된 이미지 경로와 일치하는 경우에만 표시
+        if self.current_image_path == path:
+            # 이미지 표시 (화면 크기에 맞게 스케일링)
+            scaled_pixmap = image.scaled(self.image_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            self.image_label.setPixmap(scaled_pixmap)
+            print(f"이미지 로드 완료: {os.path.basename(path)}, 크기: {size_mb:.2f}MB")
+        
+        # 스레드 정리
+        if path in self.loader_threads:
+            del self.loader_threads[path]
+
+    def on_image_error(self, path, error):
+        """이미지 로딩 중 오류가 발생하면 호출되는 콜백 메서드"""
+        # 로딩 표시 숨기기
+        self.loading_label.hide()
+        
+        # 오류 메시지 표시
+        error_msg = f"이미지 로드 실패: {os.path.basename(path)}\n{error}"
+        self.show_message(error_msg)
+        print(error_msg)  # 콘솔에도 출력
+        
+        # 스레드 정리
+        if path in self.loader_threads:
+            del self.loader_threads[path]
 
 # 메인 함수
 def main():
