@@ -369,14 +369,15 @@ class ImageViewer(QWidget):
         
         # 북마크 버튼 추가 (오픈 폴더 버튼 왼쪽)
         self.slider_bookmark_btn = QPushButton('★', self)
+        self.slider_bookmark_btn.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)  # 고정 크기 사용
         self.slider_bookmark_btn.setStyleSheet("""
             QPushButton {
                 background-color: rgba(52, 73, 94, 0.6);
                 color: white;
                 border: none;
-                padding: 10px;
+                padding: 8px;  /* 패딩을 10px에서 8px로 줄임 */
                 border-radius: 3px;
-                font-size: 14px;
+                font-size: 12px;  /* 폰트 크기를 14px에서 12px로 줄임 */
             }
             QPushButton:hover {
                 background-color: rgba(52, 73, 94, 1.0);
@@ -388,13 +389,15 @@ class ImageViewer(QWidget):
         
         # 폴더 열기 버튼 (첫 번째 위치)
         self.open_button = QPushButton('Open Folder', self)
+        self.open_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)  # 고정 크기 사용
         self.open_button.setStyleSheet("""
             QPushButton {
                 background-color: rgba(52, 73, 94, 0.6);  /* 평상시 더 연하게 */
                 color: white;
                 border: none;
-                padding: 10px;
+                padding: 8px;  /* 패딩을 10px에서 8px로 줄임 */
                 border-radius: 3px;
+                font-size: 12px;  /* 폰트 크기 지정 */
             }
             QPushButton:hover {
                 background-color: rgba(52, 73, 94, 1.0);  /* 마우스 오버 시 진하게 */
@@ -405,13 +408,15 @@ class ImageViewer(QWidget):
 
         # Set Base Folder 버튼 (두 번째 위치)
         self.set_base_folder_button = QPushButton('Set Folder', self)
+        self.set_base_folder_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)  # 고정 크기 사용
         self.set_base_folder_button.setStyleSheet("""
             QPushButton {
                 background-color: rgba(52, 73, 94, 0.6);  /* 평상시 더 연하게 */
                 color: white;
                 border: none;
-                padding: 10px;
+                padding: 8px;  /* 패딩을 10px에서 8px로 줄임 */
                 border-radius: 3px;
+                font-size: 12px;  /* 폰트 크기 지정 */
             }
             QPushButton:hover {
                 background-color: rgba(52, 73, 94, 1.0);  /* 마우스 오버 시 진하게 */
@@ -447,20 +452,22 @@ class ImageViewer(QWidget):
         self.playback_slider = ClickableSlider(Qt.Horizontal, self)  # ClickableSlider로 변경 (클릭 시 해당 위치로 이동)
         self.playback_slider.setRange(0, 100)  # 슬라이더 범위 설정 (0-100%)
         self.playback_slider.setValue(0)  # 초기 값을 0으로 설정 (시작 위치)
+        self.playback_slider.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)  # 가로 방향으로 확장 가능하도록 설정
 
         self.playback_slider.clicked.connect(self.slider_clicked)  # 클릭 이벤트 연결 (클릭 위치로 미디어 이동)
-        new_slider_layout.addWidget(self.playback_slider)  # 재생 바 슬라이더를 레이아웃에 추가
+        new_slider_layout.addWidget(self.playback_slider, 10)  # 재생 바 슬라이더를 레이아웃에 추가, stretch factor 10 적용
 
         # 재생 시간 레이블 추가 (현재 시간/총 시간 표시)
         self.time_label = QLabel("00:00 / 00:00", self)  # 초기 시간 표시
+        self.time_label.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Fixed)  # 필요한 최소 크기만 사용
         self.time_label.setStyleSheet("""
             QLabel {
                 background-color: rgba(52, 73, 94, 0.6);  /* 평상시 더 연하게 */
                 color: white;
                 border: none;
-                padding: 10px;
+                padding: 8px;  /* 패딩을 10px에서 8px로 줄임 */
                 border-radius: 3px;
-                font-size: 14px;
+                font-size: 14px;  /* 폰트 크기를 더 크게 설정 */
                 qproperty-alignment: AlignCenter;  /* 텍스트 중앙 정렬 */
             }
             QLabel:hover {
@@ -472,13 +479,15 @@ class ImageViewer(QWidget):
 
         # 음소거 버튼 추가 (오디오 켜기/끄기)
         self.mute_button = QPushButton("🔈", self)  # 음소거 해제 아이콘으로 초기화
+        self.mute_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)  # 고정 크기 사용
         self.mute_button.setStyleSheet("""
             QPushButton {
                 background-color: rgba(52, 73, 94, 0.6);  /* 평상시 더 연하게 */
                 color: white;
                 border: none;
-                padding: 10px;
+                padding: 8px;  /* 패딩을 10px에서 8px로 줄임 */
                 border-radius: 3px;
+                font-size: 12px;  /* 폰트 크기 지정 */
             }
             QPushButton:hover {
                 background-color: rgba(52, 73, 94, 1.0);  /* 마우스 오버 시 진하게 */
@@ -491,6 +500,7 @@ class ImageViewer(QWidget):
         self.volume_slider = ClickableSlider(Qt.Horizontal, self)
         self.volume_slider.setRange(0, 100)  # 볼륨 범위 0-100%
         self.volume_slider.setValue(100)  # 기본 볼륨 100%으로 설정 (최대 음량)
+        self.volume_slider.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)  # 고정 크기 사용
 
         # 볼륨 슬라이더에 패딩 추가 (UI 개선)
         self.volume_slider.valueChanged.connect(self.adjust_volume)  # 슬라이더 값 변경 시 음량 조절 함수 연결
@@ -499,14 +509,15 @@ class ImageViewer(QWidget):
         
         # 메뉴 버튼 추가 (가장 오른쪽)
         self.menu_button = QPushButton('☰', self)  # 메뉴 아이콘 (햄버거 스타일)
+        self.menu_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)  # 고정 크기 사용
         self.menu_button.setStyleSheet("""
             QPushButton {
                 background-color: rgba(52, 73, 94, 0.6);
                 color: white;
                 border: none;
-                padding: 10px;
+                padding: 8px;  /* 패딩을 10px에서 8px로 줄임 */
                 border-radius: 3px;
-                font-size: 14px;
+                font-size: 12px;  /* 폰트 크기를 14px에서 12px로 줄임 */
             }
             QPushButton:hover {
                 background-color: rgba(52, 73, 94, 1.0);
@@ -600,6 +611,9 @@ class ImageViewer(QWidget):
 
         # 메뉴 관련 변수 초기화
         self.dropdown_menu = None  # 드롭다운 메뉴 객체
+
+        # 슬라이더 위젯을 인스턴스 변수로 저장
+        self.slider_widget = slider_widget
 
     def ensure_maximized(self):
         """창이 최대화 상태인지 확인하고 그렇지 않으면 다시 최대화합니다."""
@@ -812,15 +826,109 @@ class ImageViewer(QWidget):
         # 볼륨 슬라이더 크기 조정
         if hasattr(self, 'volume_slider'):
             window_width = self.width()
-            self.volume_slider.setFixedWidth(int(window_width * 0.15))  # 창 너비의 15%로 볼륨 슬라이더 너비 설정
-
+            # 볼륨 슬라이더 너비를 창 크기에 따라 가변적으로 조정
+            vol_width = max(40, min(150, int(window_width * 0.08)))  # 최소 40px, 최대 150px, 기본 8%
+            self.volume_slider.setFixedWidth(vol_width)
+        
         # 재생 슬라이더 크기 조정
         if hasattr(self, 'playback_slider'):
             window_width = self.width()
-            min_width = int(window_width * 0.4)  # 최소 너비는 창 너비의 40%
-            max_width = int(window_width * 0.6)  # 최대 너비는 창 너비의 60%
+            # 작은 창에서도 작동하도록 최소 너비를 더 작게 조정
+            min_width = max(100, int(window_width * 0.3))  # 최소 100px, 기본 창 너비의 30%
+            max_width = int(window_width * 0.6)  # 최대 창 너비의 60%
             self.playback_slider.setMinimumWidth(min_width)
             self.playback_slider.setMaximumWidth(max_width)
+            
+        # 슬라이더바 내 버튼들 크기 조정
+        window_width = self.width()
+        
+        # 슬라이더 위젯 자체의 패딩 조정
+        if hasattr(self, 'slider_widget'):
+            # 패딩을 창 크기에 비례하게 설정
+            padding = max(5, min(15, int(window_width * 0.01)))  # 창 너비의 1%, 최소 5px, 최대 15px
+            self.slider_widget.setStyleSheet(f"background-color: rgba(52, 73, 94, 0.9); padding: {padding}px;")
+            
+            # 내부 레이아웃의 여백과 간격도 조정
+            layout = self.slider_widget.layout()
+            if layout:
+                layout.setContentsMargins(padding, padding, padding, padding)
+                spacing = max(4, min(12, int(window_width * 0.008)))  # 창 너비의 0.8%, 최소 4px, 최대 12px
+                layout.setSpacing(spacing)
+                
+                # 좌우 여백(Spacer) 크기 조정
+                spacer_width = max(5, min(20, int(window_width * 0.01)))  # 창 너비의 1%, 최소 5px, 최대 20px
+                
+                # 레이아웃의 첫 번째와 마지막 아이템이 spacer인지 확인
+                if layout.count() > 0:
+                    first_item = layout.itemAt(0)
+                    if isinstance(first_item, QSpacerItem):
+                        # 새로운 스페이서로 대체
+                        layout.removeItem(first_item)
+                        new_left_spacer = QSpacerItem(spacer_width, 10, QSizePolicy.Fixed, QSizePolicy.Minimum)
+                        layout.insertItem(0, new_left_spacer)
+                    
+                    last_item = layout.itemAt(layout.count() - 1)
+                    if isinstance(last_item, QSpacerItem):
+                        # 새로운 스페이서로 대체
+                        layout.removeItem(last_item)
+                        new_right_spacer = QSpacerItem(spacer_width, 10, QSizePolicy.Fixed, QSizePolicy.Minimum)
+                        layout.insertItem(layout.count(), new_right_spacer)
+        
+        # 1. 버튼 크기 계산 (창 너비의 일정 비율)
+        button_width = max(60, min(120, int(window_width * 0.06)))  # 창 너비의 6%, 최소 60px, 최대 120px
+        button_height = max(25, min(40, int(button_width * 0.5)))   # 버튼 너비의 50%, 최소 25px, 최대 40px
+        
+        # 2. 버튼별 가중치 설정 (각 버튼마다 상대적 크기 조정)
+        button_config = {
+            'slider_bookmark_btn': 0.7,      # 북마크 버튼은 작게 (0.7배)
+            'open_button': 1.2,              # 열기 버튼은 크게 (1.2배)
+            'set_base_folder_button': 1.2,   # 폴더 설정 버튼은 크게 (1.2배)
+            'play_button': 0.7,              # 재생 버튼은 작게 (0.7배)
+            'mute_button': 0.7,              # 음소거 버튼은 작게 (0.7배)
+            'menu_button': 0.7,              # 메뉴 버튼은 작게 (0.7배)
+        }
+        
+        # 버튼들 크기 조정 적용
+        for button_name, weight in button_config.items():
+            if hasattr(self, button_name):
+                button = getattr(self, button_name)
+                # 가중치를 적용한 버튼 크기 계산
+                adjusted_width = int(button_width * weight)
+                button.setFixedSize(adjusted_width, button_height)
+                
+                # 폰트 크기도 창 크기에 맞게 조정 (버튼 크기의 비율로 설정)
+                font_size = max(9, min(16, int(adjusted_width * 0.25)))  # 버튼 너비의 25%, 최소 9px, 최대 16px
+                
+                # 버튼 스타일시트 업데이트 (폰트 크기 포함)
+                button.setStyleSheet(f"""
+                    QPushButton {{
+                        background-color: rgba(52, 73, 94, 0.6);
+                        color: white;
+                        border: none;
+                        padding: 5px;
+                        border-radius: 3px;
+                        font-size: {font_size}px;
+                    }}
+                    QPushButton:hover {{
+                        background-color: rgba(52, 73, 94, 1.0);
+                    }}
+                """)
+                
+                # 북마크 버튼이 활성화 되어 있으면 스타일 유지
+                if button_name == 'slider_bookmark_btn' and self.current_image_path in self.bookmarks:
+                    button.setStyleSheet(f"""
+                        QPushButton {{
+                            background-color: rgba(241, 196, 15, 0.9);
+                            color: white;
+                            border: none;
+                            padding: 5px;
+                            border-radius: 3px;
+                            font-size: {font_size}px;
+                        }}
+                        QPushButton:hover {{
+                            background-color: rgba(241, 196, 15, 1.0);
+                        }}
+                    """)
         
         # 이미지 컨테이너 레이아웃 강제 업데이트
         if hasattr(self, 'image_container'):
@@ -1624,18 +1732,18 @@ class ImageViewer(QWidget):
         if hasattr(self, 'image_info_label') and self.image_info_label.isVisible():
             self.image_info_label.hide()
 
+        # 창 크기에 따라 폰트 크기 동적 조절
+        window_width = self.width()
+        font_size = max(12, min(32, int(window_width * 0.02)))
+            
+        # 패딩과 마진도 창 크기에 비례하여 조절
+        padding = max(8, min(12, int(window_width * 0.008)))
+        margin = max(10, min(30, int(window_width * 0.02)))
+
         # 이미지 파일이 있을 때만 정보 표시
         if self.image_files:
             image_info = f"{self.current_index + 1} / {len(self.image_files)}"
             self.image_info_label.setText(image_info)
-            
-            # 창 크기에 따라 폰트 크기 동적 조절
-            window_width = self.width()
-            font_size = max(12, min(32, int(window_width * 0.02)))
-            
-            # 패딩과 마진도 창 크기에 비례하여 조절
-            padding = max(8, min(12, int(window_width * 0.008)))
-            margin = max(10, min(30, int(window_width * 0.02)))
             
             self.image_info_label.setStyleSheet(f"""
                 QLabel {{
@@ -1659,6 +1767,41 @@ class ImageViewer(QWidget):
             self.image_info_label.move(x, y)
             self.image_info_label.show()
             self.image_info_label.raise_()
+
+        # 시간 레이블 크기 조정
+        if hasattr(self, 'time_label'):
+            # 레이블 너비 계산 (창 너비의 일정 비율)
+            label_width = max(80, min(180, int(window_width * 0.1)))  # 최소 80px, 최대 180px, 기본 창 너비의 10%로 증가
+            
+            # 시간 레이블 높이를 버튼 높이와 유사하게 계산 (창 크기에 따라 조정)
+            button_width = max(60, min(150, int(window_width * 0.08)))  # 버튼 너비 계산 (resizeEvent와 동일)
+            button_height = max(30, min(50, int(button_width * 0.6)))   # 버튼 높이 계산 (높이 비율 0.5→0.6으로 증가)
+            
+            # 레이블 크기 설정
+            self.time_label.setFixedSize(label_width, button_height)
+            
+            # 폰트 크기도 창 크기에 맞게 조정 (더 큰 폰트 크기 적용)
+            font_size = max(12, min(18, int(label_width * 0.16)))  # 레이블 너비의 16%, 최소 12px, 최대 18px로 증가
+            
+            # 레이블 스타일시트 업데이트
+            self.time_label.setStyleSheet(f"""
+                QLabel {{
+                    background-color: rgba(52, 73, 94, 0.6);
+                    color: white;
+                    border: none;
+                    padding: 5px;
+                    border-radius: 3px;
+                    font-size: {font_size}px;
+                    qproperty-alignment: AlignCenter;
+                }}
+                QLabel:hover {{
+                    background-color: rgba(52, 73, 94, 1.0);
+                }}
+            """)
+        
+        # 이미지 컨테이너 레이아웃 강제 업데이트
+        if hasattr(self, 'image_container'):
+            self.image_container.updateGeometry()
 
     # 다음 이미지를 보여주는 메서드입니다.
     def show_next_image(self):
