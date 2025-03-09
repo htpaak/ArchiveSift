@@ -677,7 +677,7 @@ class ImageViewer(QWidget):
         # MPV 상태 확인을 위한 타이머 설정 (주기적으로 재생 상태 업데이트)
         self.play_button_timer = QTimer(self)
         self.play_button_timer.timeout.connect(self.update_play_button)  # 타이머가 작동할 때마다 update_play_button 메소드 호출
-        self.play_button_timer.start(100)  # 100ms마다 상태 확인 (초당 10번 업데이트)
+        self.play_button_timer.start(200)  # 200ms마다 상태 확인 (초당 5번 업데이트로 최적화)
         self.timers.append(self.play_button_timer)  # 타이머 추적에 추가
 
         # 기존 슬라이더 (재생 바) 추가
@@ -1616,17 +1616,44 @@ class ImageViewer(QWidget):
                             # 현재 프레임 / 총 프레임 표시 업데이트
                             self.time_label.setText(f"{current_frame + 1} / {self.current_movie.frameCount()}")
 
+                # GIF 애니메이션 프레임 레이트에 맞춰 타이머 간격 설정
+                try:
+                    # 총 프레임 수와 애니메이션 속도 가져오기
+                    frame_count = self.current_movie.frameCount()
+                    animation_speed = self.current_movie.speed()  # 기본 속도는 100%
+                    
+                    # 프레임 지연 시간 계산 (근사값)
+                    # GIF는 각 프레임마다 지연 시간이 다를 수 있지만, 평균으로 계산
+                    reader = QImageReader(image_path)
+                    if reader.supportsAnimation() and frame_count > 0:
+                        # 첫 프레임 지연 시간 (밀리초)
+                        delay = reader.nextImageDelay()
+                        if delay <= 0:  # 유효하지 않은 경우 기본값 사용
+                            delay = 100  # 기본값 100ms (약 10fps)
+                    else:
+                        delay = 100  # 정보를 얻을 수 없는 경우 기본값
+                    
+                    # 애니메이션 속도를 고려하여 지연 시간 조정
+                    # 속도가 100%보다 빠르면 지연 시간이 줄어듦
+                    timer_interval = int(delay * (100 / animation_speed))
+                    
+                    # 타이머 간격 범위 제한 (최소 10ms, 최대 200ms)
+                    timer_interval = max(10, min(timer_interval, 200))
+                except Exception as e:
+                    print(f"GIF 프레임 레이트 계산 오류: {e}")
+                    timer_interval = 50  # 오류 발생 시 기본값 (50ms)
+
                 # 타이머를 사용하여 슬라이더 업데이트
                 self.gif_timer = QTimer(self)
                 self.gif_timer.timeout.connect(update_slider)
-                self.gif_timer.start(50)  # 50ms마다 슬라이더 업데이트
+                self.gif_timer.start(timer_interval)  # 계산된 타이머 간격 사용
                 self.timers.append(self.gif_timer)  # 타이머 추적에 추가
 
-                # 항상 재생 상태로 시작하도록 명시적으로 설정
-                self.current_movie.start()
+                # 애니메이션 재생 시작
+                self.current_movie.start()  # 애니메이션 시작
                 self.current_movie.setPaused(False)  # 일시정지 상태 해제
                 # 재생 버튼 상태 업데이트
-                self.play_button.setText("❚❚")  # 재생 중이므로 일시정지 아이콘 표시
+                self.play_button.setText("❚❚")  # 일시정지 아이콘 표시 (재생 중)
             else:
                 # 프레임이 1개 이하일 경우 일반 이미지로 처리
                 image = QImage(image_path)  # 이미지 로드
@@ -1719,10 +1746,36 @@ class ImageViewer(QWidget):
                 # 타이머를 사용하여 슬라이더 주기적 업데이트
                 self.gif_timer = QTimer(self)
                 self.gif_timer.timeout.connect(update_slider)  # 타이머 이벤트에 함수 연결
-                self.gif_timer.start(50)  # 50ms마다 업데이트 (약 20fps)
+                
+                # WEBP 애니메이션 프레임 레이트에 맞춰 타이머 간격 설정
+                try:
+                    # 총 프레임 수와 애니메이션 속도 가져오기
+                    frame_count = self.current_movie.frameCount()
+                    animation_speed = self.current_movie.speed()  # 기본 속도는 100%
+                    
+                    # 프레임 지연 시간 계산 (근사값)
+                    reader = QImageReader(image_path)
+                    if reader.supportsAnimation() and frame_count > 0:
+                        # 첫 프레임 지연 시간 (밀리초)
+                        delay = reader.nextImageDelay()
+                        if delay <= 0:  # 유효하지 않은 경우 기본값 사용
+                            delay = 100  # 기본값 100ms (약 10fps)
+                    else:
+                        delay = 100  # 정보를 얻을 수 없는 경우 기본값
+                    
+                    # 애니메이션 속도를 고려하여 지연 시간 조정
+                    timer_interval = int(delay * (100 / animation_speed))
+                    
+                    # 타이머 간격 범위 제한 (최소 10ms, 최대 200ms)
+                    timer_interval = max(10, min(timer_interval, 200))
+                except Exception as e:
+                    print(f"WEBP 프레임 레이트 계산 오류: {e}")
+                    timer_interval = 50  # 오류 발생 시 기본값 (50ms)
+                
+                self.gif_timer.start(timer_interval)  # 계산된 타이머 간격 사용
                 self.timers.append(self.gif_timer)  # 타이머 추적에 추가
 
-                # 애니메이션 재생 시작
+                                # 애니메이션 재생 시작
                 self.current_movie.start()  # 애니메이션 시작
                 self.current_movie.setPaused(False)  # 일시정지 상태 해제
                 # 재생 버튼 상태 업데이트
@@ -1903,10 +1956,29 @@ class ImageViewer(QWidget):
             self.playback_slider.valueChanged.connect(self.seek_video)
             self.playback_slider.clicked.connect(self.slider_clicked)
             
+            # 비디오 프레임 레이트에 맞춰 타이머 간격 설정
+            try:
+                # OpenCV로 비디오 프레임 레이트 확인
+                cap = cv2.VideoCapture(video_path)
+                fps = cap.get(cv2.CAP_PROP_FPS)
+                cap.release()
+                
+                # 프레임 레이트가 유효한 경우에만 사용
+                if fps > 0:
+                    # 밀리초 단위로 변환 (1000/fps)
+                    timer_interval = int(1000 / fps)
+                    # 최소 16ms (약 60fps), 최대 100ms (약 10fps)로 제한
+                    timer_interval = max(16, min(timer_interval, 100))
+                else:
+                    timer_interval = 33  # 약 30fps (기본값)
+            except Exception as e:
+                print(f"프레임 레이트 확인 오류: {e}")
+                timer_interval = 33  # 오류 발생 시 약 30fps로 기본 설정
+            
             # MPV의 재생 상태를 주기적으로 업데이트하기 위한 타이머 설정
             self.video_timer = QTimer(self)
             self.video_timer.timeout.connect(self.update_video_playback)  # 슬라이더 업데이트 호출
-            self.video_timer.start(16)  # 16ms마다 업데이트 (약 60fps)
+            self.video_timer.start(timer_interval)  # 비디오 프레임 레이트에 맞춰 설정
             self.timers.append(self.video_timer)  # 타이머 추적에 추가
             
             # 비디오 종료 시 타이머 중지
@@ -2421,6 +2493,19 @@ class ImageViewer(QWidget):
             if hasattr(self, 'drag_start_pos'):
                 delattr(self, 'drag_start_pos')
             return was_resizing
+
+        # 애플리케이션 활성화/비활성화 상태 처리
+        elif event.type() == QEvent.WindowStateChange:
+            if self.windowState() & Qt.WindowMinimized:  # 창이 최소화되었을 때
+                self.pause_all_timers()
+            elif event.oldState() & Qt.WindowMinimized:  # 창이 최소화 상태에서 복구되었을 때
+                self.resume_all_timers()
+                
+        # 창 활성화/비활성화 처리
+        elif event.type() == QEvent.WindowActivate:  # 창이 활성화될 때
+            self.resume_all_timers()
+        elif event.type() == QEvent.WindowDeactivate:  # 창이 비활성화될 때
+            self.pause_all_timers()
 
         return super().eventFilter(obj, event)
 
@@ -3177,6 +3262,16 @@ class ImageViewer(QWidget):
         # 스레드 정리
         if path in self.loader_threads:
             del self.loader_threads[path]
+
+    def pause_all_timers(self):
+        for timer in self.timers:
+            if timer.isActive():
+                timer.stop()
+
+    def resume_all_timers(self):
+        for timer in self.timers:
+            if not timer.isActive():
+                timer.start()
 
 # 메인 함수
 def main():
