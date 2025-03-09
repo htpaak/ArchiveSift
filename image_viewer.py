@@ -87,7 +87,26 @@ class ImageLoaderThread(QThread):
                 
                 # PSD 파일을 PIL Image로 열기
                 print(f"PSD 파일 로딩 시작: {self.image_path}")
-                image = Image.open(self.image_path)
+                
+                # 이미지 크기 사전 확인 (매우 큰 이미지인 경우 축소 사본 사용)
+                try:
+                    with Image.open(self.image_path) as preview_img:
+                        original_width, original_height = preview_img.size
+                        original_size_mb = (original_width * original_height * 4) / (1024 * 1024)
+                        
+                        # 너무 큰 파일은 축소하여 로드 (100MB 이상 이미지)
+                        if original_size_mb > 100:
+                            # 크기를 조정하여 다시 로드 (1/2 크기로 로드)
+                            max_size = (original_width // 2, original_height // 2)
+                            image = Image.open(self.image_path)
+                            image.thumbnail(max_size, Image.LANCZOS)
+                            print(f"대형 PSD 파일 크기 조정: {original_size_mb:.2f}MB → 약 {original_size_mb/4:.2f}MB")
+                        else:
+                            image = Image.open(self.image_path)
+                except Exception as e:
+                    # 미리보기 로드 실패 시 일반적인 방법으로 로드
+                    print(f"이미지 크기 확인 실패: {e}")
+                    image = Image.open(self.image_path)
                 
                 # RGB 모드로 변환
                 if image.mode != 'RGB':
@@ -113,7 +132,10 @@ class ImageLoaderThread(QThread):
                 # 변환된 이미지를 QPixmap으로 변환
                 buffer = BytesIO()
                 print("이미지를 PNG로 변환하는 중...")
-                image.save(buffer, format='PNG', icc_profile=None)
+                
+                # 메모리 사용량 최적화 - 압축률 조정 (0이 최소 압축, 9가 최대 압축)
+                compression_level = 6  # 기본값 6: 속도와 크기의 균형
+                image.save(buffer, format='PNG', compress_level=compression_level, icc_profile=None)
                 pixmap = QPixmap()
                 
                 buffer_value = buffer.getvalue()
@@ -127,7 +149,20 @@ class ImageLoaderThread(QThread):
                 
             else:  # 일반 이미지
                 print(f"일반 이미지 로딩 시작: {self.image_path}")
-                pixmap = QPixmap(self.image_path)
+                
+                # 파일 크기 확인
+                file_size_mb = os.path.getsize(self.image_path) / (1024 * 1024)
+                
+                # 이미지 크기에 따라 로딩 방식 변경
+                if file_size_mb > 30:  # 30MB보다 큰 이미지
+                    reader = QImageReader(self.image_path)
+                    # 품질 우선순위를 속도로 설정
+                    reader.setQuality(25)  # 25% 품질 (더 빠른 로딩)
+                    image = reader.read()
+                    pixmap = QPixmap.fromImage(image)
+                else:
+                    # 일반적인 방식으로 이미지 로드
+                    pixmap = QPixmap(self.image_path)
             
             if not pixmap.isNull():
                 # 메모리 사용량 계산
@@ -1341,6 +1376,17 @@ class ImageViewer(QWidget):
         # 이전 이미지/애니메이션 정지 및 정리
         self.image_label.clear()  # 레이블 내용 지우기 (애니메이션 정지)
         
+        # 기존 진행 중인 로딩 스레드 취소 (현재 로딩 중인 이미지는 제외)
+        for path, loader in list(self.loader_threads.items()):
+            if path != image_path and loader.isRunning():
+                try:
+                    loader.terminate()
+                    loader.wait(100)  # 최대 100ms 대기
+                except:
+                    pass
+                del self.loader_threads[path]
+                print(f"이미지 로딩 취소: {os.path.basename(path)}")
+        
         # 기존 QMovie 정리
         if hasattr(self, 'current_movie') and self.current_movie:
             self.current_movie.stop()
@@ -1386,6 +1432,30 @@ class ImageViewer(QWidget):
             self.show_psd(image_path)  # PSD를 표시하는 메서드 호출
         elif file_ext in ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.ico', '.heic', '.heif']:  # JPG, JPEG, PNG 파일 처리
             self.current_media_type = 'image'  # 미디어 타입 업데이트
+            
+            # 파일 크기 확인 (대용량 이미지 확인)
+            file_size_mb = os.path.getsize(image_path) / (1024 * 1024)
+            
+            # 대용량 이미지인 경우 먼저 저해상도 미리보기 표시
+            if file_size_mb > 20:  # 20MB 이상인 경우
+                # 로딩 중 표시
+                self.show_loading_indicator()
+                
+                # "대용량 이미지 로딩 중" 메시지 표시
+                self.show_message(f"대용량 이미지 로딩 중 ({file_size_mb:.1f}MB)")
+                
+                # 미리보기 이미지 표시 (빠른 로딩)
+                reader = QImageReader(image_path)
+                reader.setScaledSize(QSize(800, 600))  # 작은 크기로 미리보기
+                preview = reader.read()
+                if not preview.isNull():
+                    preview_pixmap = QPixmap.fromImage(preview)
+                    self.image_label.setPixmap(preview_pixmap.scaled(
+                        self.image_label.size(),
+                        Qt.KeepAspectRatio,
+                        Qt.FastTransformation  # 빠른 변환 적용
+                    ))
+                    QApplication.processEvents()  # UI 즉시 업데이트
             
             # 캐시에서 먼저 확인
             cached_pixmap = self.image_cache.get(image_path)
@@ -2140,8 +2210,19 @@ class ImageViewer(QWidget):
     def wheelEvent(self, event):
         current_time = time.time() * 1000  # 현재 시간(밀리초)
         
+        # 기본 쿨다운 값 설정 (일반적인 경우 500ms)
+        cooldown_ms = 500
+        
+        # 동작 중인 비디오나 애니메이션인 경우 쿨다운 시간 증가 (더 느리게 이미지 전환)
+        if self.current_media_type in ['video', 'gif', 'webp']:
+            cooldown_ms = 800  # 미디어 재생 중일 때는 더 긴 쿨다운
+        
+        # 큰 이미지를 로딩 중인 경우 쿨다운 시간 증가
+        if self.loader_threads and len(self.loader_threads) > 0:
+            cooldown_ms = 1000  # 로딩 중일 때는 가장 긴 쿨다운
+        
         # 쿨다운 체크 - 상수 시간 연산 O(1)
-        if current_time - self.last_wheel_time < self.wheel_cooldown_ms:
+        if current_time - self.last_wheel_time < cooldown_ms:
             event.accept()  # 이벤트 처리됨으로 표시하고 무시
             return
         
@@ -2918,8 +2999,38 @@ class ImageViewer(QWidget):
         
         # 현재 경로가 로드된 이미지 경로와 일치하는 경우에만 표시
         if self.current_image_path == path:
-            # 이미지 표시 (화면 크기에 맞게 스케일링)
-            scaled_pixmap = image.scaled(self.image_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            # 이미지 크기에 따라 스케일링 방식 결정
+            # 작은 이미지는 고품질 변환, 큰 이미지는 빠른 변환 사용
+            transform_method = Qt.SmoothTransformation if size_mb < 20 else Qt.FastTransformation
+            
+            # 화면 크기 얻기
+            label_size = self.image_label.size()
+            
+            # 이미지 크기가 화면보다 훨씬 크면 2단계 스케일링 적용
+            if size_mb > 30 and (image.width() > label_size.width() * 2 or image.height() > label_size.height() * 2):
+                # 1단계: 빠른 방식으로 대략적인 크기로 축소
+                intermediate_pixmap = image.scaled(
+                    label_size.width() * 1.2,  # 약간 더 크게 스케일링
+                    label_size.height() * 1.2,
+                    Qt.KeepAspectRatio,
+                    Qt.FastTransformation  # 빠른 변환 사용
+                )
+                
+                # 2단계: 고품질 방식으로 최종 크기로 조정
+                scaled_pixmap = intermediate_pixmap.scaled(
+                    label_size,
+                    Qt.KeepAspectRatio,
+                    Qt.SmoothTransformation  # 고품질 변환 사용
+                )
+            else:
+                # 일반 크기 이미지는 바로 스케일링
+                scaled_pixmap = image.scaled(
+                    label_size,
+                    Qt.KeepAspectRatio,
+                    transform_method  # 이미지 크기에 따라 결정된 변환 방식 사용
+                )
+            
+            # 스케일링된 이미지 표시
             self.image_label.setPixmap(scaled_pixmap)
             print(f"이미지 로드 완료: {os.path.basename(path)}, 크기: {size_mb:.2f}MB")
         
