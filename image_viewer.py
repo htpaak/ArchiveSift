@@ -412,13 +412,36 @@ class ImageViewer(QWidget):
         self.loading_label.setStyleSheet("""
             QLabel {
                 color: white;
-                background-color: rgba(52, 73, 94, 0.8);
+                background-color: rgba(52, 73, 94, 0.9);
                 font-size: 24px;
                 padding: 20px;
                 border-radius: 10px;
             }
         """)
         self.loading_label.hide()  # 처음에는 숨김
+        self.is_loading = False  # 로딩 상태 추적
+        self.loading_timer = None  # 로딩 타임아웃 타이머
+        
+        # OpenCV 비디오 캡처 객체 초기화
+        self.cap = None
+        
+        # MPV 플레이어 초기화
+        try:
+            self.player = mpv.MPV(log_handler=print, 
+                                 ytdl=True, 
+                                 input_default_bindings=True, 
+                                 input_vo_keyboard=True,
+                                 hwdec='no')  # 하드웨어 가속 비활성화 (문제 해결을 위해)
+            
+            # 기본 설정
+            self.player.loop = True  # 반복 재생
+            self.player.keep_open = True  # 재생 후 닫지 않음
+            self.player.terminal = False  # 터미널 출력 비활성화
+
+            print("MPV 플레이어 초기화 성공")
+        except Exception as e:
+            print(f"MPV 플레이어 초기화 실패: {e}")
+            self.player = None  # 초기화 실패 시 None으로 설정
         
         # 리소스 관리를 위한 객체 추적
         self.timers = []  # 모든 타이머 추적 - 먼저 초기화
@@ -1811,6 +1834,12 @@ class ImageViewer(QWidget):
     def play_video(self, video_path):
         """MPV를 사용하여 비디오 재생"""
         
+        # 로딩 표시 시작
+        self.show_loading_indicator()
+        
+        # 비디오가 표시되고 500ms 후에 로딩 인디케이터 숨기기
+        QTimer.singleShot(500, self.hide_loading_indicator)
+        
         # 기존 비디오 중지
         self.stop_video()
         
@@ -1824,6 +1853,21 @@ class ImageViewer(QWidget):
                 if self.gif_timer in self.timers:
                     self.timers.remove(self.gif_timer)
         
+        # MPV 플레이어가 초기화되지 않은 경우 재초기화 시도
+        if not hasattr(self, 'player') or self.player is None:
+            try:
+                self.player = mpv.MPV(log_handler=print, 
+                                     ytdl=True, 
+                                     input_default_bindings=True, 
+                                     input_vo_keyboard=True,
+                                     hwdec='no')  # 하드웨어 가속 비활성화 (문제 해결을 위해)
+                print("MPV 플레이어 동적 초기화 성공")
+            except Exception as e:
+                print(f"MPV 플레이어 초기화 실패: {e}")
+                self.hide_loading_indicator()
+                self.show_message("비디오 플레이어 초기화 실패")
+                return
+                
         # MPV로 비디오 재생
         try:
             # 화면에 비디오 출력을 위한 윈도우 핸들 설정
@@ -1841,6 +1885,7 @@ class ImageViewer(QWidget):
             
             # 비디오 정보 업데이트
             self.current_image_path = video_path
+            self.current_media_type = 'video'  # 미디어 타입 설정
             
             # 슬라이더 초기화
             self.playback_slider.setRange(0, 0)  # 슬라이더 범위를 0으로 설정
@@ -1867,8 +1912,17 @@ class ImageViewer(QWidget):
             # 비디오 종료 시 타이머 중지
             self.player.observe_property('playback-restart', self.on_video_end)  # 비디오 종료 시 호출될 메서드 등록
             
+            # duration 속성 관찰 (추가 정보 용도)
+            def check_video_loaded(name, value):
+                if value is not None and value > 0:
+                    print(f"비디오 로드 완료: {video_path}, 길이: {value}초")
+            
+            self.player.observe_property('duration', check_video_loaded)
+            
         except Exception as e:
             print(f"비디오 재생 에러: {e}")  # 에러 로깅
+            self.hide_loading_indicator()  # 에러 발생 시 로딩 인디케이터 숨김
+            self.show_message(f"비디오 재생 오류: {str(e)}")
 
     def on_video_end(self, name, value):
         """비디오가 종료될 때 호출되는 메서드입니다."""
@@ -2943,6 +2997,25 @@ class ImageViewer(QWidget):
 
     def show_loading_indicator(self):
         """로딩 인디케이터를 화면 중앙에 표시합니다."""
+        # 이미 로딩 중이면 무시
+        if self.is_loading:
+            return
+            
+        # 로딩 상태 설정
+        self.is_loading = True
+        
+        # 로딩 레이블 스타일 설정 (테두리 없는 파란색 배경)
+        self.loading_label.setText("로딩 중...")
+        self.loading_label.setStyleSheet("""
+            QLabel {
+                color: white;
+                background-color: rgba(52, 73, 94, 0.9);
+                font-size: 24px;
+                padding: 20px;
+                border-radius: 10px;
+            }
+        """)
+        
         # 로딩 레이블을 이미지 레이블 중앙에 위치시킴
         self.loading_label.resize(200, 80)  # 크기 설정
         
@@ -2955,8 +3028,46 @@ class ImageViewer(QWidget):
         self.loading_label.raise_()  # 맨 앞으로 가져오기
         self.loading_label.show()
         
+        # 기존 타이머 정리
+        if self.loading_timer is not None and self.loading_timer.isActive():
+            self.loading_timer.stop()
+            if self.loading_timer in self.timers:
+                self.timers.remove(self.loading_timer)
+        
+        # 타임아웃 설정 (10초 후 자동으로 숨김)
+        self.loading_timer = QTimer(self)
+        self.loading_timer.timeout.connect(self.hide_loading_indicator)
+        self.loading_timer.setSingleShot(True)
+        self.loading_timer.start(10000)  # 10초 타임아웃
+        self.timers.append(self.loading_timer)
+        
         # UI 즉시 업데이트
         QApplication.processEvents()
+
+    def hide_loading_indicator(self):
+        """로딩 인디케이터를 숨깁니다."""
+        # 로딩 중이 아니면 무시
+        if not self.is_loading:
+            return
+            
+        # 로딩 상태 해제
+        self.is_loading = False
+        
+        # 타이머 정리
+        if self.loading_timer is not None and self.loading_timer.isActive():
+            self.loading_timer.stop()
+            if self.loading_timer in self.timers:
+                self.timers.remove(self.loading_timer)
+            self.loading_timer = None
+        
+        # 로딩 레이블 숨기기 (단순하게 숨기기만 함)
+        self.loading_label.hide()
+        
+        # 강제 업데이트를 통해 화면 갱신
+        self.image_label.update()
+        QApplication.processEvents()
+        
+        print("로딩 인디케이터 숨김")
 
     def cleanup_loader_threads(self):
         """로더 스레드를 정리하고 메모리를 확보합니다."""
@@ -2992,7 +3103,7 @@ class ImageViewer(QWidget):
     def on_image_loaded(self, path, image, size_mb):
         """이미지 로딩이 완료되면 호출되는 콜백 메서드"""
         # 로딩 표시 숨기기
-        self.loading_label.hide()
+        self.hide_loading_indicator()
         
         # 이미지 크기 제한 (메모리 관리)
         large_image_threshold = 50  # MB 단위
@@ -3056,7 +3167,7 @@ class ImageViewer(QWidget):
     def on_image_error(self, path, error):
         """이미지 로딩 중 오류가 발생하면 호출되는 콜백 메서드"""
         # 로딩 표시 숨기기
-        self.loading_label.hide()
+        self.hide_loading_indicator()
         
         # 오류 메시지 표시
         error_msg = f"이미지 로드 실패: {os.path.basename(path)}\n{error}"
