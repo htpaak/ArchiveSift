@@ -1222,6 +1222,7 @@ class ImageViewer(QWidget):
                 for button in row:
                     button.setText('')
                     button.setToolTip('')
+                    button.setVisible(False)  # 모든 버튼 숨기기
 
             # 자연스러운 정렬을 위한 함수 정의 (숫자가 포함된 텍스트 정렬용)
             def natural_keys(text):
@@ -1237,11 +1238,17 @@ class ImageViewer(QWidget):
             # 버튼 너비 계산
             button_width = self.width() // 20  # 창 너비의 1/20로 설정
 
+            # 필요한 버튼 수를 계산하고 최적화
+            max_buttons_per_row = 20
+            max_rows = 5
+            total_buttons_needed = min(len(subfolders), max_buttons_per_row * max_rows)
+            
             # 폴더 버튼 업데이트
+            button_index = 0
             for i, row in enumerate(self.buttons):
                 for j, button in enumerate(row):
-                    index = i * 20 + j  # 버튼 인덱스 계산 (5행 20열)
-                    if index < len(subfolders):  # 유효한 폴더가 있는 경우
+                    index = i * max_buttons_per_row + j  # 버튼 인덱스 계산
+                    if index < total_buttons_needed:  # 유효한 폴더가 있는 경우만 버튼 표시
                         folder_name = os.path.basename(subfolders[index])  # 폴더명 추출
                         button.setFixedWidth(button_width)  # 버튼 너비 설정
                         
@@ -1264,6 +1271,11 @@ class ImageViewer(QWidget):
                         else:
                             button.setText(folder_name)  # 원본 폴더명 표시
                             button.setToolTip(subfolders[index])  # 툴팁으로 전체 경로 표시
+                        
+                        button.setVisible(True)  # 버튼 표시
+                        button_index += 1
+                    else:
+                        button.setVisible(False)  # 불필요한 버튼 숨기기
 
     def on_button_click(self):
         """하위 폴더 버튼 클릭 처리 - 현재 이미지를 선택된 폴더로 복사"""
@@ -1450,8 +1462,10 @@ class ImageViewer(QWidget):
                 preview = reader.read()
                 if not preview.isNull():
                     preview_pixmap = QPixmap.fromImage(preview)
+                    # float를 int로 변환
+                    label_size = self.image_label.size()
                     self.image_label.setPixmap(preview_pixmap.scaled(
-                        self.image_label.size(),
+                        label_size,
                         Qt.KeepAspectRatio,
                         Qt.FastTransformation  # 빠른 변환 적용
                     ))
@@ -3009,9 +3023,10 @@ class ImageViewer(QWidget):
             # 이미지 크기가 화면보다 훨씬 크면 2단계 스케일링 적용
             if size_mb > 30 and (image.width() > label_size.width() * 2 or image.height() > label_size.height() * 2):
                 # 1단계: 빠른 방식으로 대략적인 크기로 축소
+                # float 값을 int로 변환 (타입 오류 수정)
                 intermediate_pixmap = image.scaled(
-                    label_size.width() * 1.2,  # 약간 더 크게 스케일링
-                    label_size.height() * 1.2,
+                    int(label_size.width() * 1.2),  # float를 int로 변환
+                    int(label_size.height() * 1.2),  # float를 int로 변환
                     Qt.KeepAspectRatio,
                     Qt.FastTransformation  # 빠른 변환 사용
                 )
