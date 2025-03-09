@@ -19,7 +19,7 @@ class LRUCache:
         self.cache = OrderedDict()
         self.capacity = capacity
         self.memory_usage = 0  # 메모리 사용량 추적 (MB)
-        self.max_memory = 500  # 최대 메모리 사용량 (MB)
+        self.max_memory = 300  # 최대 메모리 사용량 (MB) 500MB→300MB로 조정
         
     def get(self, key):
         if key not in self.cache:
@@ -802,8 +802,8 @@ class ImageViewer(QWidget):
 
         # 이미지 캐시 초기화
         self.image_cache = LRUCache(30)  # 일반 이미지용 캐시 (30개 항목)
-        self.psd_cache = LRUCache(5)     # PSD 파일용 캐시 (5개 항목)
-        self.gif_cache = LRUCache(10)    # GIF/애니메이션용 캐시 (10개 항목)
+        self.psd_cache = LRUCache(3)     # PSD 파일용 캐시 (5→3개 항목으로 축소)
+        self.gif_cache = LRUCache(8)     # GIF/애니메이션용 캐시 (10→8개 항목으로 축소)
 
         self.last_wheel_time = 0  # 마지막 휠 이벤트 발생 시간 (휠 이벤트 쓰로틀링용)
         self.wheel_cooldown_ms = 1000  # 1000ms 쿨다운 (500ms에서 변경됨) - 휠 이벤트 속도 제한
@@ -1284,6 +1284,9 @@ class ImageViewer(QWidget):
                 # 플레이어가 재생 중인지 확인
                 if self.player.playback_time is not None:  # 재생 시간이 있으면 재생 중
                     self.player.stop()  # 재생 중지
+                    # mpv 속성 초기화
+                    self.player.loop = False
+                    self.player.mute = False
             except Exception as e:
                 print(f"비디오 정지 에러: {e}")  # 에러 로깅
                 
@@ -1292,6 +1295,14 @@ class ImageViewer(QWidget):
             self.video_timer.stop()  # 비디오 타이머 중지
             if self.video_timer in self.timers:
                 self.timers.remove(self.video_timer)
+                
+        # 슬라이더 값 초기화
+        if hasattr(self, 'playback_slider'):
+            self.playback_slider.setValue(0)
+            
+        # 시간 표시 초기화
+        if hasattr(self, 'time_label'):
+            self.time_label.setText("00:00 / 00:00")
 
     def disconnect_all_slider_signals(self):
         """슬라이더의 모든 신호 연결 해제 (이벤트 충돌 방지)"""
@@ -2280,10 +2291,13 @@ class ImageViewer(QWidget):
         self.stop_video()
         
         # 로더 스레드 종료
-        for path, loader in self.loader_threads.items():
+        for path, loader in list(self.loader_threads.items()):
             if loader.isRunning():
-                loader.terminate()
-                loader.wait()  # 스레드가 완전히 종료될 때까지 대기
+                try:
+                    loader.terminate()
+                    loader.wait(300)  # 최대 300ms까지만 대기 (무한 대기 방지)
+                except Exception as e:
+                    print(f"스레드 종료 오류: {e}")
         self.loader_threads.clear()
         
         # MPV 플레이어 정리
@@ -2291,8 +2305,8 @@ class ImageViewer(QWidget):
             try:
                 self.player.terminate()  # 플레이어 종료
                 self.player = None  # 참조 제거
-            except:
-                pass
+            except Exception as e:
+                print(f"플레이어 종료 오류: {e}")
         
         # 캐시 정리
         if hasattr(self, 'image_cache'):
@@ -2304,14 +2318,21 @@ class ImageViewer(QWidget):
             
         # QMovie 정리
         if hasattr(self, 'current_movie') and self.current_movie:
-            self.current_movie.stop()
-            self.current_movie.deleteLater()
-            self.current_movie = None
+            try:
+                self.current_movie.stop()
+                self.current_movie.deleteLater()
+                self.current_movie = None
+            except Exception as e:
+                print(f"QMovie 정리 오류: {e}")
             
         # 타이머 정리
-        for timer in self.timers:
-            if timer.isActive():
-                timer.stop()
+        for timer in list(self.timers):
+            try:
+                if timer.isActive():
+                    timer.stop()
+            except Exception as e:
+                print(f"타이머 정리 오류: {e}")
+        self.timers.clear()  # 타이머 목록 비우기
                 
         # 책갈피 저장
         self.save_bookmarks()
@@ -2843,17 +2864,57 @@ class ImageViewer(QWidget):
         QApplication.processEvents()
 
     def cleanup_loader_threads(self):
-        for path, loader in list(self.loader_threads.items()):
+        """로더 스레드를 정리하고 메모리를 확보합니다."""
+        # 완료되었거나 오류가 발생한 스레드 제거
+        current_threads = list(self.loader_threads.items())
+        for path, loader in current_threads:
             if not loader.isRunning():
                 del self.loader_threads[path]
+                
+        # 활성 스레드가 너무 많으면 가장 오래된 것부터 종료
+        max_concurrent_threads = 3  # 최대 동시 실행 스레드 수
+        
+        if len(self.loader_threads) > max_concurrent_threads:
+            # 현재 이미지의 로더는 제외하고 오래된 순으로 정리
+            threads_to_remove = [
+                path for path in self.loader_threads 
+                if path != self.current_image_path
+            ]
+            
+            # 초과된 만큼 오래된 스레드부터 제거
+            for path in threads_to_remove[:len(self.loader_threads) - max_concurrent_threads]:
+                if path in self.loader_threads:
+                    loader = self.loader_threads[path]
+                    if loader.isRunning():
+                        loader.terminate()
+                        try:
+                            loader.wait(100)  # 최대 100ms까지만 대기
+                        except:
+                            pass
+                    del self.loader_threads[path]
+                    print(f"스레드 정리: {os.path.basename(path)}")
 
     def on_image_loaded(self, path, image, size_mb):
         """이미지 로딩이 완료되면 호출되는 콜백 메서드"""
         # 로딩 표시 숨기기
         self.loading_label.hide()
         
-        # 캐시에 이미지 저장
-        self.image_cache.put(path, image, size_mb)
+        # 이미지 크기 제한 (메모리 관리)
+        large_image_threshold = 50  # MB 단위
+        
+        # 너무 큰 이미지는 캐시하지 않음
+        if size_mb < large_image_threshold:
+            # 캐시에 이미지 저장 (파일 확장자에 따라 적절한 캐시 선택)
+            file_ext = os.path.splitext(path)[1].lower()
+            
+            if file_ext == '.psd':
+                self.psd_cache.put(path, image, size_mb)
+            elif file_ext in ['.gif', '.webp']:
+                self.gif_cache.put(path, image, size_mb)
+            else:
+                self.image_cache.put(path, image, size_mb)
+        else:
+            print(f"크기가 너무 큰 이미지는 캐시되지 않습니다: {os.path.basename(path)} ({size_mb:.2f}MB)")
         
         # 현재 경로가 로드된 이미지 경로와 일치하는 경우에만 표시
         if self.current_image_path == path:
