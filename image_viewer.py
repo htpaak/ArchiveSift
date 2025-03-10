@@ -5,9 +5,9 @@ import shutil  # 파일 복사 및 이동 기능 제공 (고급 파일 작업)
 import re  # 정규표현식 처리 기능 제공 (패턴 검색 및 문자열 처리)
 import json  # JSON 파일 처리를 위한 모듈
 from collections import OrderedDict  # LRU 캐시 구현을 위한 정렬된 딕셔너리
-from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout, QPushButton, QFileDialog, QHBoxLayout, QSizePolicy, QSlider, QLayout, QSpacerItem, QStyle, QStyleOptionSlider, QMenu, QAction, QScrollArea, QListWidgetItem, QListWidget, QAbstractItemView  # PyQt5 UI 위젯 (사용자 인터페이스 구성 요소)
-from PyQt5.QtGui import QPixmap, QImage, QImageReader, QFont, QMovie, QCursor, QIcon, QColor, QPalette, QFontMetrics  # 그래픽 요소 처리 (이미지, 폰트, 커서 등)
-from PyQt5.QtCore import Qt, QSize, QTimer, QEvent, QPoint, pyqtSignal, QRect, QMetaObject, QObject, QUrl, QThread  # Qt 코어 기능 (이벤트, 신호, 타이머 등)
+from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout, QPushButton, QFileDialog, QHBoxLayout, QSizePolicy, QSlider, QLayout, QSpacerItem, QStyle, QStyleOptionSlider, QMenu, QAction, QScrollArea, QListWidgetItem, QListWidget, QAbstractItemView, QInputDialog, QMessageBox  # PyQt5 UI 위젯 (사용자 인터페이스 구성 요소)
+from PyQt5.QtGui import QPixmap, QImage, QImageReader, QFont, QMovie, QCursor, QIcon, QColor, QPalette, QFontMetrics, QTransform  # 그래픽 요소 처리 (이미지, 폰트, 커서 등)
+from PyQt5.QtCore import Qt, QSize, QTimer, QEvent, QPoint, pyqtSignal, QRect, QMetaObject, QObject, QUrl, QThread, QBuffer  # Qt 코어 기능 (이벤트, 신호, 타이머 등)
 import cv2  # OpenCV 라이브러리 - 비디오 처리용 (프레임 추출, 이미지 변환 등)
 from PIL import Image, ImageCms  # Pillow 라이브러리 - 이미지 처리용 (다양한 이미지 포맷 지원)
 from io import BytesIO  # 바이트 데이터 처리용 (메모리 내 파일 스트림)
@@ -420,7 +420,7 @@ class ImageViewer(QWidget):
         """)
         self.loading_label.hide()  # 처음에는 숨김
         self.is_loading = False  # 로딩 상태 추적
-        self.loading_timer = None  # 로딩 타임아웃 타이머
+        self.loading_timer = None  # 로딩 타이머
         
         # OpenCV 비디오 캡처 객체 초기화
         self.cap = None
@@ -674,6 +674,40 @@ class ImageViewer(QWidget):
         self.play_button.clicked.connect(self.toggle_animation_playback)  # 재생 버튼 클릭 이벤트 연결 (재생/일시정지 전환)
         new_slider_layout.addWidget(self.play_button)
 
+        # 회전 버튼 추가 (시계 방향)
+        self.rotate_cw_button = QPushButton("↻", self)
+        self.rotate_cw_button.setStyleSheet("""
+            QPushButton {
+                background-color: rgba(52, 73, 94, 0.6);
+                color: white;
+                border: none;
+                padding: 10px;
+                border-radius: 3px;
+            }
+            QPushButton:hover {
+                background-color: rgba(52, 73, 94, 1.0);
+            }
+        """)
+        self.rotate_cw_button.clicked.connect(lambda: self.rotate_image(True))
+        new_slider_layout.addWidget(self.rotate_cw_button)
+
+        # 회전 버튼 추가 (반시계 방향)
+        self.rotate_ccw_button = QPushButton("↺", self)
+        self.rotate_ccw_button.setStyleSheet("""
+            QPushButton {
+                background-color: rgba(52, 73, 94, 0.6);
+                color: white;
+                border: none;
+                padding: 10px;
+                border-radius: 3px;
+            }
+            QPushButton:hover {
+                background-color: rgba(52, 73, 94, 1.0);
+            }
+        """)
+        self.rotate_ccw_button.clicked.connect(lambda: self.rotate_image(False))
+        new_slider_layout.addWidget(self.rotate_ccw_button)
+
         # MPV 상태 확인을 위한 타이머 설정 (주기적으로 재생 상태 업데이트)
         self.play_button_timer = QTimer(self)
         self.play_button_timer.timeout.connect(self.update_play_button)  # 타이머가 작동할 때마다 update_play_button 메소드 호출
@@ -770,15 +804,15 @@ class ImageViewer(QWidget):
         self.slider_bookmark_btn.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)  # 고정 크기 사용
         self.slider_bookmark_btn.setStyleSheet("""
             QPushButton {
-                background-color: rgba(52, 73, 94, 0.6);
+                background-color: rgba(241, 196, 15, 0.9);  /* 노란색 배경 */
                 color: white;
                 border: none;
-                padding: 8px;  /* 패딩을 10px에서 8px로 줄임 */
+                padding: 8px;
                 border-radius: 3px;
-                font-size: 12px;  /* 폰트 크기를 14px에서 12px로 줄임 */
+                font-size: 12px;
             }
             QPushButton:hover {
-                background-color: rgba(52, 73, 94, 1.0);
+                background-color: rgba(241, 196, 15, 1.0);  /* 호버 시 더 진한 노란색 */
             }
         """)
         # 북마크 토글 기능 대신 위로 펼쳐지는 메뉴 표시 기능으로 변경
@@ -786,30 +820,50 @@ class ImageViewer(QWidget):
         new_slider_layout.addWidget(self.slider_bookmark_btn)
 
         # 새로운 슬라이더 위젯을 하단 레이아웃에 추가
-        bottom_layout.addWidget(self.slider_widget, 0, Qt.AlignLeft | Qt.AlignTop)  # 좌측 정렬로 변경하여 최대한 넓게 표시
-        
-        # 중복된 슬라이더 위젯 할당 제거 (이미 위에서 self.slider_widget을 만들었음)
-        # self.slider_widget = slider_widget
+        bottom_layout.addWidget(self.slider_widget, 0)  # 정렬 플래그 제거
 
-        # 슬라이더바와 폴더 버튼 사이에 20px의 빈 공간 추가 (색상 지정) - 제거
-        # vertical_spacer = QWidget()
-        # vertical_spacer.setFixedHeight(20)  # 높이를 20px로 고정
-        # vertical_spacer.setStyleSheet("background-color: rgba(52, 73, 94, 0.9);")  # 색상 지정
-        # bottom_layout.addWidget(vertical_spacer)
+        # 버튼 컨테이너 위젯 생성
+        button_container = QWidget()
+        button_container.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        button_container_layout = QVBoxLayout(button_container)
+        button_container_layout.setContentsMargins(0, 0, 0, 0)
+        button_container_layout.setSpacing(0)
 
-        # 폴더 버튼에 스타일 적용 (하위 폴더 선택용 버튼 그리드)
+        # 폴더 버튼에 스타일 적용
         self.buttons = []
-        for _ in range(5):  # 4줄에서 5줄로 변경 (더 많은 폴더 버튼 표시)
-            button_layout = QHBoxLayout()
+        for _ in range(5):  # 5줄
+            row_widget = QWidget()  # 각 행을 위한 위젯
+            row_widget.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Fixed)  # Expanding 대신 MinimumExpanding 사용
+            row_widget.setMaximumWidth(self.width())  # 최대 너비 제한 추가
+            button_layout = QHBoxLayout(row_widget)
+            button_layout.setContentsMargins(0, 0, 0, 0)
+            button_layout.setSpacing(0)
             button_row = []
-            for _ in range(20):  # 12개에서 20개로 변경 (버튼 수 증가)
+            
+            total_width = self.width()
+            available_width = total_width - button_layout.contentsMargins().left() - button_layout.contentsMargins().right()
+            button_width = available_width / 20  # 실제 사용 가능한 너비로 계산
+            
+            for i in range(20):
                 empty_button = QPushButton('')
                 empty_button.setStyleSheet(button_style)
-                empty_button.clicked.connect(self.on_button_click)  # 버튼 클릭 이벤트 연결 (이미지 복사 기능)
+                empty_button.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Fixed)
+                empty_button.clicked.connect(self.on_button_click)
+                
+                if i == 19:
+                    remaining_width = total_width - (int(button_width) * 19)
+                    empty_button.setFixedWidth(remaining_width)
+                else:
+                    empty_button.setFixedWidth(int(button_width))
+                
                 button_row.append(empty_button)
                 button_layout.addWidget(empty_button)
+            
             self.buttons.append(button_row)
-            bottom_layout.addLayout(button_layout)
+            button_container_layout.addWidget(row_widget)
+
+        # 버튼 컨테이너를 bottom_layout에 추가
+        bottom_layout.addWidget(button_container)
 
         # 메인 레이아웃에 위젯 추가
         main_layout.addWidget(self.image_container, 90)  # 90% (이미지가 화면의 대부분 차지)
@@ -881,6 +935,10 @@ class ImageViewer(QWidget):
         
         # 연결 추가 (이벤트와 함수 연결)
         self.volume_slider.valueChanged.connect(self.adjust_volume)  # 슬라이더 값 변경 시 음량 조절 메서드 연결 (볼륨 실시간 조절)
+
+        # 회전 관련 변수 추가
+        self.current_rotation = 0  # 현재 회전 각도 (0, 90, 180, 270)
+        self.rotated_frames = {}  # 회전된 애니메이션 프레임 캐시
 
     def ensure_maximized(self):
         """창이 최대화 상태인지 확인하고 그렇지 않으면 다시 최대화합니다."""
@@ -969,37 +1027,10 @@ class ImageViewer(QWidget):
                     scaled_pixmap = pixmap.scaled(self.image_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)  # 비율 유지하며 크기 조정
                     self.image_label.setPixmap(scaled_pixmap)  # 화면에 표시
             
-            elif file_ext == '.webp':  # WebP 이미지/애니메이션 처리
-                if hasattr(self, 'current_movie') and self.current_movie:  # 애니메이션 WebP인 경우
-                    # 현재 프레임 정보 저장
-                    current_frame = self.current_movie.currentFrameNumber()
-                    original_size = QSize(self.current_movie.currentImage().width(), self.current_movie.currentImage().height())
-                    label_size = self.image_label.size()
-                    
-                    # 높이가 0인 경우 예외 처리 (0으로 나누기 방지)
-                    if original_size.height() == 0:
-                        original_size.setHeight(1)
-                    
-                    # 화면 비율에 맞게 새 크기 계산
-                    if label_size.width() / label_size.height() > original_size.width() / original_size.height():
-                        # 세로 맞춤 (세로 기준으로 가로 계산)
-                        new_height = label_size.height()
-                        new_width = int(new_height * (original_size.width() / original_size.height()))
-                    else:
-                        # 가로 맞춤 (가로 기준으로 세로 계산)
-                        new_width = label_size.width()
-                        new_height = int(new_width * (original_size.height() / original_size.width()))
-                    
-                    # 애니메이션 크기 조정 및 원래 프레임으로 복원
-                    self.current_movie.setScaledSize(QSize(new_width, new_height))
-                    self.current_movie.jumpToFrame(current_frame)
-                else:  # 정적 WebP 이미지인 경우
-                    # 일반 이미지처럼 처리
-                    pixmap = QPixmap(self.current_image_path)
-                    if not pixmap.isNull():
-                        scaled_pixmap = pixmap.scaled(self.image_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
-                        self.image_label.setPixmap(scaled_pixmap)
-            
+            elif file_ext == '.webp':  # WEBP 이미지/애니메이션 처리
+                # WEBP 파일은 애니메이션일 수도 있고 일반 이미지일 수도 있음
+                # show_webp 함수에서 알맞은 미디어 타입을 설정함 ('image' 또는 'webp_animation')
+                self.show_webp(self.current_image_path)  # WEBP 파일 처리
             elif file_ext in ['.gif', '.webp']:  # GIF/WebP 애니메이션 공통 처리
                 if hasattr(self, 'current_movie'):  # 애니메이션 객체가 있는 경우
                     # 현재 프레임 번호 저장
@@ -1225,6 +1256,7 @@ class ImageViewer(QWidget):
         
         # 부모 클래스의 resizeEvent 호출
         super().resizeEvent(event)
+        self.update_button_sizes()
 
     def mouseDoubleClickEvent(self, event):
         """더블 클릭 시 최대화/일반 창 상태 전환"""
@@ -1245,7 +1277,6 @@ class ImageViewer(QWidget):
                 for button in row:
                     button.setText('')
                     button.setToolTip('')
-                    button.setVisible(False)  # 모든 버튼 숨기기
 
             # 자연스러운 정렬을 위한 함수 정의 (숫자가 포함된 텍스트 정렬용)
             def natural_keys(text):
@@ -1261,17 +1292,11 @@ class ImageViewer(QWidget):
             # 버튼 너비 계산
             button_width = self.width() // 20  # 창 너비의 1/20로 설정
 
-            # 필요한 버튼 수를 계산하고 최적화
-            max_buttons_per_row = 20
-            max_rows = 5
-            total_buttons_needed = min(len(subfolders), max_buttons_per_row * max_rows)
-            
             # 폴더 버튼 업데이트
-            button_index = 0
             for i, row in enumerate(self.buttons):
                 for j, button in enumerate(row):
-                    index = i * max_buttons_per_row + j  # 버튼 인덱스 계산
-                    if index < total_buttons_needed:  # 유효한 폴더가 있는 경우만 버튼 표시
+                    index = i * 20 + j  # 버튼 인덱스 계산 (5행 20열)
+                    if index < len(subfolders):  # 유효한 폴더가 있는 경우
                         folder_name = os.path.basename(subfolders[index])  # 폴더명 추출
                         button.setFixedWidth(button_width)  # 버튼 너비 설정
                         
@@ -1294,11 +1319,6 @@ class ImageViewer(QWidget):
                         else:
                             button.setText(folder_name)  # 원본 폴더명 표시
                             button.setToolTip(subfolders[index])  # 툴팁으로 전체 경로 표시
-                        
-                        button.setVisible(True)  # 버튼 표시
-                        button_index += 1
-                    else:
-                        button.setVisible(False)  # 불필요한 버튼 숨기기
 
     def on_button_click(self):
         """하위 폴더 버튼 클릭 처리 - 현재 이미지를 선택된 폴더로 복사"""
@@ -1501,8 +1521,22 @@ class ImageViewer(QWidget):
                 # 캐시에서 찾은 경우 바로 사용
                 pixmap = cached_pixmap
                 print(f"이미지 캐시 히트: {os.path.basename(image_path)}")
-                # 이미지 바로 표시
-                self.image_label.setPixmap(pixmap.scaled(self.image_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                
+                # 회전 각도가 0이 아니면 회전 적용
+                if hasattr(self, 'current_rotation') and self.current_rotation != 0:
+                    # 회전 변환 적용 (원본 이미지에 직접 적용)
+                    transform = QTransform().rotate(self.current_rotation)
+                    pixmap = pixmap.transformed(transform, Qt.SmoothTransformation)
+                    print(f"캐시된 이미지에 회전 적용됨: {self.current_rotation}°")
+                
+                # 이미지 바로 표시 (크기 조정 후)
+                label_size = self.image_label.size()
+                scaled_pixmap = pixmap.scaled(
+                    label_size, 
+                    Qt.KeepAspectRatio, 
+                    Qt.SmoothTransformation
+                )
+                self.image_label.setPixmap(scaled_pixmap)
             else:
                 # 로딩 중 표시
                 self.show_loading_indicator()
@@ -1518,9 +1552,10 @@ class ImageViewer(QWidget):
                 # 스레드 추적
                 self.loader_threads[image_path] = loader
                 loader.start()
-        elif file_ext == '.webp':  # WEBP 파일 처리
-            self.current_media_type = 'webp'  # 미디어 타입 업데이트
-            self.show_webp(image_path)  # WEBP 애니메이션 처리
+        elif file_ext == '.webp':  # WEBP 이미지/애니메이션 처리
+            # WEBP 파일은 애니메이션일 수도 있고 일반 이미지일 수도 있음
+            # show_webp 함수에서 알맞은 미디어 타입을 설정함 ('image' 또는 'webp_animation')
+            self.show_webp(self.current_image_path)  # WEBP 파일 처리
         elif file_ext in ['.mp4', '.avi', '.wmv', '.ts', '.m2ts', '.mov', '.qt', '.mkv', '.flv', '.webm', '.3gp', '.m4v', '.mpg', '.mpeg', '.vob', '.wav', '.flac', '.mp3', '.aac', '.m4a', '.ogg']:  # MP4 파일 처리-
             self.current_media_type = 'video'  # 미디어 타입 업데이트
             self.play_video(image_path)  # MP4 비디오 재생
@@ -1547,7 +1582,15 @@ class ImageViewer(QWidget):
         if pixmap is not None:
             # 캐시에서 찾은 경우 바로 사용
             print(f"PSD 캐시 히트: {os.path.basename(image_path)}")
-            # 이미지 바로 표시
+            
+            # 회전 각도가 0이 아니면 회전 적용
+            if hasattr(self, 'current_rotation') and self.current_rotation != 0:
+                # 회전 변환 적용
+                transform = QTransform().rotate(self.current_rotation)
+                pixmap = pixmap.transformed(transform, Qt.SmoothTransformation)
+                print(f"PSD에 회전 적용됨: {self.current_rotation}°")
+            
+            # 이미지 크기 조정 후 표시
             scaled_pixmap = pixmap.scaled(self.image_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
             self.image_label.setPixmap(scaled_pixmap)
         else:
@@ -1589,8 +1632,43 @@ class ImageViewer(QWidget):
             self.current_movie = QMovie(image_path)
             self.current_movie.setCacheMode(QMovie.CacheAll)
             self.current_movie.jumpToFrame(0)
-            self.scale_gif()
-            self.image_label.setMovie(self.current_movie)
+            
+            # 현재 회전 각도가 0이 아니면 회전 적용
+            if hasattr(self, 'current_rotation') and self.current_rotation != 0:
+                # 회전을 위한 변환 행렬 설정
+                transform = QTransform().rotate(self.current_rotation)
+                
+                # 프레임 변경 시 회전을 적용하는 함수 연결
+                def frame_changed(frame_number):
+                    if not hasattr(self, 'image_label') or not self.image_label:
+                        return
+                        
+                    # 현재 프레임 가져오기
+                    current_pixmap = self.current_movie.currentPixmap()
+                    if current_pixmap and not current_pixmap.isNull():
+                        # 프레임 회전
+                        rotated_pixmap = current_pixmap.transformed(transform, Qt.SmoothTransformation)
+                        
+                        # 화면에 맞게 크기 조절
+                        label_size = self.image_label.size()
+                        scaled_pixmap = rotated_pixmap.scaled(
+                            label_size,
+                            Qt.KeepAspectRatio,
+                            Qt.SmoothTransformation
+                        )
+                        
+                        # 이미지 라벨에 표시
+                        self.image_label.setPixmap(scaled_pixmap)
+                
+                # 프레임 변경 이벤트에 회전 함수 연결
+                self.current_movie.frameChanged.connect(frame_changed)
+                self.current_movie.start()
+                print(f"GIF에 회전 적용됨: {self.current_rotation}°")
+            else:
+                # 회전이 없는 경우 일반적인 처리
+                self.scale_gif()
+                self.image_label.setMovie(self.current_movie)
+                self.current_movie.start()
 
             # 슬라이더 범위를 gif의 프레임 수에 맞게 설정
             frame_count = self.current_movie.frameCount()
@@ -1699,6 +1777,8 @@ class ImageViewer(QWidget):
 
         # 이미지를 로드하고 애니메이션으로 처리
         if reader.supportsAnimation():  # 애니메이션을 지원하면
+            # 애니메이션 WEBP로 미디어 타입 설정
+            self.current_media_type = 'webp_animation'
             
             # 기존 타이머 정지 및 관리
             if hasattr(self, 'gif_timer'):
@@ -1716,8 +1796,43 @@ class ImageViewer(QWidget):
             self.current_movie = QMovie(image_path)
             self.current_movie.setCacheMode(QMovie.CacheAll)
             self.current_movie.jumpToFrame(0)
-            self.scale_webp()
-            self.image_label.setMovie(self.current_movie)
+            
+            # 현재 회전 각도가 0이 아니면 회전 적용
+            if hasattr(self, 'current_rotation') and self.current_rotation != 0:
+                # 회전을 위한 변환 행렬 설정
+                transform = QTransform().rotate(self.current_rotation)
+                
+                # 프레임 변경 시 회전을 적용하는 함수 연결
+                def frame_changed(frame_number):
+                    if not hasattr(self, 'image_label') or not self.image_label:
+                        return
+                        
+                    # 현재 프레임 가져오기
+                    current_pixmap = self.current_movie.currentPixmap()
+                    if current_pixmap and not current_pixmap.isNull():
+                        # 프레임 회전
+                        rotated_pixmap = current_pixmap.transformed(transform, Qt.SmoothTransformation)
+                        
+                        # 화면에 맞게 크기 조절
+                        label_size = self.image_label.size()
+                        scaled_pixmap = rotated_pixmap.scaled(
+                            label_size,
+                            Qt.KeepAspectRatio,
+                            Qt.SmoothTransformation
+                        )
+                        
+                        # 이미지 라벨에 표시
+                        self.image_label.setPixmap(scaled_pixmap)
+                
+                # 프레임 변경 이벤트에 회전 함수 연결
+                self.current_movie.frameChanged.connect(frame_changed)
+                self.current_movie.start()
+                print(f"WEBP에 회전 적용됨: {self.current_rotation}°")
+            else:
+                # 회전이 없는 경우 일반적인 처리
+                self.scale_webp()
+                self.image_label.setMovie(self.current_movie)
+                self.current_movie.start()
 
             # 슬라이더 범위를 WEBP의 프레임 수에 맞게 설정
             frame_count = self.current_movie.frameCount()
@@ -1775,16 +1890,25 @@ class ImageViewer(QWidget):
                 self.gif_timer.start(timer_interval)  # 계산된 타이머 간격 사용
                 self.timers.append(self.gif_timer)  # 타이머 추적에 추가
 
-                                # 애니메이션 재생 시작
+                # 애니메이션 재생 시작
                 self.current_movie.start()  # 애니메이션 시작
                 self.current_movie.setPaused(False)  # 일시정지 상태 해제
                 # 재생 버튼 상태 업데이트
                 self.play_button.setText("❚❚")  # 일시정지 아이콘 표시 (재생 중)
             else:
                 # 프레임이 1개 이하일 경우 일반 이미지로 처리
+                self.current_media_type = 'image'  # 일반 이미지로 미디어 타입 변경
                 image = QImage(image_path)  # 이미지 로드
                 if not image.isNull():
                     pixmap = QPixmap.fromImage(image)  # QImage를 QPixmap으로 변환
+                    
+                    # 회전 각도가 0이 아니면 회전 적용
+                    if hasattr(self, 'current_rotation') and self.current_rotation != 0:
+                        # 회전 변환 적용
+                        transform = QTransform().rotate(self.current_rotation)
+                        pixmap = pixmap.transformed(transform, Qt.SmoothTransformation)
+                        print(f"단일 프레임 WEBP에 회전 적용됨: {self.current_rotation}°")
+                    
                     # 화면 크기에 맞게 이미지 조정 (비율 유지, 고품질 보간)
                     scaled_pixmap = pixmap.scaled(
                         self.image_label.width(),
@@ -1801,9 +1925,18 @@ class ImageViewer(QWidget):
                 self.time_label.show()  # 시간 레이블 표시
         else:
             # 애니메이션을 지원하지 않는 일반 WebP 이미지 처리
+            self.current_media_type = 'image'  # 일반 이미지로 미디어 타입 설정
             image = QImage(image_path)  # 이미지 로드
             if not image.isNull():
                 pixmap = QPixmap.fromImage(image)  # QImage를 QPixmap으로 변환
+                
+                # 회전 각도가 0이 아니면 회전 적용
+                if hasattr(self, 'current_rotation') and self.current_rotation != 0:
+                    # 회전 변환 적용
+                    transform = QTransform().rotate(self.current_rotation)
+                    pixmap = pixmap.transformed(transform, Qt.SmoothTransformation)
+                    print(f"일반 WEBP 이미지에 회전 적용됨: {self.current_rotation}°")
+                
                 # 화면 크기에 맞게 이미지 조정 (비율 유지, 고품질 보간)
                 scaled_pixmap = pixmap.scaled(
                     self.image_label.width(),
@@ -2148,8 +2281,15 @@ class ImageViewer(QWidget):
             bytes_per_line = 3 * width  # 한 줄에 필요한 바이트 수 (RGB는 3바이트)
             qimg = QImage(frame.data, width, height, bytes_per_line, QImage.Format_RGB888)  # numpy 데이터를 QImage로 변환
 
-            # QImage를 QPixmap으로 변환하여 라벨에 표시합니다.
+            # QImage를 QPixmap으로 변환
             pixmap = QPixmap.fromImage(qimg)  # QImage를 QPixmap으로 변환
+            
+            # 회전 각도가 0이 아니면 회전 적용
+            if hasattr(self, 'current_rotation') and self.current_rotation != 0:
+                transform = QTransform().rotate(self.current_rotation)
+                pixmap = pixmap.transformed(transform, Qt.SmoothTransformation)
+            
+            # 라벨에 표시
             self.image_label.setPixmap(pixmap.scaled(self.image_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))  
             # 라벨에 표시된 크기를 라벨 크기에 맞춰 비율을 유지하면서 스무스하게 변환하여 표시
         else:
@@ -2345,6 +2485,10 @@ class ImageViewer(QWidget):
             self.show_previous_image()  # 이전 이미지로 이동
         elif event.key() == Qt.Key_Right:  # 오른쪽 화살표키를 눌렀을 때
             self.show_next_image()  # 다음 이미지로 이동
+        elif event.key() == Qt.Key_R:  # R 키를 눌렀을 때
+            self.rotate_image(True)  # 시계 방향 회전
+        elif event.key() == Qt.Key_L:  # L 키를 눌렀을 때
+            self.rotate_image(False)  # 반시계 방향 회전
 
     # 마우스 휠 이벤트를 처리하는 메서드입니다.
     def wheelEvent(self, event):
@@ -2701,9 +2845,8 @@ class ImageViewer(QWidget):
                     drive, tail = os.path.splitdrive(path_display)
                     parts = tail.split(os.sep)
                     if len(parts) > 2:
-                        # 드라이브 + '...' + 마지막 2개 폴더 + 파일명
-                        path_parts = parts[:-1]  # 파일명 제외한 부분
-                        path_display = f"{drive}{os.sep}...{os.sep}{os.sep.join(path_parts[-2:])}{os.sep}{filename}"
+                        # 드라이브 + '...' + 마지막 2개 폴더
+                        path_display = f"{drive}{os.sep}...{os.sep}{os.sep.join(parts[-2:])}"
                 
                 # 표시 번호 추가 (간결하게 수정)
                 display_text = f"{idx + 1}. {filename}"  # 경로 없이 파일명만 표시
@@ -2798,32 +2941,32 @@ class ImageViewer(QWidget):
     def update_bookmark_button_state(self):
         if self.current_image_path:
             if self.current_image_path in self.bookmarks:
-                # 슬라이더바 북마크 버튼 업데이트 (노란색 별표)
+                # 북마크된 상태 (노란색 배경)
                 if hasattr(self, 'slider_bookmark_btn'):
                     self.slider_bookmark_btn.setStyleSheet("""
                         QPushButton {
-                            background-color: rgba(52, 73, 94, 0.6);
-                            color: #FFD700;  /* 노란색(Gold) 별표 */
+                            background-color: rgba(241, 196, 15, 0.9);
+                            color: white;
                             border: none;
-                            padding: 10px;
+                            padding: 8px;
                             border-radius: 3px;
-                            font-size: 14px;
+                            font-size: 12px;
                         }
                         QPushButton:hover {
-                            background-color: rgba(52, 73, 94, 1.0);
+                            background-color: rgba(241, 196, 15, 1.0);
                         }
                     """)
             else:
-                # 슬라이더바 북마크 버튼 업데이트 (흰색 별표)
+                # 북마크되지 않은 상태 (회색 배경)
                 if hasattr(self, 'slider_bookmark_btn'):
                     self.slider_bookmark_btn.setStyleSheet("""
                         QPushButton {
                             background-color: rgba(52, 73, 94, 0.6);
                             color: white;
                             border: none;
-                            padding: 10px;
+                            padding: 8px;
                             border-radius: 3px;
-                            font-size: 14px;
+                            font-size: 12px;
                         }
                         QPushButton:hover {
                             background-color: rgba(52, 73, 94, 1.0);
@@ -3203,12 +3346,20 @@ class ImageViewer(QWidget):
             elif file_ext in ['.gif', '.webp']:
                 self.gif_cache.put(path, image, size_mb)
             else:
+                # 원본 이미지를 캐시 (회전하지 않은 상태)
                 self.image_cache.put(path, image, size_mb)
         else:
             print(f"크기가 너무 큰 이미지는 캐시되지 않습니다: {os.path.basename(path)} ({size_mb:.2f}MB)")
         
         # 현재 경로가 로드된 이미지 경로와 일치하는 경우에만 표시
         if self.current_image_path == path:
+            # 회전 각도가 0이 아니면 이미지 회전 적용 (원본 이미지에 직접 적용)
+            display_image = image  # 기본적으로 원본 이미지 사용
+            if hasattr(self, 'current_rotation') and self.current_rotation != 0:
+                transform = QTransform().rotate(self.current_rotation)
+                display_image = image.transformed(transform, Qt.SmoothTransformation)
+                print(f"이미지에 회전 적용됨: {self.current_rotation}°")
+            
             # 이미지 크기에 따라 스케일링 방식 결정
             # 작은 이미지는 고품질 변환, 큰 이미지는 빠른 변환 사용
             transform_method = Qt.SmoothTransformation if size_mb < 20 else Qt.FastTransformation
@@ -3217,10 +3368,10 @@ class ImageViewer(QWidget):
             label_size = self.image_label.size()
             
             # 이미지 크기가 화면보다 훨씬 크면 2단계 스케일링 적용
-            if size_mb > 30 and (image.width() > label_size.width() * 2 or image.height() > label_size.height() * 2):
+            if size_mb > 30 and (display_image.width() > label_size.width() * 2 or display_image.height() > label_size.height() * 2):
                 # 1단계: 빠른 방식으로 대략적인 크기로 축소
                 # float 값을 int로 변환 (타입 오류 수정)
-                intermediate_pixmap = image.scaled(
+                intermediate_pixmap = display_image.scaled(
                     int(label_size.width() * 1.2),  # float를 int로 변환
                     int(label_size.height() * 1.2),  # float를 int로 변환
                     Qt.KeepAspectRatio,
@@ -3235,7 +3386,7 @@ class ImageViewer(QWidget):
                 )
             else:
                 # 일반 크기 이미지는 바로 스케일링
-                scaled_pixmap = image.scaled(
+                scaled_pixmap = display_image.scaled(
                     label_size,
                     Qt.KeepAspectRatio,
                     transform_method  # 이미지 크기에 따라 결정된 변환 방식 사용
@@ -3272,6 +3423,131 @@ class ImageViewer(QWidget):
         for timer in self.timers:
             if not timer.isActive():
                 timer.start()
+
+    def rotate_image(self, clockwise=True):
+        """이미지를 90도 회전합니다."""
+        if not self.current_image_path:
+            return
+            
+        # 회전 각도 계산 (시계/반시계 방향)
+        rotation_delta = 90 if clockwise else -90
+        self.current_rotation = (self.current_rotation + rotation_delta) % 360
+        
+        # 현재 미디어 타입에 따라 다르게 처리
+        if self.current_media_type == 'image':
+            # 일반 이미지 회전 - 현재 회전 각도에 따라 새로 이미지를 로드하여 처리
+            file_ext = os.path.splitext(self.current_image_path)[1].lower()
+            if file_ext == '.psd':
+                # PSD 파일은 다시 로드
+                self.show_psd(self.current_image_path)
+            elif file_ext in ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.ico', '.heic', '.heif', '.webp']:
+                # 일반 이미지는 캐시에서 다시 가져오거나 새로 로드
+                if file_ext == '.webp':
+                    # WEBP 일반 이미지 처리
+                    image = QImage(self.current_image_path)
+                    if not image.isNull():
+                        pixmap = QPixmap.fromImage(image)
+                        transform = QTransform().rotate(self.current_rotation)
+                        rotated_pixmap = pixmap.transformed(transform, Qt.SmoothTransformation)
+                        
+                        # 회전된 이미지를 화면에 맞게 크기 조절
+                        label_size = self.image_label.size()
+                        scaled_pixmap = rotated_pixmap.scaled(
+                            label_size,
+                            Qt.KeepAspectRatio,
+                            Qt.SmoothTransformation
+                        )
+                        self.image_label.setPixmap(scaled_pixmap)
+                        print(f"WEBP 일반 이미지 회전 즉시 적용: {self.current_rotation}°")
+                else:
+                    # 다른 일반 이미지 처리
+                    cached_pixmap = self.image_cache.get(self.current_image_path)
+                    if cached_pixmap is not None:
+                        # 캐시에서 원본을 가져와서 현재 회전 각도를 직접 적용
+                        original_pixmap = cached_pixmap
+                        transform = QTransform().rotate(self.current_rotation)
+                        rotated_pixmap = original_pixmap.transformed(transform, Qt.SmoothTransformation)
+                        
+                        # 회전된 이미지를 화면에 맞게 크기 조절
+                        label_size = self.image_label.size()
+                        scaled_pixmap = rotated_pixmap.scaled(
+                            label_size,
+                            Qt.KeepAspectRatio,
+                            Qt.SmoothTransformation
+                        )
+                        self.image_label.setPixmap(scaled_pixmap)
+                        print(f"캐시된 이미지 회전 적용: {self.current_rotation}°")
+                    else:
+                        # 캐시에 없으면 이미지를 다시 로드 (로더 스레드에서 회전 적용됨)
+                        # 현재 경로를 다시 로드 - on_image_loaded에서 회전 적용
+                        self.show_image(self.current_image_path)
+                
+        elif self.current_media_type in ['gif', 'webp', 'webp_animation']:
+            # 애니메이션 회전을 위한 더 안전한 방법 구현
+            try:
+                if hasattr(self, 'current_movie') and self.current_movie:
+                    # 현재 재생 상태 및 프레임 기억
+                    was_playing = self.current_movie.state() == QMovie.Running
+                    current_frame = self.current_movie.currentFrameNumber()
+                    
+                    # 재로드 방식으로 처리
+                    if self.current_media_type == 'gif':
+                        self.show_gif(self.current_image_path)
+                    else:  # webp 또는 webp_animation
+                        self.show_webp(self.current_image_path)
+                        
+                    # 프레임 복원 시도
+                    if self.current_movie and current_frame < self.current_movie.frameCount():
+                        self.current_movie.jumpToFrame(current_frame)
+                        
+                    # 정지 상태였다면 유지
+                    if not was_playing and self.current_movie:
+                        self.current_movie.setPaused(True)
+                        
+            except Exception as e:
+                self.show_message(f"애니메이션 회전 중 오류 발생: {str(e)}")
+                # 오류 발생 시 원본 이미지 다시 로드
+                if self.current_media_type == 'gif':
+                    self.show_gif(self.current_image_path)
+                else:
+                    self.show_webp(self.current_image_path)
+                return
+        
+        # 회전 상태 메시지 표시
+        self.show_message(f"이미지 회전: {self.current_rotation}°")
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key_Left:  # 왼쪽 화살표키를 눌렀을 때
+            self.show_previous_image()  # 이전 이미지로 이동
+        elif event.key() == Qt.Key_Right:  # 오른쪽 화살표키를 눌렀을 때
+            self.show_next_image()  # 다음 이미지로 이동
+        elif event.key() == Qt.Key_R:  # R 키를 눌렀을 때
+            self.rotate_image(True)  # 시계 방향 회전
+        elif event.key() == Qt.Key_L:  # L 키를 눌렀을 때
+            self.rotate_image(False)  # 반시계 방향 회전
+
+    def update_button_sizes(self):
+        if hasattr(self, 'buttons'):
+            total_width = self.width()
+            
+            # 각 행 위젯의 최대 너비를 현재 창 너비로 업데이트
+            for row in self.buttons:
+                row_widget = row[0].parent()  # 버튼의 부모 위젯(row_widget) 가져오기
+                row_widget.setMaximumWidth(total_width)
+                
+                # 버튼 너비 계산
+                button_width = total_width / 20
+                
+                # 각 버튼의 너비 설정
+                for i, button in enumerate(row):
+                    if i == 19:  # 마지막 버튼
+                        remaining_width = total_width - (int(button_width) * 19)
+                        button.setFixedWidth(remaining_width)
+                    else:
+                        button.setFixedWidth(int(button_width))
+                
+                # 레이아웃 업데이트
+                row_widget.updateGeometry()
 
 # 메인 함수
 def main():
