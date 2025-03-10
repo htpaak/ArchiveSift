@@ -940,6 +940,9 @@ class ImageViewer(QWidget):
         self.current_rotation = 0  # 현재 회전 각도 (0, 90, 180, 270)
         self.rotated_frames = {}  # 회전된 애니메이션 프레임 캐시
 
+        # Add this attribute to track the current volume
+        self.current_volume = 50  # Example initial volume
+
     def ensure_maximized(self):
         """창이 최대화 상태인지 확인하고 그렇지 않으면 다시 최대화합니다."""
         if not self.isMaximized():
@@ -2066,6 +2069,9 @@ class ImageViewer(QWidget):
             self.player.seekable = True  # seek 가능하도록 설정
             self.player.pause = False  # 항상 재생 상태로 시작
             
+            # 회전 각도 설정
+            self.player['video-rotate'] = str(self.current_rotation)
+            
             # 비디오 파일 재생
             self.player.play(video_path)
             
@@ -2489,6 +2495,15 @@ class ImageViewer(QWidget):
             self.rotate_image(True)  # 시계 방향 회전
         elif event.key() == Qt.Key_L:  # L 키를 눌렀을 때
             self.rotate_image(False)  # 반시계 방향 회전
+        elif event.key() == Qt.Key_Up:  # Up arrow key
+            self.adjust_volume(self.current_volume + 1)  # Increase volume
+        elif event.key() == Qt.Key_Down:  # Down arrow key
+            self.adjust_volume(self.current_volume - 1)  # Decrease volume
+        else:
+            super().keyPressEvent(event)  # Call the base class method
+
+    # Ensure you have a way to track the current volume
+    self.current_volume = 50  # Example initial volume
 
     # 마우스 휠 이벤트를 처리하는 메서드입니다.
     def wheelEvent(self, event):
@@ -3513,18 +3528,25 @@ class ImageViewer(QWidget):
                     self.show_webp(self.current_image_path)
                 return
         
+        elif self.current_media_type == 'video':
+            # 비디오 회전 처리
+            try:
+                if hasattr(self, 'player') and self.player:
+                    # MPV의 video-rotate 속성 설정
+                    # MPV에서는 회전 각도가 0, 90, 180, 270도만 지원됨
+                    self.player['video-rotate'] = str(self.current_rotation)
+                    print(f"비디오 회전 적용: {self.current_rotation}°")
+            except Exception as e:
+                self.show_message(f"비디오 회전 중 오류 발생: {str(e)}")
+                return
+        
         # 회전 상태 메시지 표시
-        self.show_message(f"이미지 회전: {self.current_rotation}°")
-
-    def keyPressEvent(self, event):
-        if event.key() == Qt.Key_Left:  # 왼쪽 화살표키를 눌렀을 때
-            self.show_previous_image()  # 이전 이미지로 이동
-        elif event.key() == Qt.Key_Right:  # 오른쪽 화살표키를 눌렀을 때
-            self.show_next_image()  # 다음 이미지로 이동
-        elif event.key() == Qt.Key_R:  # R 키를 눌렀을 때
-            self.rotate_image(True)  # 시계 방향 회전
-        elif event.key() == Qt.Key_L:  # L 키를 눌렀을 때
-            self.rotate_image(False)  # 반시계 방향 회전
+        if self.current_media_type == 'video':
+            self.show_message(f"비디오 회전: {self.current_rotation}°")
+        elif self.current_media_type in ['gif', 'webp', 'webp_animation']:
+            self.show_message(f"애니메이션 회전: {self.current_rotation}°")
+        else:
+            self.show_message(f"이미지 회전: {self.current_rotation}°")
 
     def update_button_sizes(self):
         if hasattr(self, 'buttons'):
