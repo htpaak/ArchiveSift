@@ -5,8 +5,8 @@ import shutil  # 파일 복사 및 이동 기능 제공 (고급 파일 작업)
 import re  # 정규표현식 처리 기능 제공 (패턴 검색 및 문자열 처리)
 import json  # JSON 파일 처리를 위한 모듈
 from collections import OrderedDict  # LRU 캐시 구현을 위한 정렬된 딕셔너리
-from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout, QPushButton, QFileDialog, QHBoxLayout, QSizePolicy, QSlider, QLayout, QSpacerItem, QStyle, QStyleOptionSlider, QMenu, QAction, QScrollArea, QListWidgetItem, QListWidget, QAbstractItemView, QInputDialog, QMessageBox  # PyQt5 UI 위젯 (사용자 인터페이스 구성 요소)
-from PyQt5.QtGui import QPixmap, QImage, QImageReader, QFont, QMovie, QCursor, QIcon, QColor, QPalette, QFontMetrics, QTransform  # 그래픽 요소 처리 (이미지, 폰트, 커서 등)
+from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout, QPushButton, QFileDialog, QHBoxLayout, QSizePolicy, QSlider, QLayout, QSpacerItem, QStyle, QStyleOptionSlider, QMenu, QAction, QScrollArea, QListWidgetItem, QListWidget, QAbstractItemView, QInputDialog, QMessageBox, QDialog, QTableWidget, QTableWidgetItem, QHeaderView, QFrame  # PyQt5 UI 위젯 (사용자 인터페이스 구성 요소)
+from PyQt5.QtGui import QPixmap, QImage, QImageReader, QFont, QMovie, QCursor, QIcon, QColor, QPalette, QFontMetrics, QTransform, QKeySequence  # 그래픽 요소 처리 (이미지, 폰트, 커서 등)
 from PyQt5.QtCore import Qt, QSize, QTimer, QEvent, QPoint, pyqtSignal, QRect, QMetaObject, QObject, QUrl, QThread, QBuffer  # Qt 코어 기능 (이벤트, 신호, 타이머 등)
 import cv2  # OpenCV 라이브러리 - 비디오 처리용 (프레임 추출, 이미지 변환 등)
 from PIL import Image, ImageCms  # Pillow 라이브러리 - 이미지 처리용 (다양한 이미지 포맷 지원)
@@ -402,6 +402,21 @@ class ImageViewer(QWidget):
         self.bookmarks = []  # 책갈피된 파일 경로 리스트
         self.bookmark_menu = None  # 북마크 메뉴 객체
         
+        # 키 설정 초기화
+        self.key_settings = {
+            "play_pause": Qt.Key_Space,
+            "next_image": Qt.Key_Right,
+            "prev_image": Qt.Key_Left,
+            "rotate_clockwise": Qt.Key_R,
+            "rotate_counterclockwise": Qt.Key_L,
+            "volume_up": Qt.Key_Up,  # 볼륨 증가 - 위쪽 화살표 키
+            "volume_down": Qt.Key_Down,  # 볼륨 감소 - 아래쪽 화살표 키
+            "toggle_mute": Qt.Key_M  # 음소거 토글 - M 키
+        }
+        
+        # 키 설정 로드
+        self.load_key_settings()
+        
         # 북마크 데이터 불러오기
         self.load_bookmarks()
         
@@ -674,6 +689,23 @@ class ImageViewer(QWidget):
         self.play_button.clicked.connect(self.toggle_animation_playback)  # 재생 버튼 클릭 이벤트 연결 (재생/일시정지 전환)
         new_slider_layout.addWidget(self.play_button)
 
+        # 회전 버튼 추가 (반시계 방향)
+        self.rotate_ccw_button = QPushButton("↺", self)
+        self.rotate_ccw_button.setStyleSheet("""
+            QPushButton {
+                background-color: rgba(52, 73, 94, 0.6);
+                color: white;
+                border: none;
+                padding: 10px;
+                border-radius: 3px;
+            }
+            QPushButton:hover {
+                background-color: rgba(52, 73, 94, 1.0);
+            }
+        """)
+        self.rotate_ccw_button.clicked.connect(lambda: self.rotate_image(False))
+        new_slider_layout.addWidget(self.rotate_ccw_button)
+
         # 회전 버튼 추가 (시계 방향)
         self.rotate_cw_button = QPushButton("↻", self)
         self.rotate_cw_button.setStyleSheet("""
@@ -691,22 +723,6 @@ class ImageViewer(QWidget):
         self.rotate_cw_button.clicked.connect(lambda: self.rotate_image(True))
         new_slider_layout.addWidget(self.rotate_cw_button)
 
-        # 회전 버튼 추가 (반시계 방향)
-        self.rotate_ccw_button = QPushButton("↺", self)
-        self.rotate_ccw_button.setStyleSheet("""
-            QPushButton {
-                background-color: rgba(52, 73, 94, 0.6);
-                color: white;
-                border: none;
-                padding: 10px;
-                border-radius: 3px;
-            }
-            QPushButton:hover {
-                background-color: rgba(52, 73, 94, 1.0);
-            }
-        """)
-        self.rotate_ccw_button.clicked.connect(lambda: self.rotate_image(False))
-        new_slider_layout.addWidget(self.rotate_ccw_button)
 
         # MPV 상태 확인을 위한 타이머 설정 (주기적으로 재생 상태 업데이트)
         self.play_button_timer = QTimer(self)
@@ -940,8 +956,86 @@ class ImageViewer(QWidget):
         self.current_rotation = 0  # 현재 회전 각도 (0, 90, 180, 270)
         self.rotated_frames = {}  # 회전된 애니메이션 프레임 캐시
 
-        # Add this attribute to track the current volume
-        self.current_volume = 50  # Example initial volume
+    def delete_current_image(self):
+        """현재 이미지를 삭제합니다 (크로스 플랫폼)."""
+        if not self.current_image_path or not self.image_files:
+            self.show_message("삭제할 이미지가 없습니다")
+            return
+            
+        try:
+            import os
+            from pathlib import Path
+            
+            # Path 객체 사용 (크로스 플랫폼 호환성 향상)
+            file_path = Path(self.current_image_path).resolve()
+            
+            # 파일이 존재하는지 확인
+            if not file_path.is_file():
+                self.show_message(f"파일이 존재하지 않습니다: {file_path.name}")
+                # 이미지 파일 리스트에서 제거
+                if self.current_image_path in self.image_files:
+                    self.image_files.remove(self.current_image_path)
+                return
+                
+            # 삭제 전 확인 메시지
+            from PyQt5.QtWidgets import QMessageBox
+            msg_box = QMessageBox(self)
+            msg_box.setWindowTitle('이미지 삭제')
+            msg_box.setText(f"정말로 이미지를 삭제하시겠습니까?\n{file_path.name}")
+            msg_box.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+            msg_box.setDefaultButton(QMessageBox.No)
+
+            reply = msg_box.exec_()
+            
+            if reply == QMessageBox.Yes:
+                # send2trash 모듈 사용해서 휴지통으로 이동
+                try:
+                    # 먼저 send2trash 모듈이 있는지 확인
+                    try:
+                        from send2trash import send2trash
+                    except ImportError:
+                        # 자동으로 설치 시도
+                        self.show_message("send2trash 모듈 설치 중...")
+                        import subprocess
+                        subprocess.check_call([sys.executable, "-m", "pip", "install", "send2trash"])
+                        from send2trash import send2trash
+                    
+                    # 휴지통으로 파일 이동
+                    send2trash(str(file_path))
+                    
+                    # 북마크에서 제거
+                    if self.current_image_path in self.bookmarks:
+                        self.bookmarks.remove(self.current_image_path)
+                        self.save_bookmarks()
+                        self.update_bookmark_menu()
+                    
+                    # 이미지 파일 리스트에서 제거
+                    self.image_files.remove(self.current_image_path)
+                    
+                    # 현재 인덱스 조정
+                    if not self.image_files:  # 남은 파일이 없는 경우
+                        self.current_index = 0
+                        self.image_label.clear()
+                        self.current_image_path = ""
+                        self.show_message("모든 이미지가 삭제되었습니다")
+                    else:
+                        # 인덱스 범위 조정
+                        if self.current_index >= len(self.image_files):
+                            self.current_index = len(self.image_files) - 1
+                        # 다음 이미지 표시
+                        self.show_image(self.image_files[self.current_index])
+                        self.show_message("이미지가 휴지통으로 이동되었습니다")
+                except Exception as e:
+                    # 오류 시 상세 로그 출력
+                    import traceback
+                    error_details = traceback.format_exc()
+                    print(f"휴지통 이동 중 오류: {e}\n{error_details}")
+                    self.show_message(f"휴지통 이동 실패: {str(e)}")
+        except Exception as e:
+            import traceback
+            error_details = traceback.format_exc()
+            print(f"삭제 중 예외 발생: {e}\n{error_details}")
+            self.show_message(f"삭제 중 오류 발생: {str(e)}")
 
     def ensure_maximized(self):
         """창이 최대화 상태인지 확인하고 그렇지 않으면 다시 최대화합니다."""
@@ -1320,7 +1414,7 @@ class ImageViewer(QWidget):
                                     button.setToolTip(subfolders[index])  # 툴팁으로 전체 경로 표시
                                     break
                         else:
-                            button.setText(folder_name)  # 원본 폴더명 표시
+                            button.setText(folder_name)  # 원본 폴더명으로 복원
                             button.setToolTip(subfolders[index])  # 툴팁으로 전체 경로 표시
 
     def on_button_click(self):
@@ -1334,6 +1428,9 @@ class ImageViewer(QWidget):
 
         # 현재 이미지를 선택된 폴더로 복사
         self.copy_image_to_folder(folder_path)
+        
+        # 버튼 클릭 후 약간의 지연을 두고 창에 포커스를 돌려줌
+        QTimer.singleShot(50, self.setFocus)
 
     def open_folder(self):
         """이미지 폴더 열기 대화상자 표시 및 처리"""
@@ -2171,6 +2268,9 @@ class ImageViewer(QWidget):
                     self.player.command('seek', seconds, 'absolute')
             except Exception as e:
                 pass  # 예외 발생 시 무시
+                
+        # 슬라이더 클릭 후 약간의 지연을 두고 창에 포커스를 돌려줌
+        QTimer.singleShot(50, self.setFocus)
 
     def slider_pressed(self):
         """슬라이더를 드래그하기 시작할 때 호출됩니다."""
@@ -2184,10 +2284,12 @@ class ImageViewer(QWidget):
         if self.current_media_type in ['gif', 'webp'] and hasattr(self, 'current_movie') and self.current_movie:
             try:
                 value = self.playback_slider.value()
+                # 유효한 프레임 번호인지 확인
                 max_frame = self.current_movie.frameCount() - 1
                 frame = min(max(0, value), max_frame)  # 범위 내로 제한
                 self.current_movie.jumpToFrame(frame)
             except Exception as e:
+                print(f"애니메이션 Seek 오류: {e}")  # 오류 내용 출력
                 pass  # 예외 발생 시 무시
                 
         # 비디오 처리
@@ -2198,6 +2300,9 @@ class ImageViewer(QWidget):
                     self.player.command('seek', seconds, 'absolute')  # MPV의 seek 함수 사용
             except Exception as e:
                 pass  # 예외 발생 시 무시
+                
+        # 슬라이더 조작 후 약간의 지연을 두고 창에 포커스를 돌려줌
+        QTimer.singleShot(50, self.setFocus)
 
     def seek_video(self, value):
         """슬라이더 값에 따라 비디오 재생 위치를 변경합니다."""
@@ -2485,27 +2590,34 @@ class ImageViewer(QWidget):
 
         return target_path  # 고유한 파일 경로 반환
 
-    # 키보드 이벤트를 처리하는 메서드입니다.
     def keyPressEvent(self, event):
-        if event.key() == Qt.Key_Left:  # 왼쪽 화살표키를 눌렀을 때
+        if event.key() == self.key_settings["prev_image"]:  # 이전 이미지 키
             self.show_previous_image()  # 이전 이미지로 이동
-        elif event.key() == Qt.Key_Right:  # 오른쪽 화살표키를 눌렀을 때
+        elif event.key() == self.key_settings["next_image"]:  # 다음 이미지 키
             self.show_next_image()  # 다음 이미지로 이동
-        elif event.key() == Qt.Key_R:  # R 키를 눌렀을 때
+        elif event.key() == self.key_settings["rotate_clockwise"]:  # 시계 방향 회전 키
             self.rotate_image(True)  # 시계 방향 회전
-        elif event.key() == Qt.Key_L:  # L 키를 눌렀을 때
+        elif event.key() == self.key_settings["rotate_counterclockwise"]:  # 반시계 방향 회전 키
             self.rotate_image(False)  # 반시계 방향 회전
-        elif event.key() == Qt.Key_Up:  # Up arrow key
-            self.adjust_volume(self.current_volume + 1)  # Increase volume
-        elif event.key() == Qt.Key_Down:  # Down arrow key
-            self.adjust_volume(self.current_volume - 1)  # Decrease volume
-        else:
-            super().keyPressEvent(event)  # Call the base class method
+        elif event.key() == self.key_settings["play_pause"]:  # 재생/일시정지 키
+            self.toggle_animation_playback()  # 재생/일시정지 토글
+        elif event.key() == self.key_settings["volume_up"]:  # 볼륨 증가 키
+            # 볼륨 슬라이더 값을 가져와서 5씩 증가 (0-100 범위)
+            current_volume = self.volume_slider.value()
+            new_volume = min(current_volume + 5, 100)  # 최대 100을 넘지 않도록
+            self.volume_slider.setValue(new_volume)
+            self.adjust_volume(new_volume)
+        elif event.key() == self.key_settings["volume_down"]:  # 볼륨 감소 키
+            # 볼륨 슬라이더 값을 가져와서 5씩 감소 (0-100 범위)
+            current_volume = self.volume_slider.value()
+            new_volume = max(current_volume - 5, 0)  # 최소 0 미만으로 내려가지 않도록
+            self.volume_slider.setValue(new_volume)
+            self.adjust_volume(new_volume)
+        elif event.key() == self.key_settings["toggle_mute"]:  # 음소거 토글 키
+            self.toggle_mute()  # 음소거 토글 함수 호출
+        elif event.key() == self.key_settings["delete_image"]:  # 이미지 삭제 키
+            self.delete_current_image()  # 현재 이미지 삭제 함수 호출
 
-    # Ensure you have a way to track the current volume
-    self.current_volume = 50  # Example initial volume
-
-    # 마우스 휠 이벤트를 처리하는 메서드입니다.
     def wheelEvent(self, event):
         current_time = time.time() * 1000  # 현재 시간(밀리초)
         
@@ -2640,6 +2752,8 @@ class ImageViewer(QWidget):
             elif is_in_titlebar and not is_in_titlebar_buttons:
                 # 제목 표시줄 드래그 시작
                 self.drag_start_pos = event.globalPos() - self.pos()
+                # 제목 표시줄 드래그 시 창에 포커스 설정
+                self.setFocus()
                 return True
             return False
 
@@ -2651,6 +2765,10 @@ class ImageViewer(QWidget):
                 QApplication.restoreOverrideCursor()
             if hasattr(self, 'drag_start_pos'):
                 delattr(self, 'drag_start_pos')
+            
+            # 버튼이나 슬라이더 조작 후에 창 전체에 포커스 설정
+            QTimer.singleShot(10, self.setFocus)
+            
             return was_resizing
 
         # 애플리케이션 활성화/비활성화 상태 처리
@@ -3139,12 +3257,18 @@ class ImageViewer(QWidget):
         if not self.dropdown_menu:
             self.dropdown_menu = ScrollableMenu(self)
             
-            # 빈 메뉴 생성 (예시 항목 추가)
-            self.dropdown_menu.addAction(QAction("메뉴 항목 1", self))
-            self.dropdown_menu.addAction(QAction("메뉴 항목 2", self))
-            self.dropdown_menu.addAction(QAction("메뉴 항목 3", self))
+            # 키 설정 메뉴 항목
+            key_settings_action = QAction("키 설정", self)
+            key_settings_action.triggered.connect(self.show_key_settings_dialog)
+            self.dropdown_menu.addAction(key_settings_action)
+            
+            # 구분선 추가
             self.dropdown_menu.addSeparator()
-            self.dropdown_menu.addAction(QAction("설정", self))
+            
+            # 정보 메뉴 항목
+            about_action = QAction("프로그램 정보", self)
+            about_action.triggered.connect(self.show_about_dialog)
+            self.dropdown_menu.addAction(about_action)
             
             # 메뉴에 스크롤 속성 설정
             self.dropdown_menu.setProperty("_q_scrollable", True)
@@ -3458,7 +3582,7 @@ class ImageViewer(QWidget):
             elif file_ext in ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.ico', '.heic', '.heif', '.webp']:
                 # 일반 이미지는 캐시에서 다시 가져오거나 새로 로드
                 if file_ext == '.webp':
-                    # WEBP 일반 이미지 처리
+                    # WEBP 일반 이미지 
                     image = QImage(self.current_image_path)
                     if not image.isNull():
                         pixmap = QPixmap.fromImage(image)
@@ -3570,6 +3694,458 @@ class ImageViewer(QWidget):
                 
                 # 레이아웃 업데이트
                 row_widget.updateGeometry()
+
+    def load_key_settings(self):
+        # 기본 키 설정 정의
+        default_key_settings = {
+            "play_pause": Qt.Key_Space,
+            "next_image": Qt.Key_Right,
+            "prev_image": Qt.Key_Left,
+            "rotate_clockwise": Qt.Key_R,
+            "rotate_counterclockwise": Qt.Key_L,
+            "volume_up": Qt.Key_Up,  # 볼륨 증가 - 위쪽 화살표 키
+            "volume_down": Qt.Key_Down,  # 볼륨 감소 - 아래쪽 화살표 키
+            "toggle_mute": Qt.Key_M,  # 음소거 토글 - M 키
+            "delete_image": Qt.Key_Delete  # 이미지 삭제 - Delete 키
+        }
+        
+        # 기본값으로 초기화
+        self.key_settings = default_key_settings.copy()
+        
+        try:
+            # 앱 데이터 폴더 경로
+            app_data_dir = os.path.join(os.path.expanduser("~"), "ImageViewer_Data")
+            key_settings_file = os.path.join(app_data_dir, "key_settings.json")
+            
+            # 파일이 존재하면 불러오기
+            if os.path.exists(key_settings_file):
+                with open(key_settings_file, 'r', encoding='utf-8') as f:
+                    saved_settings = json.load(f)
+                    # 저장된 설정을 기본 설정에 업데이트 (새로운 키는 기본값 유지)
+                    for key, value in saved_settings.items():
+                        self.key_settings[key] = value
+        except Exception as e:
+            print(f"키 설정 불러오기 중 오류 발생: {e}")
+
+    def save_key_settings(self):
+        try:
+            # 앱 데이터 폴더 확인 및 생성
+            app_data_dir = os.path.join(os.path.expanduser("~"), "ImageViewer_Data")
+            if not os.path.exists(app_data_dir):
+                os.makedirs(app_data_dir)
+                
+            # 키 설정 파일 저장 경로
+            key_settings_file = os.path.join(app_data_dir, "key_settings.json")
+            
+            # 현재 키 설정을 JSON으로 저장
+            with open(key_settings_file, 'w', encoding='utf-8') as f:
+                json.dump(self.key_settings, f, ensure_ascii=False, indent=4)
+                
+            print(f"키 설정이 저장되었습니다: {key_settings_file}")
+        except Exception as e:
+            print(f"키 설정 저장 중 오류 발생: {e}")
+    
+    def show_key_settings_dialog(self):
+        # 키 설정 다이얼로그 표시
+        dialog = KeySettingDialog(self, self.key_settings)
+        if dialog.exec_() == QDialog.Accepted:
+            # 변경된 키 설정 적용
+            self.key_settings = dialog.get_key_settings()
+            # 키 설정 저장
+            self.save_key_settings()
+            # 메시지 표시
+            self.show_message("키 설정이 변경되었습니다.")
+
+    def show_about_dialog(self):
+        # 정보 다이얼로그 표시
+        dialog = AboutDialog(self)
+        dialog.exec_()
+
+class AboutDialog(QDialog):
+    """프로그램 정보를 표시하는 다이얼로그"""
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("프로그램 정보")
+        self.setMinimumWidth(500)
+        self.setMinimumHeight(400)
+        
+        # 레이아웃 설정
+        layout = QVBoxLayout(self)
+        
+        # 프로그램 제목
+        title_label = QLabel("이미지 뷰어")
+        title_label.setAlignment(Qt.AlignCenter)
+        title_label.setStyleSheet("font-size: 24px; font-weight: bold; color: #2980b9;")
+        layout.addWidget(title_label)
+        
+        # 버전 정보
+        version_label = QLabel("버전: 1.1.0 (빌드 날짜: 2023-08-15)")
+        version_label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(version_label)
+        
+        # 구분선
+        line = QFrame()
+        line.setFrameShape(QFrame.HLine)
+        line.setFrameShadow(QFrame.Sunken)
+        layout.addWidget(line)
+        
+        # 스크롤 영역 추가
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setFrameShape(QFrame.NoFrame)
+        
+        scroll_content = QWidget()
+        scroll_layout = QVBoxLayout(scroll_content)
+        
+        # 프로그램 설명
+        description = QLabel(
+            "이 프로그램은 다양한 이미지 형식과 비디오를 볼 수 있는 고성능 뷰어입니다."
+        )
+        description.setWordWrap(True)
+        description.setAlignment(Qt.AlignLeft)
+        description.setStyleSheet("font-size: 11pt;")
+        scroll_layout.addWidget(description)
+        
+        # 지원 형식
+        formats_label = QLabel("<b>지원하는 형식:</b>")
+        formats_label.setStyleSheet("font-size: 11pt;")
+        scroll_layout.addWidget(formats_label)
+        
+        formats_detail = QLabel(
+            "• 이미지: JPG, PNG, GIF, WEBP, BMP, TIFF, ICO, PSD 등\n"
+            "• 비디오: MP4, AVI, MKV, MOV, WMV 등\n"
+            "• 애니메이션: GIF, WEBP"
+        )
+        formats_detail.setStyleSheet("margin-left: 15px;")
+        formats_detail.setWordWrap(True)
+        scroll_layout.addWidget(formats_detail)
+        
+        # 주요 기능
+        features_label = QLabel("<b>주요 기능:</b>")
+        features_label.setStyleSheet("font-size: 11pt;")
+        scroll_layout.addWidget(features_label)
+        
+        features_detail = QLabel(
+            "• 다양한 이미지 및 비디오 형식 지원\n"
+            "• 이미지 확대/축소 및 회전\n"
+            "• 북마크 기능으로 자주 사용하는 파일 즐겨찾기\n"
+            "• 사용자 정의 키보드 단축키 설정\n"
+            "• 애니메이션 GIF 및 WEBP 재생 제어\n"
+            "• 비디오 재생 및 제어\n"
+            "• 파일 복사 및 관리 기능\n"
+            "• 빠른 폴더 탐색 및 이동"
+        )
+        features_detail.setStyleSheet("margin-left: 15px;")
+        features_detail.setWordWrap(True)
+        scroll_layout.addWidget(features_detail)
+        
+        # 사용된 라이브러리
+        libs_label = QLabel("<b>사용된 주요 라이브러리:</b>")
+        libs_label.setStyleSheet("font-size: 11pt;")
+        scroll_layout.addWidget(libs_label)
+        
+        libs_detail = QLabel(
+            "• PyQt5 - GUI 프레임워크\n"
+            "• OpenCV (cv2) - 비디오 및 이미지 처리\n"
+            "• Pillow (PIL) - 이미지 처리 및 변환\n"
+            "• JSON - 설정 저장 및 불러오기"
+        )
+        libs_detail.setStyleSheet("margin-left: 15px;")
+        libs_detail.setWordWrap(True)
+        scroll_layout.addWidget(libs_detail)
+        
+        # 개발자 정보
+        developer_label = QLabel("<b>개발:</b>")
+        developer_label.setStyleSheet("font-size: 11pt;")
+        scroll_layout.addWidget(developer_label)
+        
+        developer_detail = QLabel("개발자 이름 또는 팀 이름")
+        developer_detail.setStyleSheet("margin-left: 15px;")
+        developer_detail.setWordWrap(True)
+        scroll_layout.addWidget(developer_detail)
+        
+        # 저작권 정보
+        copyright_label = QLabel("<b>저작권:</b>")
+        copyright_label.setStyleSheet("font-size: 11pt;")
+        scroll_layout.addWidget(copyright_label)
+        
+        copyright_detail = QLabel("© 2023 저작권 소유자. 모든 권리 보유.")
+        copyright_detail.setStyleSheet("margin-left: 15px;")
+        copyright_detail.setWordWrap(True)
+        scroll_layout.addWidget(copyright_detail)
+        
+        # 스페이서 추가
+        scroll_layout.addStretch()
+        
+        # 스크롤 영역에 위젯 설정
+        scroll_area.setWidget(scroll_content)
+        layout.addWidget(scroll_area)
+        
+        # 확인 버튼
+        ok_button = QPushButton("확인")
+        ok_button.setFixedWidth(100)
+        ok_button.clicked.connect(self.accept)
+        
+        # 버튼 레이아웃
+        button_layout = QHBoxLayout()
+        button_layout.addStretch()
+        button_layout.addWidget(ok_button)
+        
+        layout.addLayout(button_layout)
+
+
+class KeySettingDialog(QDialog):
+    """키 설정을 변경할 수 있는 다이얼로그"""
+    
+    def __init__(self, parent=None, key_settings=None):
+        super().__init__(parent)
+        self.setWindowTitle("키 설정")
+        self.setMinimumWidth(1200)  # 400에서 600으로 증가
+        self.setMinimumHeight(900)  # 300에서 400으로 증가
+        
+        # 키 설정 초기화
+        self.key_settings = {
+            "play_pause": Qt.Key_Space,
+            "next_image": Qt.Key_Right,
+            "prev_image": Qt.Key_Left,
+            "rotate_clockwise": Qt.Key_R,
+            "rotate_counterclockwise": Qt.Key_L,
+            "volume_up": Qt.Key_Up,  # 볼륨 증가 - 위쪽 화살표 키
+            "volume_down": Qt.Key_Down,  # 볼륨 감소 - 아래쪽 화살표 키
+            "toggle_mute": Qt.Key_M,  # 음소거 토글 - M 키
+            "delete_image": Qt.Key_Delete  # 이미지 삭제 - Delete 키
+        }
+        
+        # 키 이름 매핑
+        self.key_names = {
+            "play_pause": "재생/일시정지",
+            "next_image": "다음 이미지",
+            "prev_image": "이전 이미지",
+            "rotate_clockwise": "시계 방향 회전",
+            "rotate_counterclockwise": "반시계 방향 회전",
+            "volume_up": "볼륨 증가",
+            "volume_down": "볼륨 감소",
+            "toggle_mute": "음소거 토글",
+            "delete_image": "이미지 삭제"
+        }
+        
+        # 레이아웃 설정
+        layout = QVBoxLayout(self)
+        
+        # 설명 레이블
+        label = QLabel("단축키를 변경하려면 해당 행을 클릭한 후 원하는 키를 누르세요.")
+        label.setWordWrap(True)
+        layout.addWidget(label)
+        
+        # 키 설정 테이블
+        self.table = QTableWidget(len(self.key_settings), 2)
+        self.table.setHorizontalHeaderLabels(["기능", "단축키"])
+        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+        self.table.verticalHeader().setVisible(False)
+        
+        # 테이블에 키 설정 추가
+        for i, (key, value) in enumerate(self.key_settings.items()):
+            # 기능 이름
+            name_item = QTableWidgetItem(self.key_names.get(key, key))
+            name_item.setFlags(name_item.flags() & ~Qt.ItemIsEditable)  # 편집 불가능하게 설정
+            self.table.setItem(i, 0, name_item)
+            
+            # 키 값
+            key_item = QTableWidgetItem(QKeySequence(value).toString())
+            key_item.setData(Qt.UserRole, value)  # 원래 키 값 저장
+            self.table.setItem(i, 1, key_item)
+        
+        # 테이블 행 높이 설정
+        for i in range(self.table.rowCount()):
+            self.table.setRowHeight(i, 30)
+        
+        layout.addWidget(self.table)
+        
+        # 버튼 레이아웃
+        button_layout = QHBoxLayout()
+        
+        # 기본값 버튼
+        default_button = QPushButton("기본값으로 복원")
+        default_button.clicked.connect(self.reset_to_default)
+        button_layout.addWidget(default_button)
+        
+        # 스페이서 추가
+        button_layout.addStretch()
+        
+        # 확인 및 취소 버튼
+        ok_button = QPushButton("확인")
+        ok_button.clicked.connect(self.accept)
+        button_layout.addWidget(ok_button)
+        
+        cancel_button = QPushButton("취소")
+        cancel_button.clicked.connect(self.reject)
+        button_layout.addWidget(cancel_button)
+        
+        layout.addLayout(button_layout)
+        
+        # 테이블 셀 클릭 이벤트 연결
+        self.table.cellClicked.connect(self.cell_clicked)
+        
+        # 현재 편집 중인 셀
+        self.current_edit_row = -1
+        self.current_edit_col = -1
+        
+        # 키 입력 이벤트 필터 설치
+        self.table.installEventFilter(self)
+    
+    def cell_clicked(self, row, col):
+        """테이블 셀 클릭 시 호출되는 함수"""
+        if col == 1:  # 키 설정 열만 편집 가능
+            self.current_edit_row = row
+            self.current_edit_col = col
+            
+            # 선택된 셀 강조
+            self.table.item(row, col).setText("키를 누르세요...")
+    
+    def eventFilter(self, obj, event):
+        """이벤트 필터 - 키 입력 처리"""
+        if (obj == self.table and event.type() == QEvent.KeyPress and 
+            self.current_edit_row >= 0 and self.current_edit_col == 1):
+            
+            # ESC 키는 편집 취소
+            if event.key() == Qt.Key_Escape:
+                # 원래 값으로 복원
+                original_key = self.table.item(self.current_edit_row, 1).data(Qt.UserRole)
+                self.table.item(self.current_edit_row, 1).setText(QKeySequence(original_key).toString())
+                self.current_edit_row = -1
+                self.current_edit_col = -1
+                return True
+            
+            # 다음 키들은 허용하지 않음
+            if event.key() in [Qt.Key_Control, Qt.Key_Shift, Qt.Key_Alt, Qt.Key_Meta]:
+                return True
+                
+            # 키 이름 가져오기
+            key_name = QKeySequence(event.key()).toString()
+            
+            # 빈 문자열이 아닌 경우에만 처리 (유효한 키인 경우)
+            if key_name:
+                # 키 설정 업데이트
+                key_action = list(self.key_settings.keys())[self.current_edit_row]
+                self.key_settings[key_action] = event.key()
+                
+                # 테이블 업데이트
+                self.table.item(self.current_edit_row, 1).setText(key_name)
+                self.table.item(self.current_edit_row, 1).setData(Qt.UserRole, event.key())
+                
+                # 편집 모드 종료
+                self.current_edit_row = -1
+                self.current_edit_col = -1
+                return True
+        
+        return super().eventFilter(obj, event)
+    
+    def reset_to_default(self):
+        """기본 키 설정으로 복원"""
+        default_settings = {
+            "play_pause": Qt.Key_Space,
+            "next_image": Qt.Key_Right,
+            "prev_image": Qt.Key_Left,
+            "rotate_clockwise": Qt.Key_R,
+            "rotate_counterclockwise": Qt.Key_L
+        }
+        
+        # 키 설정 업데이트
+        self.key_settings = default_settings.copy()
+        
+        # 테이블 업데이트
+        for i, (key, value) in enumerate(self.key_settings.items()):
+            key_item = self.table.item(i, 1)
+            key_item.setText(QKeySequence(value).toString())
+            key_item.setData(Qt.UserRole, value)
+    
+    def get_key_settings(self):
+        """현재 키 설정 반환"""
+        return self.key_settings
+
+
+class ScrollableMenu(QMenu):
+    """스크롤을 지원하는 메뉴 클래스"""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowFlags(self.windowFlags() | Qt.FramelessWindowHint)
+        self.setAttribute(Qt.WA_TranslucentBackground)
+        # 스크롤 지원을 위한 설정
+        self.setProperty("_q_scrollable", True)
+        # 최대 높이 제한 - 항목을 더 많이 표시하기 위해 높이 증가
+        self.setMaximumHeight(800)
+        self.setStyleSheet("""
+            QMenu {
+                background-color: #2c3e50;
+                color: #ecf0f1;
+                border: 1px solid #34495e;
+                padding: 5px;
+                min-width: 300px;
+                max-height: 800px;
+            }
+            QMenu::item {
+                padding: 3px 20px 3px 20px;  /* 패딩 줄여서 항목 높이 감소 */
+                border: 1px solid transparent;
+                color: #ecf0f1;
+                max-width: 600px;
+                font-size: 9pt;  /* 글자 크기 축소 */
+            }
+            QMenu::item:selected {
+                background-color: #34495e;
+                color: #ecf0f1;
+            }
+            QMenu::separator {
+                height: 1px;
+                background: #34495e;
+                margin: 3px 0;  /* 구분선 간격 축소 */
+            }
+            QMenu::item:disabled {
+                color: #7f8c8d;
+            }
+            QScrollBar:vertical {
+                background: #2c3e50;
+                width: 10px;
+                margin: 0px;
+            }
+            QScrollBar::handle:vertical {
+                background: #34495e;
+                min-height: 20px;
+                border-radius: 5px;
+            }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                height: 0px;
+            }
+        """)
+    
+    def wheelEvent(self, event):
+        # 마우스 휠 이벤트 처리
+        super().wheelEvent(event)
+        # 이벤트가 처리되었음을 표시
+        event.accept()
+        
+    def showEvent(self, event):
+        # 메뉴가 표시될 때 호출되는 이벤트
+        super().showEvent(event)
+        # 스크롤을 지원하도록 다시 설정
+        self.setProperty("_q_scrollable", True)
+        # 스타일시트 재적용
+        self.setStyle(self.style())
+        
+        # 화면 크기에 맞게 최대 높이 조절
+        desktop = QApplication.desktop().availableGeometry()
+        self.setMaximumHeight(min(800, desktop.height() * 0.7))
+    
+    def addMultipleActions(self, actions):
+        """여러 액션을 추가하고 필요시 스크롤을 활성화합니다"""
+        for action in actions:
+            self.addAction(action)
+        
+        # 액션이 많으면 스크롤 속성을 다시 설정
+        if len(actions) > 7:
+            self.setProperty("_q_scrollable", True)
+            self.setStyle(self.style())
 
 # 메인 함수
 def main():
