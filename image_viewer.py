@@ -2909,7 +2909,7 @@ class ImageViewer(QWidget):
             return
             
         # 미디어 타입에 따라 처리
-        if self.current_media_type in ['gif', 'webp'] and hasattr(self, 'current_movie') and self.current_movie:
+        if self.current_media_type in ['gif', 'webp', 'webp_animation'] and hasattr(self, 'current_movie') and self.current_movie:
             # GIF나 WEBP 애니메이션 처리
             is_paused = self.current_movie.state() != QMovie.Running
             self.current_movie.setPaused(not is_paused)  # 상태 토글
