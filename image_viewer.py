@@ -1600,6 +1600,14 @@ class ImageViewer(QWidget):
         """이미지/미디어 파일 표시 및 관련 UI 업데이트"""
         self.stop_video()  # 기존 비디오 재생 중지
 
+        # 이미지 크기 확인
+        image_size_mb = 0
+        try:
+            if os.path.exists(image_path):
+                image_size_mb = os.path.getsize(image_path) / (1024 * 1024)  # 메가바이트 단위로 변환
+        except Exception as e:
+            print(f"이미지 크기 확인 오류: {e}")
+
         # 전체화면 모드에서 고품질 이미지 로딩 (비동기로 처리)
         if self.isFullScreen() and image_size_mb > 5:  # 큰 이미지인 경우
             # 최대한 고품질로 표시 (필요한 작업 추가)
