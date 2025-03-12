@@ -1428,6 +1428,9 @@ class ImageViewer(QWidget):
         super().resizeEvent(event)
         self.update_button_sizes()
 
+        if self.current_image_path:
+            self.show_image(self.current_image_path)
+
     def mouseDoubleClickEvent(self, event):
         """더블 클릭 시 전체화면 또는 최대화 상태 전환"""
         if self.isFullScreen():
@@ -2996,7 +2999,8 @@ class ImageViewer(QWidget):
                 self.player['video-sync'] = 'audio'  # 오디오 기반으로 동기화 (성능 향상)
         
         # 현재 이미지 크기 조정 강제 실행 (전체화면 전환 시 필요)
-        QTimer.singleShot(100, self.update_image_info)
+        QTimer.singleShot(10, self.update_image_info)
+        QTimer.singleShot(10, lambda: self.show_image(self.current_image_path))
         
         # 오버레이 표시
         if is_entering_fullscreen:
