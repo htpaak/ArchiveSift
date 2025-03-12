@@ -1022,6 +1022,11 @@ class ImageViewer(QWidget):
         """)
         self.fullscreen_overlay.hide()  # 초기에는 숨김 상태
 
+        # 리사이징 타이머 추가 (다른 변수 초기화 부분 아래에 추가)
+        self.resize_timer = QTimer()
+        self.resize_timer.setSingleShot(True)  # 한 번만 실행
+        self.resize_timer.timeout.connect(self.delayed_resize)
+
     def delete_current_image(self):
         """현재 이미지를 삭제합니다 (크로스 플랫폼)."""
         if not self.current_image_path or not self.image_files:
@@ -1110,7 +1115,7 @@ class ImageViewer(QWidget):
 
     def resizeEvent(self, event):
         """창 크기 변경 이벤트 처리 (창 크기 변경 시 UI 요소 조정)"""
-        # 창 너비 구하기
+        # 필수적인 UI 요소 즉시 조정
         window_width = self.width()
         
         # 슬라이더 위젯의 너비를 창 너비와 동일하게 설정
@@ -1120,13 +1125,12 @@ class ImageViewer(QWidget):
         if hasattr(self, 'title_bar'):
             self.title_bar.setGeometry(0, 0, self.width(), 30)  # 제목표시줄 위치와 크기 조정
             self.title_bar.raise_()  # 제목표시줄을 항상 맨 위로 유지
-            
-            # 제목표시줄의 버튼들 업데이트 (크기 변경에 맞춰 조정)
+            # 제목표시줄 버튼 업데이트
             for child in self.title_bar.children():
                 if isinstance(child, QPushButton):
-                    child.updateGeometry()  # 버튼 위치/크기 업데이트
-                    child.update()  # 버튼의 시각적 상태도 업데이트
-
+                    child.updateGeometry()
+                    child.update()
+        
         # 전체화면 오버레이 위치 조정
         if hasattr(self, 'fullscreen_overlay') and not self.fullscreen_overlay.isHidden():
             self.fullscreen_overlay.move(
@@ -1134,150 +1138,15 @@ class ImageViewer(QWidget):
                 (self.height() - self.fullscreen_overlay.height()) // 2
             )
         
-        # 현재 표시 중인 미디어 크기 조절 (화면 크기에 맞게 조정)
-        if hasattr(self, 'current_image_path') and self.current_image_path:
-            file_ext = os.path.splitext(self.current_image_path)[1].lower()  # 파일 확장자 확인 (소문자로 변환)
-            
-            if file_ext == '.psd':  # PSD 파일 처리 (Photoshop 이미지)
-                try:
-                    # 캐시된 이미지가 있으면 사용 (성능 최적화)
-                    if self.current_image_path in self.psd_cache:
-                        pixmap = self.psd_cache[self.current_image_path]
-                    else:
-                        # 캐시된 이미지가 없으면 변환 (PSD -> PNG)
-                        from PIL import Image, ImageCms
-                        from io import BytesIO
-                        
-                        # PSD 파일을 PIL Image로 열기
-                        image = Image.open(self.current_image_path)
-                        
-                        # RGB 모드로 변환 (색상 모드 보정)
-                        if image.mode != 'RGB':
-                            image = image.convert('RGB')
-                        
-                        # ICC 프로파일 처리 (색상 프로파일 관리)
-                        if 'icc_profile' in image.info:
-                            try:
-                                srgb_profile = ImageCms.createProfile('sRGB')  # sRGB 프로파일 생성
-                                srgb_profile = ImageCms.createProfile('sRGB')
-                                icc_profile = BytesIO(image.info['icc_profile'])
-                                image = ImageCms.profileToProfile(
-                                    image,
-                                    ImageCms.ImageCmsProfile(icc_profile),
-                                    ImageCms.ImageCmsProfile(srgb_profile),
-                                    outputMode='RGB'
-                                )
-                            except Exception:
-                                image = image.convert('RGB')
-                        
-                        # 변환된 이미지를 캐시에 저장
-                        buffer = BytesIO()
-                        image.save(buffer, format='PNG', icc_profile=None)
-                        pixmap = QPixmap()
-                        pixmap.loadFromData(buffer.getvalue())
-                        buffer.close()
-                        
-                        # 캐시 크기 관리
-                        if len(self.psd_cache) >= self.max_psd_cache_size:
-                            # 가장 오래된 항목 제거 (캐시 크기 관리)
-                            self.psd_cache.pop(next(iter(self.psd_cache)))
-                        self.psd_cache[self.current_image_path] = pixmap  # 현재 이미지를 캐시에 저장
-                    
-                    # 이미지가 정상적으로 로드된 경우 화면에 표시
-                    if not pixmap.isNull():
-                        scaled_pixmap = pixmap.scaled(self.image_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
-                        self.image_label.setPixmap(scaled_pixmap)  # 크기 조정된 이미지 표시
-
-                except Exception as e:
-                    pass  # 예외 발생 시 무시
-            
-            elif file_ext in ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.ico', '.heic', '.heif']:  # JPG, JPEG, PNG 파일 처리
-                pixmap = QPixmap(self.current_image_path)  # 이미지 로드
-                if not pixmap.isNull():  # 이미지가 정상적으로 로드되었는지 확인
-                    scaled_pixmap = pixmap.scaled(self.image_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)  # 비율 유지하며 크기 조정
-                    self.image_label.setPixmap(scaled_pixmap)  # 화면에 표시
-            
-            elif file_ext == '.webp':  # WEBP 이미지/애니메이션 처리
-                # WEBP 파일은 애니메이션일 수도 있고 일반 이미지일 수도 있음
-                # show_webp 함수에서 알맞은 미디어 타입을 설정함 ('image' 또는 'webp_animation')
-                self.show_webp(self.current_image_path)  # WEBP 파일 처리
-            elif file_ext in ['.gif', '.webp']:  # GIF/WebP 애니메이션 공통 처리
-                if hasattr(self, 'current_movie'):  # 애니메이션 객체가 있는 경우
-                    # 현재 프레임 번호 저장
-                    current_frame = self.current_movie.currentFrameNumber()
-                    
-                    # 원본 크기와 표시 영역 크기 정보
-                    original_size = QSize(self.current_movie.currentImage().width(), self.current_movie.currentImage().height())
-                    label_size = self.image_label.size()
-                    
-                    # 높이가 0인 경우 예외 처리 (0으로 나누기 방지)
-                    if original_size.height() == 0:
-                        original_size.setHeight(1)
-                        
-                    # 화면 비율에 맞게 새 크기 계산
-                    if label_size.width() / label_size.height() > original_size.width() / original_size.height():
-                        # 세로 맞춤 (세로 기준으로 가로 계산)
-                        new_height = label_size.height()
-                        new_width = int(new_height * (original_size.width() / original_size.height()))
-                    else:
-                        # 가로 맞춤 (가로 기준으로 세로 계산)
-                        new_width = label_size.width()
-                        new_height = int(new_width * (original_size.height() / original_size.width()))
-                    
-                    # 애니메이션 크기 조정 및 원래 프레임으로 복원
-                    self.current_movie.setScaledSize(QSize(new_width, new_height))
-                    self.current_movie.jumpToFrame(current_frame)
-            
-            elif file_ext in ['.mp4', '.avi', '.wmv', '.ts', '.m2ts', '.mov', '.qt', '.mkv', '.flv', '.webm', '.3gp', '.m4v', '.mpg', '.mpeg', '.vob', '.wav', '.flac', '.mp3', '.aac', '.m4a', '.ogg']:  # 모든 비디오/오디오 미디어 파일
-                # MPV 플레이어를 사용하는 경우 윈도우 ID 업데이트
-                if hasattr(self, 'player'):
-                    # MPV 플레이어의 출력 윈도우 ID 설정 (이미지 라벨에 맞춤)
-                    self.player.wid = int(self.image_label.winId())
-        
         # 버튼 크기 계산 및 조정
-        if hasattr(self, 'buttons') and hasattr(self, 'base_folder') and self.base_folder:
-            button_width = self.width() // 20  # 창 너비를 20등분
-            
-            # 하위 폴더 목록 다시 가져오기
-            def natural_keys(text):
-                import re
-                def atoi(text):
-                    return int(text) if text.isdigit() else text
-                return [atoi(c) for c in re.split('([0-9]+)', text)]
-
-            subfolders = [f.path for f in os.scandir(self.base_folder) if f.is_dir()]
-            subfolders.sort(key=lambda x: natural_keys(os.path.basename(x).lower()))
-
-            # 각 버튼의 텍스트 업데이트
-            for i, row in enumerate(self.buttons):
-                for j, button in enumerate(row):
-                    button.setFixedWidth(button_width)
-                    index = i * 20 + j
-                    if index < len(subfolders):
-                        folder_name = os.path.basename(subfolders[index])
-                        # 버튼의 실제 사용 가능한 너비 계산 (패딩 고려)
-                        available_width = button_width - 16  # 좌우 패딩 8px씩 제외
-                        
-                        # QFontMetrics를 사용하여 텍스트 너비 계산
-                        font_metrics = button.fontMetrics()
-                        text_width = font_metrics.horizontalAdvance(folder_name)
-                        
-                        # 텍스트가 버튼 너비를 초과하면 자동으로 줄임
-                        if text_width > available_width:
-                            # 적절한 길이를 찾을 때까지 텍스트 줄임
-                            for k in range(len(folder_name), 0, -1):
-                                truncated = folder_name[:k] + ".."
-                                if font_metrics.horizontalAdvance(truncated) <= available_width:
-                                    button.setText(truncated)
-                                    button.setToolTip(subfolders[index])  # 전체 경로는 툴큐로
-                                    break
-                        else:
-                            button.setText(folder_name)  # 원래 폴더명으로 복원
+        self.update_button_sizes()
         
-        # 이미지 정보 레이블 업데이트
-        if hasattr(self, 'image_info_label') and self.image_files:
-            self.update_image_info()
-            
+        # 슬라이더 위젯 레이아웃 업데이트
+        if hasattr(self, 'playback_slider'):
+            self.playback_slider.updateGeometry()
+        if hasattr(self, 'volume_slider'):
+            self.volume_slider.updateGeometry()
+        
         # 메시지 레이블 업데이트
         if hasattr(self, 'message_label') and self.message_label.isVisible():
             window_width = self.width()
@@ -1297,139 +1166,58 @@ class ImageViewer(QWidget):
             """)
             self.message_label.adjustSize()
             self.message_label.move(margin, margin + 20)
-
-        # 볼륨 슬라이더 크기 조정
-        if hasattr(self, 'volume_slider'):
-            window_width = self.width()
-            # 볼륨 슬라이더 너비를 창 크기에 따라 가변적으로 조정
-            vol_width = max(40, min(150, int(window_width * 0.08)))  # 최소 40px, 최대 150px, 기본 8%
-            self.volume_slider.setFixedWidth(vol_width)
-        
-        # 재생 슬라이더 크기 조정
-        if hasattr(self, 'playback_slider'):
-            window_width = self.width()
-            # 작은 창에서도 작동하도록 최소 너비를 더 작게 조정
-            min_width = max(100, int(window_width * 0.45))  # 최소 100px, 기본 창 너비의 45%
-            max_width = int(window_width * 0.85)  # 최대 창 너비의 85%
-            self.playback_slider.setMinimumWidth(min_width)
-            self.playback_slider.setMaximumWidth(max_width)
-            
-        # 슬라이더바 내 버튼들 크기 조정
-        window_width = self.width()
         
         # 슬라이더 위젯 자체의 패딩 조정
         if hasattr(self, 'slider_widget'):
-            # 패딩을 창 크기에 비례하게 설정
-            padding = max(5, min(15, int(window_width * 0.01)))  # 창 너비의 1%, 최소 5px, 최대 15px
+            padding = max(5, min(15, int(window_width * 0.01)))
             self.slider_widget.setStyleSheet(f"background-color: rgba(52, 73, 94, 0.9); padding: {padding}px;")
-            
-            # 내부 레이아웃의 여백과 간격도 조정
-            layout = self.slider_widget.layout()
-            if layout:
-                layout.setContentsMargins(padding, padding, padding, padding)
-                spacing = max(4, min(12, int(window_width * 0.008)))  # 창 너비의 0.8%, 최소 4px, 최대 12px
-                layout.setSpacing(spacing)
-                
-                # 좌우 여백(Spacer) 크기 조정
-                spacer_width = max(5, min(20, int(window_width * 0.01)))  # 창 너비의 1%, 최소 5px, 최대 20px
-                
-                # 레이아웃의 첫 번째와 마지막 아이템이 spacer인지 확인
-                if layout.count() > 0:
-                    first_item = layout.itemAt(0)
-                    if isinstance(first_item, QSpacerItem):
-                        # 새로운 스페이서로 대체
-                        layout.removeItem(first_item)
-                        new_left_spacer = QSpacerItem(spacer_width, 10, QSizePolicy.Fixed, QSizePolicy.Minimum)
-                        layout.insertItem(0, new_left_spacer)
-                    
-                    last_item = layout.itemAt(layout.count() - 1)
-                    if isinstance(last_item, QSpacerItem):
-                        # 새로운 스페이서로 대체
-                        layout.removeItem(last_item)
-                        new_right_spacer = QSpacerItem(spacer_width, 10, QSizePolicy.Fixed, QSizePolicy.Minimum)
-                        layout.insertItem(layout.count(), new_right_spacer)
-        
-        # 1. 버튼 크기 계산 (창 너비의 일정 비율)
-        button_width = max(50, min(150, int(window_width * 0.06)))  # 창 너비의 6%, 최소 50px, 최대 150px
-        button_height = max(25, min(45, int(button_width * 0.5)))   # 버튼 너비의 50%, 최소 25px, 최대 45px
-        
-        # 2. 버튼별 가중치 설정 (각 버튼마다 상대적 크기 조정)
-        button_config = {
-            'slider_bookmark_btn': 0.7,      # 북마크 버튼 (★) - 아이콘 버튼
-            'open_button': 1.0,              # 열기 버튼
-            'set_base_folder_button': 1.0,   # 폴더 설정 버튼
-            'play_button': 0.7,              # 재생 버튼 (▶) - 아이콘 버튼
-            'mute_button': 0.7,              # 음소거 버튼 (🔈) - 아이콘 버튼
-            'menu_button': 0.7,              # 메뉴 버튼 (☰) - 아이콘 버튼
-        }
-        
-        # 버튼들 크기 조정 적용
-        for button_name, weight in button_config.items():
-            if hasattr(self, button_name):
-                button = getattr(self, button_name)
-                # 가중치를 적용한 버튼 크기 계산
-                adjusted_width = int(button_width * weight)
-                button.setFixedSize(adjusted_width, button_height)
-                
-                # 폰트 크기도 창 크기에 맞게 조정 (버튼 크기의 비율로 설정)
-                font_size = max(9, min(16, int(adjusted_width * 0.40)))  # 버튼 너비의 40%, 최소 9px, 최대 16px (버튼과 동일한 비율)
-                
-                # 버튼 스타일시트 업데이트 (폰트 크기 포함)
-                button.setStyleSheet(f"""
-                    QPushButton {{
-                        background-color: rgba(52, 73, 94, 0.6);
-                        color: white;
-                        border: none;
-                        padding: 5px;
-                        border-radius: 3px;
-                        font-size: {font_size}px;
-                    }}
-                    QPushButton:hover {{
-                        background-color: rgba(52, 73, 94, 1.0);
-                    }}
-                """)
-                
-                # 북마크 버튼이 활성화 되어 있으면 스타일 유지
-                if button_name == 'slider_bookmark_btn' and self.current_image_path in self.bookmarks:
-                    button.setStyleSheet(f"""
-                        QPushButton {{
-                            background-color: rgba(241, 196, 15, 0.9);
-                            color: white;
-                            border: none;
-                            padding: 5px;
-                            border-radius: 3px;
-                            font-size: {font_size}px;
-                        }}
-                        QPushButton:hover {{
-                            background-color: rgba(241, 196, 15, 1.0);
-                        }}
-                    """)
-        
-        # 이미지 컨테이너 레이아웃 강제 업데이트
-        if hasattr(self, 'image_container'):
-            self.image_container.updateGeometry()
-        
-        # 모든 버튼의 레이아웃 업데이트
-        for row in self.buttons:
-            for button in row:
-                button.updateGeometry()
-        
-        # 슬라이더 위젯 레이아웃 업데이트
-        if hasattr(self, 'playback_slider'):
-            self.playback_slider.updateGeometry()
-        if hasattr(self, 'volume_slider'):
-            self.volume_slider.updateGeometry()
         
         # 전체 레이아웃 강제 업데이트
         self.updateGeometry()
-        self.layout().update()
+        if self.layout():
+            self.layout().update()
+        
+        # 나머지 무거운 작업은 타이머를 통해 지연 처리
+        if self.resize_timer.isActive():
+            self.resize_timer.stop()
+        self.resize_timer.start(150)  # 리사이징이 끝나고 150ms 후에 업데이트
         
         # 부모 클래스의 resizeEvent 호출
         super().resizeEvent(event)
-        self.update_button_sizes()
 
-        if self.current_image_path:
-            self.show_image(self.current_image_path)
+    def delayed_resize(self):
+        """리사이징 완료 후 지연된 UI 업데이트 처리"""
+        try:
+            # 현재 표시 중인 미디어 크기 조절
+            if hasattr(self, 'current_image_path') and self.current_image_path:
+                file_ext = os.path.splitext(self.current_image_path)[1].lower()
+                
+                # 이미지 타입에 따른 리사이징 처리
+                if file_ext in ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.ico', '.heic', '.heif']:
+                    pixmap = QPixmap(self.current_image_path)
+                    if not pixmap.isNull():
+                        scaled_pixmap = pixmap.scaled(self.image_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                        self.image_label.setPixmap(scaled_pixmap)
+                elif file_ext == '.gif' and hasattr(self, 'current_movie'):
+                    # 애니메이션 크기 조정 처리
+                    self.scale_gif()
+                elif file_ext == '.webp' and hasattr(self, 'current_movie'):
+                    # WEBP 이미지/애니메이션 처리
+                    self.scale_webp()
+                elif file_ext == '.psd':
+                    # PSD 파일 리사이징 처리
+                    self.show_psd(self.current_image_path)
+                elif file_ext in ['.mp4', '.avi', '.wmv', '.ts', '.m2ts', '.mov', '.qt', '.mkv', '.flv', '.webm', '.3gp', '.m4v', '.mpg', '.mpeg', '.vob', '.wav', '.flac', '.mp3', '.aac', '.m4a', '.ogg']:
+                    # MPV 플레이어 윈도우 ID 업데이트
+                    if hasattr(self, 'player'):
+                        self.player.wid = int(self.image_label.winId())
+                
+            # 이미지 정보 레이블 업데이트
+            if hasattr(self, 'image_info_label') and self.image_files:
+                self.update_image_info()
+                    
+        except Exception as e:
+            print(f"지연된 리사이징 처리 중 오류 발생: {e}")
 
     def mouseDoubleClickEvent(self, event):
         """더블 클릭 시 전체화면 또는 최대화 상태 전환"""
@@ -2144,69 +1932,72 @@ class ImageViewer(QWidget):
             self.time_label.show()  # 시간 레이블 표시
 
     def scale_webp(self):
-        """WebP 애니메이션 크기를 화면에 맞게 조정하는 메서드"""
-        # 첫 번째 프레임으로 이동하여 이미지 데이터 가져오기
-        self.current_movie.jumpToFrame(0)  # 첫 번째 프레임으로 이동
-        image = self.current_movie.currentImage()  # 현재 프레임 이미지 가져오기
-
-        # 원본 이미지 크기 정보
-        original_width = image.width()  # 원본 너비
-        original_height = image.height()  # 원본 높이
-
-        # 높이가 0인 경우 예외 처리 (0으로 나누기 방지)
-        if original_height == 0:
-            original_height = 1  # 높이를 1로 설정
+        """WEBP 애니메이션 크기 조정"""
+        # current_movie 속성이 있는지 확인
+        if not hasattr(self, 'current_movie') or self.current_movie is None:
+            return
             
-        # 원본 화면 비율 계산 (가로/세로)
-        aspect_ratio = original_width / original_height
-
-        # 이미지가 표시될 라벨의 크기를 얻습니다.
-        label_width = self.image_label.width()  # 라벨의 너비
-        label_height = self.image_label.height()  # 라벨의 높이
-
-        # 원본 비율을 유지하며, 라벨의 크기에 맞는 새로운 크기를 계산합니다.
-        if label_width / label_height > aspect_ratio:
-            # 라벨이 세로로 더 좁은 경우, 세로에 맞춰 크기 조정
-            new_height = label_height  # 라벨의 높이를 기준으로 새 높이 설정
-            new_width = int(new_height * aspect_ratio)  # 비율을 유지하며 가로 크기 계산
-        else:
-            # 라벨이 가로로 더 좁은 경우, 가로에 맞춰 크기 조정
-            new_width = label_width  # 라벨의 너비를 기준으로 새 너비 설정
-            new_height = int(new_width / aspect_ratio)  # 비율을 유지하며 세로 크기 계산
-
-        # 새로 계산된 크기로 WEBP를 설정합니다.
-        self.current_movie.setScaledSize(QSize(new_width, new_height))  # 크기를 새로 계산된 크기로 설정
+        try:
+            # 현재 프레임 번호 저장
+            current_frame = self.current_movie.currentFrameNumber()
+            
+            # 원본 크기와 표시 영역 크기 정보
+            original_size = QSize(self.current_movie.currentImage().width(), self.current_movie.currentImage().height())
+            label_size = self.image_label.size()
+            
+            # 높이가 0인 경우 예외 처리 (0으로 나누기 방지)
+            if original_size.height() == 0:
+                original_size.setHeight(1)
+                
+            # 화면 비율에 맞게 새 크기 계산
+            if label_size.width() / label_size.height() > original_size.width() / original_size.height():
+                # 세로 맞춤 (세로 기준으로 가로 계산)
+                new_height = label_size.height()
+                new_width = int(new_height * (original_size.width() / original_size.height()))
+            else:
+                # 가로 맞춤 (가로 기준으로 세로 계산)
+                new_width = label_size.width()
+                new_height = int(new_width * (original_size.height() / original_size.width()))
+            
+            # 애니메이션 크기 조정 및 원래 프레임으로 복원
+            self.current_movie.setScaledSize(QSize(new_width, new_height))
+            self.current_movie.jumpToFrame(current_frame)
+        except Exception as e:
+            print(f"WEBP 크기 조정 중 오류 발생: {e}")
 
     def scale_gif(self):
-        # 첫 번째 프레임으로 이동하여 이미지 데이터를 얻어옵니다.
-        self.current_movie.jumpToFrame(0)  # 첫 번째 프레임으로 이동
-        image = self.current_movie.currentImage()  # 현재 프레임의 이미지를 얻음
-
-        # 원본 이미지의 너비와 높이를 얻습니다.
-        original_width = image.width()  # 원본 이미지의 너비
-        original_height = image.height()  # 원본 이미지의 높이
-
-        # gif의 원본 비율을 계산합니다 (가로 / 세로 비율).
-        if original_height == 0:
-            original_height = 1  # 높이가 0인 경우(예외처리), 높이를 1로 설정하여 0으로 나누는 오류를 방지
-        aspect_ratio = original_width / original_height  # 가로 세로 비율 계산
-
-        # 이미지가 표시될 라벨의 크기를 얻습니다.
-        label_width = self.image_label.width()  # 라벨의 너비
-        label_height = self.image_label.height()  # 라벨의 높이
-
-        # 원본 비율을 유지하며, 라벨의 크기에 맞는 새로운 크기를 계산합니다.
-        if label_width / label_height > aspect_ratio:
-            # 라벨이 세로로 더 좁은 경우, 세로에 맞춰 크기 조정
-            new_height = label_height  # 라벨의 높이를 기준으로 새 높이 설정
-            new_width = int(new_height * aspect_ratio)  # 비율을 유지하며 가로 크기 계산
-        else:
-            # 라벨이 가로로 더 좁은 경우, 가로에 맞춰 크기 조정
-            new_width = label_width  # 라벨의 너비를 기준으로 새 너비 설정
-            new_height = int(new_width / aspect_ratio)  # 비율을 유지하며 세로 크기 계산
-
-        # 새로 계산된 크기로 gif를 설정합니다.
-        self.current_movie.setScaledSize(QSize(new_width, new_height))  # 크기를 새로 계산된 크기로 설정
+        """GIF 애니메이션 크기 조정"""
+        # current_movie 속성이 있는지 확인
+        if not hasattr(self, 'current_movie') or self.current_movie is None:
+            return
+            
+        try:
+            # 현재 프레임 번호 저장
+            current_frame = self.current_movie.currentFrameNumber()
+            
+            # 원본 크기와 표시 영역 크기 정보
+            original_size = QSize(self.current_movie.currentImage().width(), self.current_movie.currentImage().height())
+            label_size = self.image_label.size()
+            
+            # 높이가 0인 경우 예외 처리 (0으로 나누기 방지)
+            if original_size.height() == 0:
+                original_size.setHeight(1)
+                
+            # 화면 비율에 맞게 새 크기 계산
+            if label_size.width() / label_size.height() > original_size.width() / original_size.height():
+                # 세로 맞춤 (세로 기준으로 가로 계산)
+                new_height = label_size.height()
+                new_width = int(new_height * (original_size.width() / original_size.height()))
+            else:
+                # 가로 맞춤 (가로 기준으로 세로 계산)
+                new_width = label_size.width()
+                new_height = int(new_width * (original_size.height() / original_size.width()))
+            
+            # 애니메이션 크기 조정 및 원래 프레임으로 복원
+            self.current_movie.setScaledSize(QSize(new_width, new_height))
+            self.current_movie.jumpToFrame(current_frame)
+        except Exception as e:
+            print(f"GIF 크기 조정 중 오류 발생: {e}")
 
     def play_video(self, video_path):
         """MPV를 사용하여 비디오 재생"""
