@@ -2915,6 +2915,16 @@ class ImageViewer(QWidget):
         """전체화면 모드와 일반 모드를 전환합니다."""
         is_entering_fullscreen = not self.isFullScreen()  # 현재 상태의 반대
         
+        # 현재 비디오 재생 상태 저장
+        video_was_playing = False
+        current_position = 0
+        if hasattr(self, 'player') and self.current_media_type == 'video':
+            try:
+                video_was_playing = not self.player.pause  # 재생 중이었는지 확인
+                current_position = self.player.playback_time or 0  # 현재 재생 위치 저장
+            except Exception:
+                pass
+        
         if self.isFullScreen():
             # 전체화면 모드에서 일반 모드로 전환
             self.showNormal()
@@ -2928,9 +2938,11 @@ class ImageViewer(QWidget):
                 self.playback_controls_widget.show()
             if hasattr(self, 'button_widget'):
                 self.button_widget.show()
+                
+            # 슬라이더 위젯 표시
             if hasattr(self, 'slider_widget'):
                 self.slider_widget.show()
-                
+            
             # 폴더 버튼들 표시
             for row in self.buttons:
                 for button in row:
@@ -2938,11 +2950,14 @@ class ImageViewer(QWidget):
             
             # 전체화면 아이콘 변경
             self.fullscreen_btn.setText("🗖")  # 전체화면 아이콘으로 변경
-            
-            # 성능 최적화: 일반 모드로 돌아올 때 추가 리소스 정리
-            if hasattr(self, 'player') and hasattr(self, 'current_media_type') and self.current_media_type == 'video':
-                # 비디오 품질 일반 모드로 조정
-                self.player['video-sync'] = 'display-resample'  # 비디오 동기화 방식 (일반)
+                
+            # 비디오 상태 복구
+            if hasattr(self, 'player') and self.current_media_type == 'video':
+                try:
+                    # 비디오가 재생 중이었다면 약간의 지연 후 상태 복구
+                    QTimer.singleShot(100, lambda: self.restore_video_state(video_was_playing, current_position))
+                except Exception:
+                    pass
         else:
             # 일반 모드에서 전체화면 모드로 전환
             self.showFullScreen()
@@ -2994,6 +3009,23 @@ class ImageViewer(QWidget):
         
         # 전체화면 변경 시 메시지 표시
         self.show_message("전체화면 모드" if self.isFullScreen() else "일반 모드로 전환")
+
+    def restore_video_state(self, was_playing, position):
+        """비디오 재생 상태를 복구합니다"""
+        if hasattr(self, 'player') and self.current_media_type == 'video':
+            try:
+                # 위치 복구
+                self.player.command('seek', position, 'absolute')
+                
+                # 재생 상태 복구
+                if was_playing:
+                    self.player.pause = False
+                    self.update_play_button()
+                
+                # 슬라이더 위치 업데이트 강제
+                QTimer.singleShot(50, self.update_video_playback)
+            except Exception as e:
+                print(f"비디오 상태 복구 실패: {e}")
 
     # toggle_maximize 메소드 추가 (이름을 toggle_maximize_state로 변경)
     def toggle_maximize_state(self):
