@@ -1437,9 +1437,21 @@ class ImageViewer(QWidget):
                 print(f"이미지 로딩 취소: {os.path.basename(path)}")
         
         # 기존 QMovie 정리
-        if hasattr(self, 'current_movie') and self.current_movie:
-            self.current_movie.stop()
-            self.current_movie.deleteLater()  # Qt 객체 명시적 삭제 요청
+        try:
+            if hasattr(self, 'current_movie') and self.current_movie is not None:
+                try:
+                    self.current_movie.stop()
+                except RuntimeError:
+                    # 이미 삭제된 객체인 경우 무시
+                    pass
+                try:
+                    self.current_movie.deleteLater()  # Qt 객체 명시적 삭제 요청
+                except RuntimeError:
+                    # 이미 삭제된 객체인 경우 무시
+                    pass
+                self.current_movie = None
+        except Exception as e:
+            print(f"QMovie 객체 정리 중 오류: {e}")
             self.current_movie = None
 
         # 파일 이름을 제목표시줄에 표시
@@ -1478,7 +1490,26 @@ class ImageViewer(QWidget):
             self.show_gif(image_path)  # GIF를 표시하는 메서드 호출
         elif file_ext == '.psd':  # PSD 파일 처리
             self.current_media_type = 'image'  # 미디어 타입 업데이트
-            self.show_psd(image_path)  # PSD를 표시하는 메서드 호출
+            
+            # 기존 진행 중인 PSD 로더 스레드 확인 및 종료
+            for path, loader in list(self.loader_threads.items()):
+                if path != image_path and loader.isRunning():
+                    try:
+                        # 이전 로더 강제 종료
+                        loader.terminate()
+                        loader.wait(100)  # 최대 100ms 대기
+                        print(f"PSD 로더 종료: {os.path.basename(path)}")
+                    except Exception as e:
+                        print(f"PSD 로더 종료 중 오류: {e}")
+            
+            # PSD 파일 로딩 시작
+            try:
+                self.show_psd(image_path)  # PSD를 표시하는 메서드 호출
+            except Exception as e:
+                print(f"PSD 표시 중 오류: {e}")
+                # 오류 발생 시 기본 이미지 또는 오류 메시지 표시
+                self.image_label.setText("PSD 파일 로드 중 오류 발생")
+                self.show_message(f"PSD 파일 로드 오류: {str(e)}")
         elif file_ext in ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.ico', '.heic', '.heif']:  # JPG, JPEG, PNG 파일 처리
             self.current_media_type = 'image'  # 미디어 타입 업데이트
             
@@ -1570,6 +1601,21 @@ class ImageViewer(QWidget):
 
     def show_psd(self, image_path):
         """PSD 파일을 처리하는 메서드입니다."""
+        # 이미 로딩 중인지 확인
+        loading_in_progress = False
+        for path, loader in list(self.loader_threads.items()):
+            if path == image_path and loader.isRunning():
+                loading_in_progress = True
+                print(f"이미 로딩 중: {os.path.basename(image_path)}")
+                break
+        
+        if loading_in_progress:
+            # 이미 로딩 중이면 다시 시작하지 않음
+            return
+        
+        # 로딩 표시 시작
+        self.show_loading_indicator()
+        
         # LRUCache에서 캐시된 이미지 확인
         pixmap = self.psd_cache.get(image_path)
         
@@ -1587,14 +1633,28 @@ class ImageViewer(QWidget):
             # 이미지 크기 조정 후 표시
             scaled_pixmap = pixmap.scaled(self.image_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
             self.image_label.setPixmap(scaled_pixmap)
-        else:
-            # 로딩 중 표시
-            self.show_loading_indicator()
             
-            # 기존 스레드 정리
-            self.cleanup_loader_threads()
+            # 로딩 인디케이터 숨기기
+            self.hide_loading_indicator()
+        else:
+            # 진행 중인 모든 PSD 로더를 안전하게 처리
+            for path, loader in list(self.loader_threads.items()):
+                if loader.isRunning():
+                    # 실행 중인 다른 PSD 로더의 연결을 해제하여 신호가 처리되지 않도록 함
+                    try:
+                        loader.loaded.disconnect()
+                        loader.error.disconnect()
+                    except Exception:
+                        pass
+                        
+                    # 강제 종료는 하지 않고 자연스럽게 종료되도록 함
+                    # terminate()는 불안정할 수 있으므로 사용하지 않음
+            
+            # 로더 스레드 목록 비우기 (새 시작 전에)
+            self.loader_threads.clear()
             
             # 비동기 로딩 시작
+            print(f"새 PSD 로더 시작: {os.path.basename(image_path)}")
             loader = ImageLoaderThread(image_path, 'psd')
             loader.loaded.connect(self.on_image_loaded)
             loader.error.connect(self.on_image_error)
@@ -1602,6 +1662,12 @@ class ImageViewer(QWidget):
             # 스레드 추적
             self.loader_threads[image_path] = loader
             loader.start()
+            
+            # 로딩 시작 메시지 (파일 경로 포함)
+            print(f"PSD 파일 로딩 시작: {image_path}")
+            
+            # 로딩 메시지 표시
+            self.show_message(f"PSD 파일 로딩 중... ({os.path.basename(image_path)})")
 
     def show_gif(self, image_path):
         # gif 애니메이션을 처리하기 위해 QImageReader를 사용
@@ -2040,10 +2106,10 @@ class ImageViewer(QWidget):
         if not hasattr(self, 'player') or self.player is None:
             try:
                 self.player = mpv.MPV(log_handler=print, 
-                                     ytdl=True, 
-                                     input_default_bindings=True, 
-                                     input_vo_keyboard=True,
-                                     hwdec='no')  # 하드웨어 가속 비활성화 (문제 해결을 위해)
+                                    ytdl=True, 
+                                    input_default_bindings=True, 
+                                    input_vo_keyboard=True,
+                                    hwdec='no')  # 하드웨어 가속 비활성화 (문제 해결을 위해)
                 print("MPV 플레이어 동적 초기화 성공")
             except Exception as e:
                 print(f"MPV 플레이어 초기화 실패: {e}")
@@ -2117,12 +2183,22 @@ class ImageViewer(QWidget):
             # 비디오 종료 시 타이머 중지
             self.player.observe_property('playback-restart', self.on_video_end)  # 비디오 종료 시 호출될 메서드 등록
             
+            # 이전 duration 관찰자가 있으면 제거
+            if hasattr(self, 'duration_observer_callback'):
+                try:
+                    self.player.unobserve_property('duration', self.duration_observer_callback)
+                except Exception as e:
+                    print(f"관찰자 제거 오류: {e}")
+                    pass  # 기존 관찰자가 없거나 오류 발생 시 무시
+            
             # duration 속성 관찰 (추가 정보 용도)
             def check_video_loaded(name, value):
                 if value is not None and value > 0:
                     print(f"비디오 로드 완료: {video_path}, 길이: {value}초")
             
-            self.player.observe_property('duration', check_video_loaded)
+            # 새 관찰자 등록 및 참조 저장
+            self.duration_observer_callback = check_video_loaded
+            self.player.observe_property('duration', self.duration_observer_callback)
             
         except Exception as e:
             print(f"비디오 재생 에러: {e}")  # 에러 로깅
@@ -3470,34 +3546,24 @@ class ImageViewer(QWidget):
 
     def cleanup_loader_threads(self):
         """로더 스레드를 정리하고 메모리를 확보합니다."""
-        # 완료되었거나 오류가 발생한 스레드 제거
-        current_threads = list(self.loader_threads.items())
-        for path, loader in current_threads:
-            if not loader.isRunning():
-                del self.loader_threads[path]
-                
-        # 활성 스레드가 너무 많으면 가장 오래된 것부터 종료
-        max_concurrent_threads = 3  # 최대 동시 실행 스레드 수
-        
-        if len(self.loader_threads) > max_concurrent_threads:
-            # 현재 이미지의 로더는 제외하고 오래된 순으로 정리
-            threads_to_remove = [
-                path for path in self.loader_threads 
-                if path != self.current_image_path
-            ]
-            
-            # 초과된 만큼 오래된 스레드부터 제거
-            for path in threads_to_remove[:len(self.loader_threads) - max_concurrent_threads]:
-                if path in self.loader_threads:
-                    loader = self.loader_threads[path]
-                    if loader.isRunning():
-                        loader.terminate()
-                        try:
-                            loader.wait(100)  # 최대 100ms까지만 대기
-                        except:
-                            pass
-                    del self.loader_threads[path]
-                    print(f"스레드 정리: {os.path.basename(path)}")
+        try:
+            # 완료되었거나 오류가 발생한 스레드 제거
+            current_threads = list(self.loader_threads.items())
+            for path, loader in current_threads:
+                # 로더가 아직 실행 중이 아닌 경우 (완료된 경우)
+                try:
+                    if not loader.isRunning():
+                        # 스레드 객체 제거
+                        del self.loader_threads[path]
+                except Exception as e:
+                    print(f"스레드 정리 중 오류: {path}, {e}")
+                    # 오류가 발생한 스레드는 목록에서 제거 시도
+                    try:
+                        del self.loader_threads[path]
+                    except:
+                        pass
+        except Exception as e:
+            print(f"스레드 정리 중 일반 오류: {e}")
 
     def on_image_loaded(self, path, image, size_mb):
         """이미지 로딩이 완료되면 호출되는 콜백 메서드"""
