@@ -1,17 +1,38 @@
 # 이미지 및 비디오 뷰어 애플리케이션 (PyQt5 기반)
 import sys  # 시스템 관련 기능 제공 (프로그램 종료, 경로 관리 등)
 import os  # 운영체제 관련 기능 제공 (파일 경로, 디렉토리 처리 등)
+import platform
 import shutil  # 파일 복사 및 이동 기능 제공 (고급 파일 작업)
 import re  # 정규표현식 처리 기능 제공 (패턴 검색 및 문자열 처리)
 import json  # JSON 파일 처리를 위한 모듈
 from collections import OrderedDict  # LRU 캐시 구현을 위한 정렬된 딕셔너리
-from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout, QPushButton, QFileDialog, QHBoxLayout, QSizePolicy, QSlider, QLayout, QSpacerItem, QStyle, QStyleOptionSlider, QMenu, QAction, QScrollArea, QListWidgetItem, QListWidget, QAbstractItemView, QInputDialog, QMessageBox, QDialog, QTableWidget, QTableWidgetItem, QHeaderView, QFrame  # PyQt5 UI 위젯 (사용자 인터페이스 구성 요소)
+from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout, QPushButton, QFileDialog, QHBoxLayout, QSizePolicy, QSlider, QLayout, QSpacerItem, QStyle, QStyleOptionSlider, QMenu, QAction, QScrollArea, QListWidgetItem, QListWidget, QAbstractItemView, QInputDialog, QMessageBox, QDialog, QTableWidget, QTableWidgetItem, QHeaderView, QFrame, QLineEdit  # PyQt5 UI 위젯 (사용자 인터페이스 구성 요소)
 from PyQt5.QtGui import QPixmap, QImage, QImageReader, QFont, QMovie, QCursor, QIcon, QColor, QPalette, QFontMetrics, QTransform, QKeySequence  # 그래픽 요소 처리 (이미지, 폰트, 커서 등)
 from PyQt5.QtCore import Qt, QSize, QTimer, QEvent, QPoint, pyqtSignal, QRect, QMetaObject, QObject, QUrl, QThread, QBuffer  # Qt 코어 기능 (이벤트, 신호, 타이머 등)
 import cv2  # OpenCV 라이브러리 - 비디오 처리용 (프레임 추출, 이미지 변환 등)
 from PIL import Image, ImageCms  # Pillow 라이브러리 - 이미지 처리용 (다양한 이미지 포맷 지원)
 from io import BytesIO  # 바이트 데이터 처리용 (메모리 내 파일 스트림)
 import time  # 시간 관련 기능 (시간 측정, 지연 등)
+
+def get_app_directory():
+    """애플리케이션 실행 파일이 있는 디렉토리를 반환합니다."""
+    if getattr(sys, 'frozen', False):
+        # PyInstaller로 패키징된 경우 (exe 파일)
+        return os.path.dirname(sys.executable)
+    else:
+        # 일반 Python 스크립트로 실행된 경우
+        return os.path.dirname(os.path.abspath(__file__))
+
+def get_user_data_directory():
+    """사용자 데이터를 저장할 디렉토리를 반환합니다."""
+    app_dir = get_app_directory()
+    data_dir = os.path.join(app_dir, 'UserData')
+    
+    # 디렉토리가 없으면 생성
+    if not os.path.exists(data_dir):
+        os.makedirs(data_dir, exist_ok=True)
+        
+    return data_dir
 
 # LRU 캐시 클래스 구현 (OrderedDict를 사용하여 최근 사용 항목 추적)
 class LRUCache:
@@ -61,7 +82,11 @@ class LRUCache:
         self.memory_usage = 0
 
 # MPV DLL 경로를 환경 변수 PATH에 추가 (mpv 모듈 import 전에 필수)
-mpv_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mpv')
+mpv_path = os.path.join(get_app_directory(), 'mpv')
+if not os.path.exists(mpv_path):
+    os.makedirs(mpv_path, exist_ok=True)
+    print(f"MPV 폴더가 생성되었습니다: {mpv_path}")
+
 os.environ["PATH"] = mpv_path + os.pathsep + os.environ["PATH"]
 
 # MPV 모듈 import (경로 설정 후에 가능)
@@ -404,14 +429,17 @@ class ImageViewer(QWidget):
         
         # 키 설정 초기화
         self.key_settings = {
-            "play_pause": Qt.Key_Space,
             "next_image": Qt.Key_Right,
             "prev_image": Qt.Key_Left,
             "rotate_clockwise": Qt.Key_R,
-            "rotate_counterclockwise": Qt.Key_L,
-            "volume_up": Qt.Key_Up,  # 볼륨 증가 - 위쪽 화살표 키
-            "volume_down": Qt.Key_Down,  # 볼륨 감소 - 아래쪽 화살표 키
-            "toggle_mute": Qt.Key_M  # 음소거 토글 - M 키
+            "rotate_counterclockwise": Qt.Key_L, 
+            "play_pause": Qt.Key_Space,
+            "volume_up": Qt.Key_Up,
+            "volume_down": Qt.Key_Down,
+            "toggle_mute": Qt.Key_M,
+            "delete_image": Qt.Key_Delete,
+            "toggle_fullscreen": Qt.ControlModifier | Qt.Key_Return,  # Ctrl+Enter로 변경
+            "toggle_maximize_state": Qt.Key_Return  # Enter 키 추가
         }
         
         # 키 설정 로드
@@ -439,6 +467,26 @@ class ImageViewer(QWidget):
         
         # OpenCV 비디오 캡처 객체 초기화
         self.cap = None
+
+        # MPV DLL 경로 설정 (동적 라이브러리 로드 경로)
+        system = platform.system()
+        mpv_path = os.path.join(get_app_directory(), 'mpv')
+
+        if system == 'Windows':
+            mpv_dll_path = os.path.join(mpv_path, "libmpv-2.dll")
+            if not os.path.exists(mpv_dll_path):
+                print(f"경고: {mpv_dll_path} 파일이 없습니다.")
+            os.environ["MPV_DYLIB_PATH"] = mpv_dll_path
+        elif system == 'Darwin':  # macOS
+            mpv_dll_path = os.path.join(mpv_path, "libmpv.dylib")
+            if not os.path.exists(mpv_dll_path):
+                print(f"경고: {mpv_dll_path} 파일이 없습니다.")
+            os.environ["MPV_DYLIB_PATH"] = mpv_dll_path
+        else:  # Linux
+            mpv_dll_path = os.path.join(mpv_path, "libmpv.so")
+            if not os.path.exists(mpv_dll_path):
+                print(f"경고: {mpv_dll_path} 파일이 없습니다.")
+            os.environ["MPV_DYLIB_PATH"] = mpv_dll_path
         
         # MPV 플레이어 초기화
         try:
@@ -573,6 +621,12 @@ class ImageViewer(QWidget):
         max_btn.setStyleSheet("color: white; background: none; border: none; padding: 10px;")
         max_btn.clicked.connect(self.toggle_maximize_state)  # 최대화/복원 기능 연결
         self.max_btn = max_btn  # 버튼 객체 저장 (최대화 상태에 따라 아이콘 변경 위함)
+
+        # 여기에 전체화면 버튼 추가
+        fullscreen_btn = QPushButton("🗖")  # 전체화면 버튼 (적절한 아이콘 사용)
+        fullscreen_btn.setStyleSheet("color: white; background: none; border: none; padding: 10px;")
+        fullscreen_btn.clicked.connect(self.toggle_fullscreen)  # 전체화면 토글 기능 연결
+        self.fullscreen_btn = fullscreen_btn  # 버튼 객체 저장
         
         close_btn = QPushButton("×")  # 닫기 버튼
         close_btn.setStyleSheet("color: white; background: none; border: none; padding: 10px;")
@@ -581,6 +635,7 @@ class ImageViewer(QWidget):
         # 창 컨트롤 버튼들 레이아웃에 추가
         title_layout.addWidget(min_btn)
         title_layout.addWidget(max_btn)
+        title_layout.addWidget(fullscreen_btn)
         title_layout.addWidget(close_btn)
 
         # 제목 표시줄을 메인 레이아웃에 추가 (1% 비율 - 전체 UI 중 작은 부분)
@@ -901,15 +956,14 @@ class ImageViewer(QWidget):
         # 전역 이벤트 필터 설치 (모든 위젯의 이벤트 캡처)
         QApplication.instance().installEventFilter(self)
 
-        # MPV DLL 경로 설정 (동적 라이브러리 로드 경로)
-        if getattr(sys, 'frozen', False):
-            # PyInstaller로 패키징된 경우 (실행 파일 경로 기준)
-            mpv_path = os.path.join(os.path.dirname(sys.executable), 'mpv')
+        # 크로스 플랫폼 지원을 위한 MPV 경로 설정
+        mpv_path = os.path.join(get_app_directory(), 'mpv')
+        if platform.system() == 'Windows':
             os.environ["MPV_DYLIB_PATH"] = os.path.join(mpv_path, "libmpv-2.dll")
-        else:
-            # 일반 스크립트로 실행되는 경우 (스크립트 경로 기준)
-            mpv_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mpv')
-            os.environ["MPV_DYLIB_PATH"] = os.path.join(mpv_path, "libmpv-2.dll")
+        elif platform.system() == 'Darwin':  # macOS
+            os.environ["MPV_DYLIB_PATH"] = os.path.join(mpv_path, "libmpv.dylib")
+        else:  # Linux
+            os.environ["MPV_DYLIB_PATH"] = os.path.join(mpv_path, "libmpv.so")
 
         self.player = mpv.MPV(ytdl=True, input_default_bindings=True, input_vo_keyboard=True, hr_seek="yes")  # MPV 플레이어 객체 생성 (고품질 비디오 재생)
 
@@ -955,6 +1009,18 @@ class ImageViewer(QWidget):
         # 회전 관련 변수 추가
         self.current_rotation = 0  # 현재 회전 각도 (0, 90, 180, 270)
         self.rotated_frames = {}  # 회전된 애니메이션 프레임 캐시
+
+        # 전체화면 오버레이 레이블 생성
+        self.fullscreen_overlay = QLabel(self)
+        self.fullscreen_overlay.setAlignment(Qt.AlignCenter)
+        self.fullscreen_overlay.setStyleSheet("""
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            border-radius: 10px;
+            padding: 10px;
+            font-size: 16px;
+        """)
+        self.fullscreen_overlay.hide()  # 초기에는 숨김 상태
 
     def delete_current_image(self):
         """현재 이미지를 삭제합니다 (크로스 플랫폼)."""
@@ -1060,6 +1126,13 @@ class ImageViewer(QWidget):
                 if isinstance(child, QPushButton):
                     child.updateGeometry()  # 버튼 위치/크기 업데이트
                     child.update()  # 버튼의 시각적 상태도 업데이트
+
+        # 전체화면 오버레이 위치 조정
+        if hasattr(self, 'fullscreen_overlay') and not self.fullscreen_overlay.isHidden():
+            self.fullscreen_overlay.move(
+                (self.width() - self.fullscreen_overlay.width()) // 2,
+                (self.height() - self.fullscreen_overlay.height()) // 2
+            )
         
         # 현재 표시 중인 미디어 크기 조절 (화면 크기에 맞게 조정)
         if hasattr(self, 'current_image_path') and self.current_image_path:
@@ -1356,11 +1429,13 @@ class ImageViewer(QWidget):
         self.update_button_sizes()
 
     def mouseDoubleClickEvent(self, event):
-        """더블 클릭 시 최대화/일반 창 상태 전환"""
-        if self.isMaximized():
-            self.showNormal()  # 최대화 상태면 일반 크기로 복원
+        """더블 클릭 시 전체화면 또는 최대화 상태 전환"""
+        if self.isFullScreen():
+            # 전체화면 모드에서는 전체화면 토글 함수 호출
+            self.toggle_fullscreen()
         else:
-            self.showMaximized()  # 일반 상태면 최대화
+            # 일반 모드에서는 최대화/일반 창 전환
+            self.toggle_maximize_state()
 
     def set_base_folder(self):
         """기준 폴더 설정 (하위 폴더 버튼 자동 생성용)"""
@@ -1524,6 +1599,11 @@ class ImageViewer(QWidget):
     def show_image(self, image_path):
         """이미지/미디어 파일 표시 및 관련 UI 업데이트"""
         self.stop_video()  # 기존 비디오 재생 중지
+
+        # 전체화면 모드에서 고품질 이미지 로딩 (비동기로 처리)
+        if self.isFullScreen() and image_size_mb > 5:  # 큰 이미지인 경우
+            # 최대한 고품질로 표시 (필요한 작업 추가)
+            QApplication.processEvents()  # UI 응답성 유지
 
         # 현재 이미지 경로 저장
         self.current_image_path = image_path
@@ -2591,6 +2671,11 @@ class ImageViewer(QWidget):
         return target_path  # 고유한 파일 경로 반환
 
     def keyPressEvent(self, event):
+            # ESC 키로 전체화면 모드 종료
+        if event.key() == Qt.Key_Escape and self.isFullScreen():
+            self.toggle_fullscreen()
+            return  # ESC 키 처리 완료
+        
         if event.key() == self.key_settings["prev_image"]:  # 이전 이미지 키
             self.show_previous_image()  # 이전 이미지로 이동
         elif event.key() == self.key_settings["next_image"]:  # 다음 이미지 키
@@ -2617,6 +2702,21 @@ class ImageViewer(QWidget):
             self.toggle_mute()  # 음소거 토글 함수 호출
         elif event.key() == self.key_settings["delete_image"]:  # 이미지 삭제 키
             self.delete_current_image()  # 현재 이미지 삭제 함수 호출
+        # ESC 키로 전체화면 모드 종료
+        elif event.key() == Qt.Key_Escape and self.isFullScreen():
+            self.toggle_fullscreen()
+            return
+        # 전체화면 토글
+        elif event.key() == self.key_settings.get("toggle_fullscreen", Qt.ControlModifier | Qt.Key_Return) or \
+          (event.modifiers() == Qt.ControlModifier and event.key() == Qt.Key_Return):  # Ctrl+Enter도 추가
+            self.toggle_fullscreen()
+            return
+        
+        # 최대화 상태 토글 (Enter 키) - 전체화면 모드가 아닐 때만 적용
+        elif event.key() == self.key_settings.get("toggle_maximize_state", Qt.Key_Return) and \
+          event.modifiers() != Qt.ControlModifier and not self.isFullScreen():  # 전체화면이 아닐 때만 처리
+            self.toggle_maximize_state()
+            return
 
     def wheelEvent(self, event):
         current_time = time.time() * 1000  # 현재 시간(밀리초)
@@ -2694,7 +2794,21 @@ class ImageViewer(QWidget):
                 
                 # 제목표시줄의 버튼 영역인지 확인
                 is_in_titlebar = local_pos.y() <= 30
-                is_in_titlebar_buttons = is_in_titlebar and local_pos.x() >= self.width() - 90
+                
+                # 버튼 영역 판단 수정 - 버튼 위젯 객체를 직접 확인
+                is_in_titlebar_buttons = False
+                if is_in_titlebar:
+                    # 제목 표시줄의 모든 자식 버튼 검사
+                    for child in self.title_bar.children():
+                        if isinstance(child, QPushButton):
+                            # 버튼의 전역 위치와 크기로 사각형 생성
+                            button_pos = child.mapToGlobal(QPoint(0, 0))
+                            button_rect = QRect(button_pos, child.size())
+                            # 마우스 포인터가 버튼 위에 있는지 확인
+                            if button_rect.contains(event.globalPos()):
+                                is_in_titlebar_buttons = True
+                                QApplication.setOverrideCursor(Qt.ArrowCursor)  # 버튼 위에서는 항상 화살표 커서
+                                break
                 
                 # 마우스 커서 위치에 따른 크기 조절 방향 결정
                 if not is_in_titlebar_buttons:  # 버튼 영역이 아닐 때만 리사이징 방향 결정
@@ -2727,7 +2841,7 @@ class ImageViewer(QWidget):
                             QApplication.setOverrideCursor(Qt.ArrowCursor)
                             self.resize_direction = None
                         elif self.image_label.geometry().contains(local_pos) or \
-                             any(button.geometry().contains(local_pos) for row in self.buttons for button in row):
+                            any(button.geometry().contains(local_pos) for row in self.buttons for button in row):
                             QApplication.setOverrideCursor(Qt.ArrowCursor)
                             self.resize_direction = None
                         else:
@@ -2741,7 +2855,18 @@ class ImageViewer(QWidget):
         elif event.type() == QEvent.MouseButtonPress and event.button() == Qt.LeftButton:
             local_pos = self.mapFromGlobal(event.globalPos())
             is_in_titlebar = local_pos.y() <= 30
-            is_in_titlebar_buttons = is_in_titlebar and local_pos.x() >= self.width() - 90
+            
+            # 버튼 영역 판단 수정 - 버튼 위젯 객체를 직접 확인
+            is_in_titlebar_buttons = False
+            if is_in_titlebar:
+                # 제목 표시줄의 모든 자식 버튼 검사
+                for child in self.title_bar.children():
+                    if isinstance(child, QPushButton):
+                        button_pos = child.mapToGlobal(QPoint(0, 0))
+                        button_rect = QRect(button_pos, child.size())
+                        if button_rect.contains(event.globalPos()):
+                            is_in_titlebar_buttons = True
+                            return False  # 버튼 클릭은 이벤트 필터에서 처리하지 않고 버튼에게 전달
             
             if self.resize_direction and not self.isMaximized() and not is_in_titlebar_buttons:
                 # 리사이징 시작
@@ -2786,15 +2911,104 @@ class ImageViewer(QWidget):
 
         return super().eventFilter(obj, event)
 
+    def toggle_fullscreen(self):
+        """전체화면 모드와 일반 모드를 전환합니다."""
+        is_entering_fullscreen = not self.isFullScreen()  # 현재 상태의 반대
+        
+        if self.isFullScreen():
+            # 전체화면 모드에서 일반 모드로 전환
+            self.showNormal()
+            
+            # 타이틀바 및 컨트롤 위젯 표시
+            if hasattr(self, 'title_bar'):
+                self.title_bar.show()
+            
+            # 버튼 및 컨트롤 표시 - 속성 존재 확인 후 실행
+            if hasattr(self, 'playback_controls_widget'):
+                self.playback_controls_widget.show()
+            if hasattr(self, 'button_widget'):
+                self.button_widget.show()
+            if hasattr(self, 'slider_widget'):
+                self.slider_widget.show()
+                
+            # 폴더 버튼들 표시
+            for row in self.buttons:
+                for button in row:
+                    button.show()
+            
+            # 전체화면 아이콘 변경
+            self.fullscreen_btn.setText("🗖")  # 전체화면 아이콘으로 변경
+            
+            # 성능 최적화: 일반 모드로 돌아올 때 추가 리소스 정리
+            if hasattr(self, 'player') and hasattr(self, 'current_media_type') and self.current_media_type == 'video':
+                # 비디오 품질 일반 모드로 조정
+                self.player['video-sync'] = 'display-resample'  # 비디오 동기화 방식 (일반)
+        else:
+            # 일반 모드에서 전체화면 모드로 전환
+            self.showFullScreen()
+            
+            # 타이틀바 숨기기
+            if hasattr(self, 'title_bar'):
+                self.title_bar.hide()
+            
+            # 버튼 및 컨트롤 숨기기 - 속성 존재 확인 후 실행
+            if hasattr(self, 'playback_controls_widget'):
+                self.playback_controls_widget.hide()
+            if hasattr(self, 'button_widget'):
+                self.button_widget.hide()
+            if hasattr(self, 'slider_widget'):
+                self.slider_widget.hide()
+                
+            # 폴더 버튼들 숨기기
+            for row in self.buttons:
+                for button in row:
+                    button.hide()
+            
+            # 전체화면 아이콘 변경
+            self.fullscreen_btn.setText("⛶")  # 일반화면 아이콘으로 변경
+            
+            # 성능 최적화: 전체화면 모드에서 추가 최적화 
+            if hasattr(self, 'player') and hasattr(self, 'current_media_type') and self.current_media_type == 'video':
+                # 비디오 품질 전체화면 모드로 최적화
+                self.player['video-sync'] = 'audio'  # 오디오 기반으로 동기화 (성능 향상)
+        
+        # 현재 이미지 크기 조정 강제 실행 (전체화면 전환 시 필요)
+        QTimer.singleShot(100, self.update_image_info)
+        
+        # 오버레이 표시
+        if is_entering_fullscreen:
+            self.fullscreen_overlay.setText("전체화면 모드로 전환\nESC 키로 종료")
+        else:
+            self.fullscreen_overlay.setText("일반 모드로 전환")
+        
+        # 오버레이 위치 및 크기 조정
+        self.fullscreen_overlay.adjustSize()
+        self.fullscreen_overlay.move(
+            (self.width() - self.fullscreen_overlay.width()) // 2,
+            (self.height() - self.fullscreen_overlay.height()) // 2
+        )
+        
+        # 오버레이 표시 및 자동 숨김 타이머 설정
+        self.fullscreen_overlay.show()
+        QTimer.singleShot(2000, self.fullscreen_overlay.hide)  # 2초 후 숨김
+        
+        # 전체화면 변경 시 메시지 표시
+        self.show_message("전체화면 모드" if self.isFullScreen() else "일반 모드로 전환")
+
     # toggle_maximize 메소드 추가 (이름을 toggle_maximize_state로 변경)
     def toggle_maximize_state(self):
         """최대화 상태와 일반 상태를 토글합니다."""
         if self.isMaximized():
             self.showNormal()
             self.max_btn.setText("□")  # 일반 상태일 때는 □ 표시
+            print("창 상태: 일반")  # 디버깅용 로그
         else:
             self.showMaximized()
             self.max_btn.setText("❐")  # 최대화 상태일 때는 ❐ 표시
+            print("창 상태: 최대화")  # 디버깅용 로그
+        
+        # 창 포커스 설정 (이벤트 처리 개선)
+        QTimer.singleShot(50, self.setFocus)
 
     def closeEvent(self, event):
         """창이 닫힐 때 호출되는 이벤트, 리소스 정리를 수행합니다."""
@@ -3160,7 +3374,7 @@ class ImageViewer(QWidget):
         """북마크 정보를 JSON 파일로 저장합니다."""
         try:
             # 앱 데이터 폴더 확인 및 생성
-            app_data_dir = os.path.join(os.path.expanduser("~"), "ImageViewer_Data")
+            app_data_dir = get_user_data_directory()
             if not os.path.exists(app_data_dir):
                 os.makedirs(app_data_dir)
                 
@@ -3180,7 +3394,7 @@ class ImageViewer(QWidget):
         """JSON 파일에서 북마크 정보를 불러옵니다."""
         try:
             # 앱 데이터 폴더 경로
-            app_data_dir = os.path.join(os.path.expanduser("~"), "ImageViewer_Data")
+            app_data_dir = get_user_data_directory()
             bookmarks_file = os.path.join(app_data_dir, "bookmarks.json")
             
             # 파일이 존재하면 불러오기
@@ -3258,7 +3472,7 @@ class ImageViewer(QWidget):
             self.dropdown_menu = ScrollableMenu(self)
             
             # 키 설정 메뉴 항목
-            key_settings_action = QAction("키 설정", self)
+            key_settings_action = QAction("환경 설정", self)
             key_settings_action.triggered.connect(self.show_key_settings_dialog)
             self.dropdown_menu.addAction(key_settings_action)
             
@@ -3696,54 +3910,62 @@ class ImageViewer(QWidget):
                 row_widget.updateGeometry()
 
     def load_key_settings(self):
-        # 기본 키 설정 정의
-        default_key_settings = {
-            "play_pause": Qt.Key_Space,
-            "next_image": Qt.Key_Right,
-            "prev_image": Qt.Key_Left,
-            "rotate_clockwise": Qt.Key_R,
-            "rotate_counterclockwise": Qt.Key_L,
-            "volume_up": Qt.Key_Up,  # 볼륨 증가 - 위쪽 화살표 키
-            "volume_down": Qt.Key_Down,  # 볼륨 감소 - 아래쪽 화살표 키
-            "toggle_mute": Qt.Key_M,  # 음소거 토글 - M 키
-            "delete_image": Qt.Key_Delete  # 이미지 삭제 - Delete 키
-        }
-        
-        # 기본값으로 초기화
-        self.key_settings = default_key_settings.copy()
-        
+        """키 설정을 로드합니다."""
         try:
-            # 앱 데이터 폴더 경로
-            app_data_dir = os.path.join(os.path.expanduser("~"), "ImageViewer_Data")
-            key_settings_file = os.path.join(app_data_dir, "key_settings.json")
+            app_data_dir = get_user_data_directory()
+            settings_path = os.path.join(app_data_dir, "key_settings.json")
             
-            # 파일이 존재하면 불러오기
-            if os.path.exists(key_settings_file):
-                with open(key_settings_file, 'r', encoding='utf-8') as f:
-                    saved_settings = json.load(f)
-                    # 저장된 설정을 기본 설정에 업데이트 (새로운 키는 기본값 유지)
-                    for key, value in saved_settings.items():
-                        self.key_settings[key] = value
+            # 기본 키 설정
+            default_settings = {
+                "next_image": Qt.Key_Right,
+                "prev_image": Qt.Key_Left,
+                "rotate_clockwise": Qt.Key_R,
+                "rotate_counterclockwise": Qt.Key_L,
+                "play_pause": Qt.Key_Space,
+                "volume_up": Qt.Key_Up,
+                "volume_down": Qt.Key_Down,
+                "toggle_mute": Qt.Key_M,
+                "delete_image": Qt.Key_Delete,
+                "toggle_fullscreen": Qt.ControlModifier | Qt.Key_Return,  # Ctrl+Enter로 변경
+                "toggle_maximize_state": Qt.Key_Return  # Enter 키 추가
+            }
+            
+            # 파일이 존재하면 로드
+            if os.path.exists(settings_path):
+                with open(settings_path, 'r', encoding='utf-8') as f:
+                    loaded_settings = json.load(f)
+                    
+                    # 문자열로 저장된 키 값을 정수로 변환
+                    for key, value in loaded_settings.items():
+                        if key in default_settings:
+                            default_settings[key] = int(value)
+            
+            # 로드된 설정을 self.key_settings에 직접 할당
+            self.key_settings = default_settings
+            print(f"키 설정 로드 완료: {settings_path}")
+            
         except Exception as e:
-            print(f"키 설정 불러오기 중 오류 발생: {e}")
+            print(f"키 설정 로드 오류: {e}")
+            return default_settings
 
     def save_key_settings(self):
+        """키 설정을 JSON 파일로 저장합니다."""
         try:
             # 앱 데이터 폴더 확인 및 생성
-            app_data_dir = os.path.join(os.path.expanduser("~"), "ImageViewer_Data")
+            app_data_dir = get_user_data_directory()
             if not os.path.exists(app_data_dir):
                 os.makedirs(app_data_dir)
                 
             # 키 설정 파일 저장 경로
-            key_settings_file = os.path.join(app_data_dir, "key_settings.json")
+            settings_file = os.path.join(app_data_dir, "key_settings.json")
             
             # 현재 키 설정을 JSON으로 저장
-            with open(key_settings_file, 'w', encoding='utf-8') as f:
+            with open(settings_file, 'w', encoding='utf-8') as f:
                 json.dump(self.key_settings, f, ensure_ascii=False, indent=4)
                 
-            print(f"키 설정이 저장되었습니다: {key_settings_file}")
+            print(f"키 설정이 저장되었습니다: {settings_file}")
         except Exception as e:
-            print(f"키 설정 저장 중 오류 발생: {e}")
+            print(f"키 설정 저장 오류: {e}")
     
     def show_key_settings_dialog(self):
         # 키 설정 다이얼로그 표시
@@ -3780,7 +4002,7 @@ class AboutDialog(QDialog):
         layout.addWidget(title_label)
         
         # 버전 정보
-        version_label = QLabel("버전: 1.1.0 (빌드 날짜: 2023-08-15)")
+        version_label = QLabel("버전: 1.1.0 (빌드 날짜: 2025-03-12)")
         version_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(version_label)
         
@@ -3860,7 +4082,7 @@ class AboutDialog(QDialog):
         developer_label.setStyleSheet("font-size: 11pt;")
         scroll_layout.addWidget(developer_label)
         
-        developer_detail = QLabel("개발자 이름 또는 팀 이름")
+        developer_detail = QLabel("htpaak@gmail.com")
         developer_detail.setStyleSheet("margin-left: 15px;")
         developer_detail.setWordWrap(True)
         scroll_layout.addWidget(developer_detail)
@@ -3870,7 +4092,7 @@ class AboutDialog(QDialog):
         copyright_label.setStyleSheet("font-size: 11pt;")
         scroll_layout.addWidget(copyright_label)
         
-        copyright_detail = QLabel("© 2023 저작권 소유자. 모든 권리 보유.")
+        copyright_detail = QLabel("© 2025 저작권 소유자. 모든 권리 보유.")
         copyright_detail.setStyleSheet("margin-left: 15px;")
         copyright_detail.setWordWrap(True)
         scroll_layout.addWidget(copyright_detail)
@@ -3901,23 +4123,34 @@ class KeySettingDialog(QDialog):
     def __init__(self, parent=None, key_settings=None):
         super().__init__(parent)
         self.setWindowTitle("키 설정")
-        self.setMinimumWidth(1200)  # 400에서 600으로 증가
-        self.setMinimumHeight(900)  # 300에서 400으로 증가
+        self.setMinimumWidth(900)
+
+        self.setMinimumHeight(600)
         
-        # 키 설정 초기화
-        self.key_settings = {
-            "play_pause": Qt.Key_Space,
+        # 기본 키 설정 정의
+        default_settings = {
             "next_image": Qt.Key_Right,
             "prev_image": Qt.Key_Left,
             "rotate_clockwise": Qt.Key_R,
             "rotate_counterclockwise": Qt.Key_L,
-            "volume_up": Qt.Key_Up,  # 볼륨 증가 - 위쪽 화살표 키
-            "volume_down": Qt.Key_Down,  # 볼륨 감소 - 아래쪽 화살표 키
-            "toggle_mute": Qt.Key_M,  # 음소거 토글 - M 키
-            "delete_image": Qt.Key_Delete  # 이미지 삭제 - Delete 키
+            "play_pause": Qt.Key_Space,
+            "volume_up": Qt.Key_Up,
+            "volume_down": Qt.Key_Down,
+            "toggle_mute": Qt.Key_M,
+            "delete_image": Qt.Key_Delete,
+            "toggle_fullscreen": Qt.ControlModifier | Qt.Key_Return,  # Ctrl+Enter로 변경
+            "toggle_maximize_state": Qt.Key_Return  # Enter 키 추가
         }
         
-        # 키 이름 매핑
+        # 전달받은 키 설정이 있으면 사용, 없으면 기본값 사용
+        self.key_settings = key_settings.copy() if key_settings else default_settings.copy()
+
+        # 누락된 키가 있으면 기본값에서 추가
+        for key, value in default_settings.items():
+            if key not in self.key_settings:
+                self.key_settings[key] = value
+        
+        # 키 이름 매핑은 그대로 유지
         self.key_names = {
             "play_pause": "재생/일시정지",
             "next_image": "다음 이미지",
@@ -3927,41 +4160,103 @@ class KeySettingDialog(QDialog):
             "volume_up": "볼륨 증가",
             "volume_down": "볼륨 감소",
             "toggle_mute": "음소거 토글",
-            "delete_image": "이미지 삭제"
+            "delete_image": "이미지 삭제",
+            "toggle_fullscreen": "전체화면 전환",
+            "toggle_maximize_state": "최대화 전환"  # 추가
         }
         
-        # 레이아웃 설정
-        layout = QVBoxLayout(self)
-        
+        # 메인 레이아웃 - 수평 레이아웃으로 변경
+        main_layout = QHBoxLayout(self)
+
+        # 왼쪽 버튼 패널 생성
+        left_panel = QVBoxLayout()
+
+        # 버튼 스타일 설정
+        button_style = """
+            QPushButton {
+                text-align: left;
+                padding: 10px;
+                border: none;
+                background-color: rgba(52, 73, 94, 0.8);
+                min-height: 40px;
+                font-size: 10pt;
+                color: rgb(255, 255, 255, 1.0);
+            }
+            QPushButton:hover {
+                background-color: rgba(52, 73, 94, 1.0);
+            }
+            QPushButton:pressed {
+                background-color: rgba(52, 73, 94, 1.0);
+            }
+        """
+
+        # 왼쪽 패널 버튼들 생성
+        button_names = ["일반", "보기", "영상 처리", "확장자", "키보드", "마우스", "책갈피", "탐색기 메뉴", "기타"]
+        self.left_buttons = []
+
+        for name in button_names:
+            button = QPushButton(name)
+            button.setStyleSheet(button_style)
+            button.setMinimumWidth(150)
+            left_panel.addWidget(button)
+            self.left_buttons.append(button)
+
+        # 왼쪽 패널에 공간 추가
+        left_panel.addStretch()
+
+        # 왼쪽 패널을 메인 레이아웃에 추가
+        left_panel_widget = QWidget()
+        left_panel_widget.setLayout(left_panel)
+        left_panel_widget.setMaximumWidth(200)
+        main_layout.addWidget(left_panel_widget)
+
+        # 오른쪽 패널 (기존 테이블과 버튼) 생성
+        right_panel = QVBoxLayout()
+
         # 설명 레이블
         label = QLabel("단축키를 변경하려면 해당 행을 클릭한 후 원하는 키를 누르세요.")
         label.setWordWrap(True)
-        layout.addWidget(label)
+        right_panel.addWidget(label)
         
-        # 키 설정 테이블
+        # 테이블 생성 및 설정
         self.table = QTableWidget(len(self.key_settings), 2)
         self.table.setHorizontalHeaderLabels(["기능", "단축키"])
-        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
-        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
-        self.table.verticalHeader().setVisible(False)
+        self.table.setColumnWidth(0, 200)
+        self.table.setColumnWidth(1, 200)
         
-        # 테이블에 키 설정 추가
+        # 키 설정 테이블에 데이터 추가 부분을 찾으세요 (약 4180 라인 주변)
         for i, (key, value) in enumerate(self.key_settings.items()):
-            # 기능 이름
+            # 기능 이름 설정
             name_item = QTableWidgetItem(self.key_names.get(key, key))
-            name_item.setFlags(name_item.flags() & ~Qt.ItemIsEditable)  # 편집 불가능하게 설정
             self.table.setItem(i, 0, name_item)
             
-            # 키 값
-            key_item = QTableWidgetItem(QKeySequence(value).toString())
-            key_item.setData(Qt.UserRole, value)  # 원래 키 값 저장
+            # 키 이름 설정 - 모디파이어 처리 추가
+            key_text = ""
+            # 키가 모디파이어를 포함하는지 확인
+            if isinstance(value, int) and value & Qt.ControlModifier:
+                key_text = "Ctrl+"
+                # 모디파이어를 제거하고 실제 키 값만 추출
+                actual_key = value & ~(int(Qt.ControlModifier) | int(Qt.AltModifier) | int(Qt.ShiftModifier))
+                # Qt.Key_Return은 "Enter"로 표시
+                if actual_key == Qt.Key_Return:
+                    key_text += "Enter"
+                else:
+                    key_text += QKeySequence(actual_key).toString()
+            else:
+                # Qt.Key_Return은 "Enter"로 표시
+                if value == Qt.Key_Return:
+                    key_text = "Enter"
+                else:
+                    key_text = QKeySequence(value).toString()
+            
+            key_item = QTableWidgetItem(key_text)
             self.table.setItem(i, 1, key_item)
         
         # 테이블 행 높이 설정
         for i in range(self.table.rowCount()):
             self.table.setRowHeight(i, 30)
         
-        layout.addWidget(self.table)
+        right_panel.addWidget(self.table)
         
         # 버튼 레이아웃
         button_layout = QHBoxLayout()
@@ -3983,10 +4278,18 @@ class KeySettingDialog(QDialog):
         cancel_button.clicked.connect(self.reject)
         button_layout.addWidget(cancel_button)
         
-        layout.addLayout(button_layout)
+        right_panel.addLayout(button_layout)
+
+        # 오른쪽 패널을 메인 레이아웃에 추가
+        right_panel_widget = QWidget()
+        right_panel_widget.setLayout(right_panel)
+        main_layout.addWidget(right_panel_widget)
         
         # 테이블 셀 클릭 이벤트 연결
         self.table.cellClicked.connect(self.cell_clicked)
+
+        # 키보드 버튼을 기본적으로 선택된 상태로 설정
+        self.left_buttons[4].setStyleSheet(button_style + "QPushButton { background-color: rgba(52, 73, 94, 1.0); }")
         
         # 현재 편집 중인 셀
         self.current_edit_row = -1
@@ -3996,13 +4299,51 @@ class KeySettingDialog(QDialog):
         self.table.installEventFilter(self)
     
     def cell_clicked(self, row, col):
-        """테이블 셀 클릭 시 호출되는 함수"""
-        if col == 1:  # 키 설정 열만 편집 가능
-            self.current_edit_row = row
-            self.current_edit_col = col
+        if col == 1:  # 단축키 열을 클릭한 경우
+            # 선택된 기능 이름 가져오기
+            function_name = self.table.item(row, 0).text()
             
-            # 선택된 셀 강조
-            self.table.item(row, col).setText("키를 누르세요...")
+            # key_names 딕셔너리에서 실제 키 이름 찾기
+            actual_key = None
+            for k, v in self.key_names.items():
+                if v == function_name:
+                    actual_key = k
+                    break
+            
+            if actual_key:
+                # 키 입력 다이얼로그 표시
+                dialog = QDialog(self)
+                dialog.setWindowTitle("단축키 입력")
+                dialog.setFixedSize(300, 150)
+                
+                layout = QVBoxLayout(dialog)
+                label = QLabel("새 단축키를 입력하세요.\n모디파이어(Ctrl, Alt, Shift)와 조합도 가능합니다.")
+                layout.addWidget(label)
+                
+                # 키 입력을 위한 라인 에디트
+                key_edit = KeyInputEdit()
+                layout.addWidget(key_edit)
+                
+                # 버튼
+                button_layout = QHBoxLayout()
+                ok_button = QPushButton("확인")
+                cancel_button = QPushButton("취소")
+                button_layout.addWidget(ok_button)
+                button_layout.addWidget(cancel_button)
+                layout.addLayout(button_layout)
+                
+                # 버튼 이벤트 연결
+                ok_button.clicked.connect(dialog.accept)
+                cancel_button.clicked.connect(dialog.reject)
+                
+                # 다이얼로그 실행
+                if dialog.exec_() == QDialog.Accepted and key_edit.key_value:
+                    # 테이블 업데이트
+                    key_text = key_edit.text()
+                    self.table.setItem(row, 1, QTableWidgetItem(key_text))
+                    
+                    # 키 설정 업데이트
+                    self.key_settings[actual_key] = key_edit.key_value
     
     def eventFilter(self, obj, event):
         """이벤트 필터 - 키 입력 처리"""
@@ -4023,7 +4364,11 @@ class KeySettingDialog(QDialog):
                 return True
                 
             # 키 이름 가져오기
-            key_name = QKeySequence(event.key()).toString()
+            key_name = ""
+            if event.key() == Qt.Key_Return:
+                key_name = "Enter"
+            else:
+                key_name = QKeySequence(event.key()).toString()
             
             # 빈 문자열이 아닌 경우에만 처리 (유효한 키인 경우)
             if key_name:
@@ -4043,27 +4388,52 @@ class KeySettingDialog(QDialog):
         return super().eventFilter(obj, event)
     
     def reset_to_default(self):
-        """기본 키 설정으로 복원"""
+        # 기본 키 설정 정의
         default_settings = {
-            "play_pause": Qt.Key_Space,
             "next_image": Qt.Key_Right,
             "prev_image": Qt.Key_Left,
             "rotate_clockwise": Qt.Key_R,
-            "rotate_counterclockwise": Qt.Key_L
+            "rotate_counterclockwise": Qt.Key_L,
+            "play_pause": Qt.Key_Space,
+            "volume_up": Qt.Key_Up,
+            "volume_down": Qt.Key_Down,
+            "toggle_mute": Qt.Key_M,
+            "delete_image": Qt.Key_Delete,
+            "toggle_fullscreen": Qt.ControlModifier | Qt.Key_Return,  # Ctrl+Enter로 변경
+            "toggle_maximize_state": Qt.Key_Return  # Enter 키 추가
         }
         
+        # 테이블 업데이트 (이 부분이 누락된 것 같습니다)
+        for i, (key, value) in enumerate(default_settings.items()):
+            if i < self.table.rowCount():  # 테이블 행 범위 내인지 확인
+                # 키 이름 설정image.png
+                key_text = ""
+                if isinstance(value, int) and value & Qt.ControlModifier:
+                    key_text = "Ctrl+"
+                    # 모디파이어를 제거하고 실제 키 값만 추출
+                    actual_key = value & ~(Qt.ControlModifier | Qt.AltModifier | Qt.ShiftModifier)
+                    # Qt.Key_Return은 "Enter"로 표시
+                    if actual_key == Qt.Key_Return:
+                        key_text += "Enter"
+                    else:
+                        key_text += QKeySequence(actual_key).toString()
+                else:
+                    # Qt.Key_Return은 "Enter"로 표시
+                    if value == Qt.Key_Return:
+                        key_text = "Enter"
+                    else:
+                        key_text = QKeySequence(value).toString()
+                
+                key_item = QTableWidgetItem(key_text)
+                self.table.setItem(i, 1, key_item)
+                
         # 키 설정 업데이트
         self.key_settings = default_settings.copy()
-        
-        # 테이블 업데이트
-        for i, (key, value) in enumerate(self.key_settings.items()):
-            key_item = self.table.item(i, 1)
-            key_item.setText(QKeySequence(value).toString())
-            key_item.setData(Qt.UserRole, value)
-    
+
     def get_key_settings(self):
-        """현재 키 설정 반환"""
+        """현재 설정된 키 매핑을 반환합니다."""
         return self.key_settings
+    
 
 
 class ScrollableMenu(QMenu):
@@ -4146,6 +4516,49 @@ class ScrollableMenu(QMenu):
         if len(actions) > 7:
             self.setProperty("_q_scrollable", True)
             self.setStyle(self.style())
+
+class KeyInputEdit(QLineEdit):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.key_value = None
+        self.setReadOnly(True)
+        self.setPlaceholderText("여기를 클릭하고 키를 누르세요")
+        
+    def keyPressEvent(self, event):
+        modifiers = event.modifiers()
+        key = event.key()
+        
+        # ESC, Tab 등의 특수 키는 무시
+        if key in (Qt.Key_Escape, Qt.Key_Tab):
+            return
+        
+        # 모디파이어만 눌렀을 때는 처리하지 않음
+        if key in (Qt.Key_Control, Qt.Key_Alt, Qt.Key_Shift, Qt.Key_Meta):
+            return
+        
+        # 키 조합 생성
+        self.key_value = key
+        if modifiers & Qt.ControlModifier:
+            self.key_value |= Qt.ControlModifier
+        if modifiers & Qt.AltModifier:
+            self.key_value |= Qt.AltModifier
+        if modifiers & Qt.ShiftModifier:
+            self.key_value |= Qt.ShiftModifier
+        
+        # 텍스트 표시
+        text = ""
+        if modifiers & Qt.ControlModifier:
+            text += "Ctrl+"
+        if modifiers & Qt.AltModifier:
+            text += "Alt+"
+        if modifiers & Qt.ShiftModifier:
+            text += "Shift+"
+        
+        text += QKeySequence(key).toString()
+        self.setText(text)
+        
+        # 이벤트 수락
+        event.accept()
 
 # 메인 함수
 def main():
