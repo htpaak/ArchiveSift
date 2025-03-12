@@ -890,6 +890,21 @@ class ImageViewer(QWidget):
         self.slider_bookmark_btn.clicked.connect(self.show_bookmark_menu_above)
         new_slider_layout.addWidget(self.slider_bookmark_btn)
 
+        # 슬라이더바 컨트롤 리스트 생성 (버튼과 레이블을 함께 관리)
+        self.slider_controls = []
+
+        # 이미 생성된 컨트롤들을 리스트에 추가
+        self.slider_controls.append(self.open_button)
+        self.slider_controls.append(self.set_base_folder_button)
+        self.slider_controls.append(self.play_button)
+        self.slider_controls.append(self.rotate_ccw_button)
+        self.slider_controls.append(self.rotate_cw_button)
+        self.slider_controls.append(self.time_label)  # 시간 레이블도 같은 리스트에 추가
+        self.slider_controls.append(self.mute_button)
+        self.slider_controls.append(self.menu_button)
+        self.slider_controls.append(self.slider_bookmark_btn)
+        # 볼륨 슬라이더는 별도 처리가 필요하므로 여기 포함하지 않음
+
         # 새로운 슬라이더 위젯을 하단 레이아웃에 추가
         bottom_layout.addWidget(self.slider_widget, 0)  # 정렬 플래그 제거
 
@@ -2330,37 +2345,6 @@ class ImageViewer(QWidget):
             self.image_info_label.move(x, y)
             self.image_info_label.show()
             self.image_info_label.raise_()
-
-        # 시간 레이블 크기 조정
-        if hasattr(self, 'time_label'):
-            # 레이블 너비 계산 (창 너비의 일정 비율)
-            label_width = max(80, min(180, int(window_width * 0.1)))  # 최소 80px, 최대 180px, 기본 창 너비의 10%로 증가
-            
-            # 시간 레이블 높이를 버튼 높이와 유사하게 계산 (창 크기에 따라 조정)
-            button_width = max(60, min(150, int(window_width * 0.08)))  # 버튼 너비 계산 (resizeEvent와 동일)
-            button_height = max(30, min(50, int(button_width * 0.6)))   # 버튼 높이 계산 (높이 비율 0.5→0.6으로 증가)
-            
-            # 레이블 크기 설정
-            self.time_label.setFixedSize(label_width, button_height)
-            
-            # 폰트 크기도 창 크기에 맞게 조정 (더 큰 폰트 크기 적용)
-            font_size = max(9, min(16, int(label_width * 0.40)))  # 레이블 너비의 40%, 최소 9px, 최대 16px로 변경 (버튼과 동일)
-            
-            # 레이블 스타일시트 업데이트
-            self.time_label.setStyleSheet(f"""
-                QLabel {{
-                    background-color: rgba(52, 73, 94, 0.6);
-                    color: white;
-                    border: none;
-                    padding: 5px;
-                    border-radius: 3px;
-                    font-size: {font_size}px;
-                    qproperty-alignment: AlignCenter;
-                }}
-                QLabel:hover {{
-                    background-color: rgba(52, 73, 94, 1.0);
-                }}
-            """)
         
         # 이미지 컨테이너 레이아웃 강제 업데이트
         if hasattr(self, 'image_container'):
@@ -3121,39 +3105,38 @@ class ImageViewer(QWidget):
         self.save_bookmarks()
         
     def update_bookmark_button_state(self):
-        if self.current_image_path:
-            if self.current_image_path in self.bookmarks:
-                # 북마크된 상태 (노란색 배경)
-                if hasattr(self, 'slider_bookmark_btn'):
-                    self.slider_bookmark_btn.setStyleSheet("""
-                        QPushButton {
-                            background-color: rgba(241, 196, 15, 0.9);
-                            color: white;
-                            border: none;
-                            padding: 8px;
-                            border-radius: 3px;
-                            font-size: 12px;
-                        }
-                        QPushButton:hover {
-                            background-color: rgba(241, 196, 15, 1.0);
-                        }
-                    """)
-            else:
-                # 북마크되지 않은 상태 (회색 배경)
-                if hasattr(self, 'slider_bookmark_btn'):
-                    self.slider_bookmark_btn.setStyleSheet("""
-                        QPushButton {
-                            background-color: rgba(52, 73, 94, 0.6);
-                            color: white;
-                            border: none;
-                            padding: 8px;
-                            border-radius: 3px;
-                            font-size: 12px;
-                        }
-                        QPushButton:hover {
-                            background-color: rgba(52, 73, 94, 1.0);
-                        }
-                    """)
+        """북마크 버튼 상태 업데이트"""
+        # 초기 상태 확인: 현재 이미지 경로가 있고 북마크에 포함되어 있는지 확인
+        if hasattr(self, 'current_image_path') and self.current_image_path and self.current_image_path in self.bookmarks:
+            # 북마크된 상태
+            self.slider_bookmark_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: rgba(241, 196, 15, 0.9);  /* 노란색 배경 */
+                    color: white;
+                    border: none;
+                    padding: 8px;
+                    border-radius: 3px;
+                    font-size: 12px;
+                }
+                QPushButton:hover {
+                    background-color: rgba(241, 196, 15, 1.0);  /* 호버 시 더 진한 노란색 */
+                }
+            """)
+        else:
+            # 북마크되지 않은 상태 또는 이미지가 로드되지 않은 상태
+            self.slider_bookmark_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: rgba(52, 73, 94, 0.6);  /* 일반 버튼과 동일한 색상 */
+                    color: white;
+                    border: none;
+                    padding: 8px;
+                    border-radius: 3px;
+                    font-size: 12px;
+                }
+                QPushButton:hover {
+                    background-color: rgba(52, 73, 94, 1.0);
+                }
+            """)
 
     def add_bookmark(self):
         """현재 이미지를 북마크에 추가합니다."""
@@ -3722,9 +3705,11 @@ class ImageViewer(QWidget):
             self.show_message(f"이미지 회전: {self.current_rotation}°")
 
     def update_button_sizes(self):
+        # 창 너비 가져오기
+        total_width = self.width()
+        
+        # 1. 폴더 버튼 행 처리
         if hasattr(self, 'buttons'):
-            total_width = self.width()
-            
             # 각 행 위젯의 최대 너비를 현재 창 너비로 업데이트
             for row in self.buttons:
                 row_widget = row[0].parent()  # 버튼의 부모 위젯(row_widget) 가져오기
@@ -3743,6 +3728,65 @@ class ImageViewer(QWidget):
                 
                 # 레이아웃 업데이트
                 row_widget.updateGeometry()
+        
+        # 2. 슬라이더바 컨트롤 처리 (통합 로직)
+        if hasattr(self, 'slider_controls'):
+            # 기본 버튼 크기 계산 (모든 컨트롤에 동일하게 적용)
+            button_width = max(60, min(150, int(total_width * 0.08)))
+            button_height = max(30, min(50, int(button_width * 0.6)))
+            
+            # 모든 슬라이더 컨트롤에 동일한 로직 적용
+            for control in self.slider_controls:
+                # 시간 레이블은 너비만 다르게 설정 (내용이 더 길기 때문)
+                if control == self.time_label:
+                    control_width = int(button_width * 1.5)  # 시간 레이블은 1.5배 넓게
+                else:
+                    control_width = button_width
+                
+                # 크기 설정
+                control.setFixedSize(control_width, button_height)
+                
+                # 폰트 크기 계산 (모든 컨트롤에 동일한 로직 적용)
+                font_size = max(9, min(14, int(button_width * 0.25)))
+                
+                # 북마크 버튼은 특별하게 처리: update_bookmark_button_state 함수에서 색상 처리
+                if control == self.slider_bookmark_btn:
+                    # 크기만 설정하고 스타일은 건드리지 않음 (북마크 상태에 따라 다르게 표시해야 하므로)
+                    continue
+                    
+                # 컨트롤 유형에 따라 적절한 스타일시트 적용
+                if isinstance(control, QLabel):  # 레이블인 경우
+                    control.setStyleSheet(f"""
+                        QLabel {{
+                            background-color: rgba(52, 73, 94, 0.6);
+                            color: white;
+                            border: none;
+                            padding: 8px;
+                            border-radius: 3px;
+                            font-size: {font_size}px;
+                            qproperty-alignment: AlignCenter;
+                        }}
+                        QLabel:hover {{
+                            background-color: rgba(52, 73, 94, 1.0);
+                        }}
+                    """)
+                else:  # 일반 버튼
+                    control.setStyleSheet(f"""
+                        QPushButton {{
+                            background-color: rgba(52, 73, 94, 0.6);
+                            color: white;
+                            border: none;
+                            padding: 8px;
+                            border-radius: 3px;
+                            font-size: {font_size}px;
+                        }}
+                        QPushButton:hover {{
+                            background-color: rgba(52, 73, 94, 1.0);
+                        }}
+                    """)
+            
+            # 북마크 버튼 상태 업데이트 (별도로 호출)
+            self.update_bookmark_button_state()
 
     def load_key_settings(self):
         """키 설정을 로드합니다."""
