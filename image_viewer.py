@@ -427,7 +427,12 @@ class ImageViewer(QWidget):
         self.bookmarks = []  # 책갈피된 파일 경로 리스트
         self.bookmark_menu = None  # 북마크 메뉴 객체
 
-        self.is_ui_locked = True  # UI 고정 상태 (True: 항상 표시, False: 마우스 위치에 따라 표시/숨김)
+        # UI 잠금 상태 변수 분리
+        self.is_bottom_ui_locked = True  # 하단 UI 고정 상태 (True: 항상 표시, False: 마우스 위치에 따라 표시/숨김)
+        self.is_title_ui_locked = True  # 상단 제목표시줄 고정 상태 (True: 항상 표시, False: 마우스 위치에 따라 표시/숨김)
+
+        # 이전 호환성을 위한 변수 유지
+        self.is_ui_locked = True
 
         # 전체화면 모드 상태 추적 변수
         self.is_in_fullscreen = False
@@ -623,6 +628,12 @@ class ImageViewer(QWidget):
         title_label.setStyleSheet("color: white; font-size: 16px;")  # 흰색 텍스트, 16px 크기
         title_layout.addWidget(title_label)
         title_layout.addStretch()  # 가운데 빈 공간 추가 (창 컨트롤 버튼을 오른쪽으로 밀기 위함)
+
+        # 상단 UI 잠금 버튼 추가
+        title_lock_btn = QPushButton("🔒")  # 잠금 아이콘으로 초기화
+        title_lock_btn.setStyleSheet("color: white; background: none; border: none; padding: 10px;")
+        title_lock_btn.clicked.connect(self.toggle_title_ui_lock)  # 제목표시줄 UI 잠금 토글 기능 연결
+        self.title_lock_btn = title_lock_btn  # 버튼 객체 저장
         
         # 창 컨트롤 버튼들 (최소화, 최대화, 닫기 - 윈도우 기본 버튼 대체)
         min_btn = QPushButton("_")  # 최소화 버튼
@@ -645,6 +656,7 @@ class ImageViewer(QWidget):
         close_btn.clicked.connect(self.close)  # 닫기 기능 연결
         
         # 창 컨트롤 버튼들 레이아웃에 추가
+        title_layout.addWidget(title_lock_btn)
         title_layout.addWidget(min_btn)
         title_layout.addWidget(max_btn)
         title_layout.addWidget(fullscreen_btn)
@@ -2677,19 +2689,20 @@ class ImageViewer(QWidget):
             # 변수를 조건문 외부에서 정의 (이 부분이 중요합니다)
             title_bar_area_height = 50  # 마우스가 상단 50px 이내일 때 타이틀바 표시
             bottom_area_height = 250  # 마우스가 하단 250px 이내일 때 컨트롤 표시
-            
-            # UI가 고정된 상태면 마우스 위치에 따른 UI 표시/숨김 처리를 건너뛴다
-            if hasattr(self, 'is_ui_locked') and self.is_ui_locked:
-                pass  # UI가 고정된 상태면 아무것도 하지 않음
-            else:  # UI 고정 상태가 아니면 (전체화면이든 일반 화면이든 상관없이)
+
                 
-                # UI 상태 변경 여부를 추적하기 위한 변수
-                ui_state_changed = False
-                title_bar_changed = False
-                slider_changed = False
-                buttons_changed = False
-                
-                # 상단 영역에 있을 때 타이틀바 표시
+            # UI 상태 변경 여부를 추적하기 위한 변수
+            ui_state_changed = False
+            title_bar_changed = False
+            slider_changed = False
+            buttons_changed = False
+
+            # UI가 고정된 상태인지 확인
+            title_ui_locked = hasattr(self, 'is_title_ui_locked') and self.is_title_ui_locked
+            bottom_ui_locked = hasattr(self, 'is_bottom_ui_locked') and self.is_bottom_ui_locked
+
+            # 상단 영역에 있을 때 타이틀바 표시 (타이틀바 UI가 잠겨있지 않은 경우만)
+            if not title_ui_locked:
                 if local_pos.y() <= title_bar_area_height:
                     if hasattr(self, 'title_bar') and self.title_bar.isHidden():
                         self.title_bar.show()
@@ -2699,8 +2712,9 @@ class ImageViewer(QWidget):
                     if hasattr(self, 'title_bar') and not self.title_bar.isHidden():
                         self.title_bar.hide()
                         title_bar_changed = True
-                
-                # 하단 영역에 있을 때 슬라이더와 버튼 표시
+
+            # 하단 영역에 있을 때 슬라이더와 버튼 표시 (하단 UI가 잠겨있지 않은 경우만)
+            if not bottom_ui_locked:
                 if local_pos.y() >= self.height() - bottom_area_height:
                     if hasattr(self, 'slider_widget') and self.slider_widget.isHidden():
                         self.slider_widget.show()
@@ -2912,12 +2926,18 @@ class ImageViewer(QWidget):
             # 전체화면 모드에서 일반 모드로 전환
             self.showNormal()
             
-            # UI 고정 상태에 따라 UI 요소 표시 여부 결정
-            if hasattr(self, 'is_ui_locked') and self.is_ui_locked:
-                # UI가 고정된 상태라면 UI 요소들을 표시
+            # UI 고정 상태에 따라 UI 요소 표시 여부 결정 - 각각 독립적으로 확인
+            if hasattr(self, 'is_title_ui_locked') and self.is_title_ui_locked:
+                # 상단 UI가 고정된 상태라면 타이틀바 표시
                 if hasattr(self, 'title_bar'):
                     self.title_bar.show()
-                
+            else:
+                # 상단 UI가 고정되지 않은 상태라면 타이틀바 숨김
+                if hasattr(self, 'title_bar'):
+                    self.title_bar.hide()
+            
+            if hasattr(self, 'is_bottom_ui_locked') and self.is_bottom_ui_locked:
+                # 하단 UI가 고정된 상태라면 UI 요소들을 표시
                 if hasattr(self, 'slider_widget'):
                     self.slider_widget.show()
                 
@@ -2925,10 +2945,7 @@ class ImageViewer(QWidget):
                     for button in row:
                         button.show()
             else:
-                # UI가 고정되지 않은 상태라면 UI 요소들을 숨김
-                if hasattr(self, 'title_bar'):
-                    self.title_bar.hide()
-                
+                # 하단 UI가 고정되지 않은 상태라면 UI 요소들을 숨김
                 if hasattr(self, 'slider_widget'):
                     self.slider_widget.hide()
                 
@@ -2950,7 +2967,8 @@ class ImageViewer(QWidget):
             # 전체화면에서 일반 모드로 전환 후 모든 미디어 타입에 대해 리사이징 적용
             QTimer.singleShot(100, self.delayed_resize)
 
-            # 잠금 버튼 상태 갱신 (이 줄 추가)
+            # 잠금 버튼 상태 갱신 - 각각 개별적으로 갱신
+            QTimer.singleShot(150, self.update_title_lock_button_state)
             QTimer.singleShot(150, self.update_ui_lock_button_state)
                 
         else:
@@ -2967,11 +2985,12 @@ class ImageViewer(QWidget):
             # 일반 모드에서 전체화면 모드로 전환
             self.showFullScreen()
 
-            # UI 고정 상태가 아닐 때만 UI 요소를 숨김 처리
-            if not hasattr(self, 'is_ui_locked') or not self.is_ui_locked:
+            # 상단 UI 및 하단 UI 잠금 상태에 따라 개별적으로 처리
+            if not hasattr(self, 'is_title_ui_locked') or not self.is_title_ui_locked:
                 if hasattr(self, 'title_bar'):
                     self.title_bar.hide()
-                
+            
+            if not hasattr(self, 'is_bottom_ui_locked') or not self.is_bottom_ui_locked:
                 if hasattr(self, 'slider_widget'):
                     self.slider_widget.hide()
                 
@@ -2989,7 +3008,8 @@ class ImageViewer(QWidget):
             # 전체화면 모드로 전환 후 모든 미디어 타입에 대해 리사이징 적용
             QTimer.singleShot(100, self.delayed_resize)
 
-            # 잠금 버튼 상태 갱신 (이 줄 추가)
+            # 잠금 버튼 상태 갱신 - 각각 개별적으로 갱신
+            QTimer.singleShot(150, self.update_title_lock_button_state)
             QTimer.singleShot(150, self.update_ui_lock_button_state)
                 
             # 비디오 복구 (필요한 경우)
@@ -3546,18 +3566,17 @@ class ImageViewer(QWidget):
         self.dropdown_menu.popup(QPoint(x_pos, y_pos))
 
     def toggle_ui_lock(self):
-        """UI 요소 표시 상태를 고정/해제합니다."""
-        self.is_ui_locked = not self.is_ui_locked
+        """하단 UI 요소 표시 상태를 고정/해제합니다."""
+        self.is_bottom_ui_locked = not self.is_bottom_ui_locked
+        # 이전 호환성을 위한 변수 업데이트
+        self.is_ui_locked = self.is_bottom_ui_locked and self.is_title_ui_locked
         
         # UI 고정 버튼 상태 업데이트
         self.update_ui_lock_button_state()
         
         # UI 요소 표시/숨김 처리
-        if self.is_ui_locked:
-            # UI 요소 항상 표시
-            if hasattr(self, 'title_bar'):
-                self.title_bar.show()
-            
+        if self.is_bottom_ui_locked:
+            # 하단 UI 요소 항상 표시
             if hasattr(self, 'slider_widget'):
                 self.slider_widget.show()
             
@@ -3569,14 +3588,45 @@ class ImageViewer(QWidget):
         QTimer.singleShot(150, self.delayed_resize)
         
         # 고정 상태 상태 메시지 표시
-        if self.is_ui_locked:
-            self.show_message("UI가 고정되었습니다")
+        if self.is_bottom_ui_locked:
+            self.show_message("하단 UI가 고정되었습니다")
         else:
-            self.show_message("UI 고정이 해제되었습니다")
+            self.show_message("하단 UI 고정이 해제되었습니다")
+
+    def toggle_title_ui_lock(self):
+        """상단 제목표시줄 표시 상태를 고정/해제합니다."""
+        self.is_title_ui_locked = not self.is_title_ui_locked
+        # 이전 호환성을 위한 변수 업데이트
+        self.is_ui_locked = self.is_bottom_ui_locked and self.is_title_ui_locked
+        
+        # 제목표시줄 UI 고정 버튼 상태 업데이트
+        self.update_title_lock_button_state()
+        
+        # UI 요소 표시/숨김 처리
+        if self.is_title_ui_locked:
+            # 상단 UI 항상 표시
+            if hasattr(self, 'title_bar'):
+                self.title_bar.show()
+        
+        # UI 변경 후 지연된 리사이징 적용
+        QTimer.singleShot(150, self.delayed_resize)
+        
+        # 고정 상태 상태 메시지 표시
+        if self.is_title_ui_locked:
+            self.show_message("상단 UI가 고정되었습니다")
+        else:
+            self.show_message("상단 UI 고정이 해제되었습니다")
+
+    def update_title_lock_button_state(self):
+        """상단 제목표시줄 잠금 버튼의 상태를 현재 is_title_ui_locked 값에 맞게 업데이트"""
+        if self.is_title_ui_locked:
+            self.title_lock_btn.setText('🔒')  # 잠금 아이콘
+        else:
+            self.title_lock_btn.setText('🔓')  # 잠금 해제 아이콘
 
     def update_ui_lock_button_state(self):
-        """UI 고정 버튼의 상태를 현재 is_ui_locked 값에 맞게 업데이트"""
-        if self.is_ui_locked:
+        """UI 고정 버튼의 상태를 현재 is_bottom_ui_locked 값에 맞게 업데이트"""
+        if self.is_bottom_ui_locked:
             self.ui_lock_btn.setText('🔒')  # 잠금 아이콘
             self.ui_lock_btn.setStyleSheet("""
                 QPushButton {
