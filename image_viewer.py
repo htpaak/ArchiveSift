@@ -427,6 +427,8 @@ class ImageViewer(QWidget):
         self.bookmarks = []  # 책갈피된 파일 경로 리스트
         self.bookmark_menu = None  # 북마크 메뉴 객체
 
+        self.is_ui_locked = True  # UI 고정 상태 (True: 항상 표시, False: 마우스 위치에 따라 표시/숨김)
+
         # 전체화면 모드 상태 추적 변수
         self.is_in_fullscreen = False
 
@@ -900,6 +902,26 @@ class ImageViewer(QWidget):
         self.slider_bookmark_btn.clicked.connect(self.show_bookmark_menu_above)
         new_slider_layout.addWidget(self.slider_bookmark_btn)
 
+        # 여기에 UI 고정 버튼 추가 (완전히 새로운 코드로 교체)
+        self.ui_lock_btn = QPushButton('🔒', self)  # 잠금 아이콘으로 초기화
+        self.ui_lock_btn.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)  # 고정 크기 사용
+        # 고정 상태의 빨간색 스타일을 직접 지정 (초기값)
+        self.ui_lock_btn.setStyleSheet("""
+            QPushButton {
+                background-color: rgba(231, 76, 60, 0.9);  /* 빨간색 배경 */
+                color: white;
+                border: none;
+                padding: 8px;
+                border-radius: 3px;
+                font-size: 12px;
+            }
+            QPushButton:hover {
+                background-color: rgba(231, 76, 60, 1.0);  /* 호버 시 더 진한 빨간색 */
+            }
+        """)
+        self.ui_lock_btn.clicked.connect(self.toggle_ui_lock)  # 토글 함수 연결
+        new_slider_layout.addWidget(self.ui_lock_btn)
+
         # 슬라이더바 컨트롤 리스트 생성 (버튼과 레이블을 함께 관리)
         self.slider_controls = []
 
@@ -913,6 +935,7 @@ class ImageViewer(QWidget):
         self.slider_controls.append(self.mute_button)
         self.slider_controls.append(self.menu_button)
         self.slider_controls.append(self.slider_bookmark_btn)
+        self.slider_controls.append(self.ui_lock_btn)
         # 볼륨 슬라이더는 별도 처리가 필요하므로 여기 포함하지 않음
 
         # 새로운 슬라이더 위젯을 하단 레이아웃에 추가
@@ -1056,6 +1079,9 @@ class ImageViewer(QWidget):
         self.ui_update_timer = QTimer()
         self.ui_update_timer.setSingleShot(True)
         self.ui_update_timer.timeout.connect(self.delayed_resize)
+
+        # __init__ 메서드 끝에 타이머 추가
+        QTimer.singleShot(0, self.update_ui_lock_button_state)
 
     def delete_current_image(self):
         """현재 이미지를 삭제합니다 (크로스 플랫폼)."""
@@ -2648,78 +2674,77 @@ class ImageViewer(QWidget):
             global_pos = event.globalPos()
             local_pos = self.mapFromGlobal(global_pos)
             
-            # eventFilter 함수의 UI 표시/숨김 부분 수정 (2645줄 근처에서 시작)
-            # 상단 영역 (타이틀바 표시 영역)
+            # 변수를 조건문 외부에서 정의 (이 부분이 중요합니다)
             title_bar_area_height = 50  # 마우스가 상단 50px 이내일 때 타이틀바 표시
-
-            # 하단 영역 (슬라이더 및 버튼 표시 영역)
-            bottom_area_height = 250  # 마우스가 하단 100px 이내일 때 컨트롤 표시
-
-            # 디버깅용 출력
-            print(f"마우스 위치: {local_pos.x()}, {local_pos.y()}, 화면 크기: {self.width()}, {self.height()}")
-
-            # UI 상태 변경 여부를 추적하기 위한 변수
-            ui_state_changed = False
-            title_bar_changed = False
-            slider_changed = False
-            buttons_changed = False
-
-            # 상단 영역에 있을 때 타이틀바 표시
-            if local_pos.y() <= title_bar_area_height:
-                if hasattr(self, 'title_bar') and self.title_bar.isHidden():
-                    self.title_bar.show()
-                    title_bar_changed = True
-            else:
-                # 상단 영역을 벗어나면 타이틀바 숨김
-                if hasattr(self, 'title_bar') and not self.title_bar.isHidden():
-                    self.title_bar.hide()
-                    title_bar_changed = True
-
-            # 하단 영역에 있을 때 슬라이더와 버튼 표시
-            if local_pos.y() >= self.height() - bottom_area_height:
-                if hasattr(self, 'slider_widget') and self.slider_widget.isHidden():
-                    self.slider_widget.show()
-                    slider_changed = True
+            bottom_area_height = 250  # 마우스가 하단 250px 이내일 때 컨트롤 표시
+            
+            # UI가 고정된 상태면 마우스 위치에 따른 UI 표시/숨김 처리를 건너뛴다
+            if hasattr(self, 'is_ui_locked') and self.is_ui_locked:
+                pass  # UI가 고정된 상태면 아무것도 하지 않음
+            else:  # UI 고정 상태가 아니면 (전체화면이든 일반 화면이든 상관없이)
                 
-                # 폴더 버튼 표시 설정
-                for row in self.buttons:
-                    for button in row:
-                        if button.isHidden():
-                            button.show()
-                            buttons_changed = True
-            else:
-                # 하단 영역을 벗어나면 슬라이더와 버튼 숨김
-                if hasattr(self, 'slider_widget') and not self.slider_widget.isHidden():
-                    self.slider_widget.hide()
-                    slider_changed = True
+                # UI 상태 변경 여부를 추적하기 위한 변수
+                ui_state_changed = False
+                title_bar_changed = False
+                slider_changed = False
+                buttons_changed = False
                 
-                # 폴더 버튼 숨김 설정
-                for row in self.buttons:
-                    for button in row:
-                        if not button.isHidden():
-                            button.hide()
-                            buttons_changed = True
-
-            # 모든 변경사항 처리 후 한 번만 UI 상태 변경 확인
-            ui_state_changed = title_bar_changed or slider_changed or buttons_changed
-
-            # UI 상태가 변경되었으면 이미지 크기 조정 (하단 UI 변경 시 지연 시간 증가)
-            if ui_state_changed:
-                # 기존 타이머가 실행 중이면 중지
-                if self.ui_update_timer.isActive():
-                    self.ui_update_timer.stop()
-                
-                # 하단 UI 변경이면 지연 시간 더 길게 설정
-                if slider_changed or buttons_changed:
-                    delay = 150  # 하단 UI 변경 시 150ms 지연
+                # 상단 영역에 있을 때 타이틀바 표시
+                if local_pos.y() <= title_bar_area_height:
+                    if hasattr(self, 'title_bar') and self.title_bar.isHidden():
+                        self.title_bar.show()
+                        title_bar_changed = True
                 else:
-                    delay = 50   # 상단 UI만 변경 시 50ms 지연
+                    # 상단 영역을 벗어나면 타이틀바 숨김
+                    if hasattr(self, 'title_bar') and not self.title_bar.isHidden():
+                        self.title_bar.hide()
+                        title_bar_changed = True
                 
-                # 디버깅용 메시지
-                print(f"UI 업데이트 타이머 시작: {delay}ms 지연, 상단변경: {title_bar_changed}, 하단변경: {slider_changed or buttons_changed}")
+                # 하단 영역에 있을 때 슬라이더와 버튼 표시
+                if local_pos.y() >= self.height() - bottom_area_height:
+                    if hasattr(self, 'slider_widget') and self.slider_widget.isHidden():
+                        self.slider_widget.show()
+                        slider_changed = True
+                    
+                    # 폴더 버튼 표시 설정
+                    for row in self.buttons:
+                        for button in row:
+                            if button.isHidden():
+                                button.show()
+                                buttons_changed = True
+                else:
+                    # 하단 영역을 벗어나면 슬라이더와 버튼 숨김
+                    if hasattr(self, 'slider_widget') and not self.slider_widget.isHidden():
+                        self.slider_widget.hide()
+                        slider_changed = True
+                    
+                    # 폴더 버튼 숨김 설정
+                    for row in self.buttons:
+                        for button in row:
+                            if not button.isHidden():
+                                button.hide()
+                                buttons_changed = True
                 
-                # 지연 시간 설정 후 타이머 시작
-                self.ui_update_timer.start(delay)
+                # 모든 변경사항 처리 후 한 번만 UI 상태 변경 확인
+                ui_state_changed = title_bar_changed or slider_changed or buttons_changed
+                
+                # UI 상태가 변경되었으면 이미지 크기 조정 (하단 UI 변경 시 지연 시간 증가)
+                if ui_state_changed:
+                    # 기존 타이머가 실행 중이면 중지
+                    if self.ui_update_timer.isActive():
+                        self.ui_update_timer.stop()
+                    
+                    # 하단 UI 변경이면 지연 시간 더 길게 설정
+                    if slider_changed or buttons_changed:
+                        delay = 150  # 하단 UI 변경 시 150ms 지연
+                    else:
+                        delay = 50   # 상단 UI만 변경 시 50ms 지연
+                    
+                    # 디버깅용 메시지
+                    print(f"UI 업데이트 타이머 시작: {delay}ms 지연, 상단변경: {title_bar_changed}, 하단변경: {slider_changed or buttons_changed}")
+                    
+                    # 지연 시간 설정 후 타이머 시작
+                    self.ui_update_timer.start(delay)
             
             # 창이 최대화 상태가 아닐 때만 크기 조절 가능
             if not self.isMaximized():
@@ -2887,16 +2912,29 @@ class ImageViewer(QWidget):
             # 전체화면 모드에서 일반 모드로 전환
             self.showNormal()
             
-            # 모든 UI 요소 표시 (전체화면 모드 종료 시)
-            if hasattr(self, 'title_bar'):
-                self.title_bar.show()
-            
-            if hasattr(self, 'slider_widget'):
-                self.slider_widget.show()
-            
-            for row in self.buttons:
-                for button in row:
-                    button.show()
+            # UI 고정 상태에 따라 UI 요소 표시 여부 결정
+            if hasattr(self, 'is_ui_locked') and self.is_ui_locked:
+                # UI가 고정된 상태라면 UI 요소들을 표시
+                if hasattr(self, 'title_bar'):
+                    self.title_bar.show()
+                
+                if hasattr(self, 'slider_widget'):
+                    self.slider_widget.show()
+                
+                for row in self.buttons:
+                    for button in row:
+                        button.show()
+            else:
+                # UI가 고정되지 않은 상태라면 UI 요소들을 숨김
+                if hasattr(self, 'title_bar'):
+                    self.title_bar.hide()
+                
+                if hasattr(self, 'slider_widget'):
+                    self.slider_widget.hide()
+                
+                for row in self.buttons:
+                    for button in row:
+                        button.hide()
             
             # 전체화면 오버레이 숨기기
             if hasattr(self, 'fullscreen_overlay') and self.fullscreen_overlay.isVisible():
@@ -2910,7 +2948,10 @@ class ImageViewer(QWidget):
             self.is_in_fullscreen = False
             
             # 전체화면에서 일반 모드로 전환 후 모든 미디어 타입에 대해 리사이징 적용
-            QTimer.singleShot(300, self.delayed_resize)
+            QTimer.singleShot(100, self.delayed_resize)
+
+            # 잠금 버튼 상태 갱신 (이 줄 추가)
+            QTimer.singleShot(150, self.update_ui_lock_button_state)
                 
         else:
             # 현재 비디오 상태 저장 (있는 경우)
@@ -2925,17 +2966,18 @@ class ImageViewer(QWidget):
             
             # 일반 모드에서 전체화면 모드로 전환
             self.showFullScreen()
-            
-            # 모든 UI 요소 초기에 숨기기 (전체화면 모드 시작 시)
-            if hasattr(self, 'title_bar'):
-                self.title_bar.hide()
-            
-            if hasattr(self, 'slider_widget'):
-                self.slider_widget.hide()
-            
-            for row in self.buttons:
-                for button in row:
-                    button.hide()
+
+            # UI 고정 상태가 아닐 때만 UI 요소를 숨김 처리
+            if not hasattr(self, 'is_ui_locked') or not self.is_ui_locked:
+                if hasattr(self, 'title_bar'):
+                    self.title_bar.hide()
+                
+                if hasattr(self, 'slider_widget'):
+                    self.slider_widget.hide()
+                
+                for row in self.buttons:
+                    for button in row:
+                        button.hide()
             
             # 풀스크린 버튼 텍스트 업데이트
             if hasattr(self, 'fullscreen_btn'):
@@ -2945,7 +2987,10 @@ class ImageViewer(QWidget):
             self.is_in_fullscreen = True
             
             # 전체화면 모드로 전환 후 모든 미디어 타입에 대해 리사이징 적용
-            QTimer.singleShot(300, self.delayed_resize)
+            QTimer.singleShot(100, self.delayed_resize)
+
+            # 잠금 버튼 상태 갱신 (이 줄 추가)
+            QTimer.singleShot(150, self.update_ui_lock_button_state)
                 
             # 비디오 복구 (필요한 경우)
             if self.current_media_type == 'video' and position > 0:
@@ -3499,6 +3544,68 @@ class ImageViewer(QWidget):
         # 메뉴 팝업 (스크롤이 필요한 경우를 위해 높이 속성 명시적 설정)
         self.dropdown_menu.setProperty("_q_scrollable", True)
         self.dropdown_menu.popup(QPoint(x_pos, y_pos))
+
+    def toggle_ui_lock(self):
+        """UI 요소 표시 상태를 고정/해제합니다."""
+        self.is_ui_locked = not self.is_ui_locked
+        
+        # UI 고정 버튼 상태 업데이트
+        self.update_ui_lock_button_state()
+        
+        # UI 요소 표시/숨김 처리
+        if self.is_ui_locked:
+            # UI 요소 항상 표시
+            if hasattr(self, 'title_bar'):
+                self.title_bar.show()
+            
+            if hasattr(self, 'slider_widget'):
+                self.slider_widget.show()
+            
+            for row in self.buttons:
+                for button in row:
+                    button.show()
+        
+        # UI 변경 후 지연된 리사이징 적용
+        QTimer.singleShot(150, self.delayed_resize)
+        
+        # 고정 상태 상태 메시지 표시
+        if self.is_ui_locked:
+            self.show_message("UI가 고정되었습니다")
+        else:
+            self.show_message("UI 고정이 해제되었습니다")
+
+    def update_ui_lock_button_state(self):
+        """UI 고정 버튼의 상태를 현재 is_ui_locked 값에 맞게 업데이트"""
+        if self.is_ui_locked:
+            self.ui_lock_btn.setText('🔒')  # 잠금 아이콘
+            self.ui_lock_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: rgba(231, 76, 60, 0.9);  /* 빨간색 배경 */
+                    color: white;
+                    border: none;
+                    padding: 8px;
+                    border-radius: 3px;
+                    font-size: 12px;
+                }
+                QPushButton:hover {
+                    background-color: rgba(231, 76, 60, 1.0);  /* 호버 시 더 진한 빨간색 */
+                }
+            """)
+        else:
+            self.ui_lock_btn.setText('🔓')  # 잠금 해제 아이콘
+            self.ui_lock_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: rgba(52, 73, 94, 0.6);  /* 파란색 배경 */
+                    color: white;
+                    border: none;
+                    padding: 8px;
+                    border-radius: 3px;
+                    font-size: 12px;
+                }
+                QPushButton:hover {
+                    background-color: rgba(52, 73, 94, 1.0);  /* 호버 시 더 진한 파란색 */
+                }
+            """)
 
     # 초기 및 resizeEvent에서 동적으로 호출되는 커스텀 UI 설정 메서드
     def setup_custom_ui(self):
