@@ -1052,6 +1052,11 @@ class ImageViewer(QWidget):
         self.resize_timer.setSingleShot(True)  # 한 번만 실행
         self.resize_timer.timeout.connect(self.delayed_resize)
 
+        # UI 상태 변경을 위한 타이머 추가 (반드시 추가해야 함)
+        self.ui_update_timer = QTimer()
+        self.ui_update_timer.setSingleShot(True)
+        self.ui_update_timer.timeout.connect(self.delayed_resize)
+
     def delete_current_image(self):
         """현재 이미지를 삭제합니다 (크로스 플랫폼)."""
         if not self.current_image_path or not self.image_files:
@@ -1213,6 +1218,8 @@ class ImageViewer(QWidget):
     def delayed_resize(self):
         """리사이징 완료 후 지연된 UI 업데이트 처리"""
         try:
+            print("delayed_resize 실행")  # 디버깅용 메시지 추가
+            
             # 현재 표시 중인 미디어 크기 조절
             if hasattr(self, 'current_image_path') and self.current_image_path:
                 file_ext = os.path.splitext(self.current_image_path)[1].lower()
@@ -1225,11 +1232,17 @@ class ImageViewer(QWidget):
                         self.image_label.setPixmap(scaled_pixmap)
                 elif file_ext == '.gif' and hasattr(self, 'current_movie'):
                     # 애니메이션 크기 조정 처리
+                    print("GIF 애니메이션 리사이징")  # 디버깅용 메시지
                     self.scale_gif()
+                    # UI 처리 완료 후 애니메이션이 제대로 보이도록 강제 프레임 업데이트
+                    QApplication.processEvents()
                 elif file_ext == '.webp':
                     if hasattr(self, 'current_movie') and self.current_movie:
                         # WEBP 애니메이션 처리
+                        print("WEBP 애니메이션 리사이징")  # 디버깅용 메시지
                         self.scale_webp()
+                        # UI 처리 완료 후 애니메이션이 제대로 보이도록 강제 프레임 업데이트
+                        QApplication.processEvents()
                     else:
                         # 일반 WEBP 이미지 처리 (애니메이션이 아닌 경우)
                         pixmap = QPixmap(self.current_image_path)
@@ -2635,68 +2648,78 @@ class ImageViewer(QWidget):
             global_pos = event.globalPos()
             local_pos = self.mapFromGlobal(global_pos)
             
-            # 전체화면 모드에서 마우스 위치에 따른 UI 표시
-            if self.is_in_fullscreen:
-                # 상단 영역 (타이틀바 표시 영역)
-                title_bar_area_height = 50  # 마우스가 상단 50px 이내일 때 타이틀바 표시
+            # eventFilter 함수의 UI 표시/숨김 부분 수정 (2645줄 근처에서 시작)
+            # 상단 영역 (타이틀바 표시 영역)
+            title_bar_area_height = 50  # 마우스가 상단 50px 이내일 때 타이틀바 표시
+
+            # 하단 영역 (슬라이더 및 버튼 표시 영역)
+            bottom_area_height = 250  # 마우스가 하단 100px 이내일 때 컨트롤 표시
+
+            # 디버깅용 출력
+            print(f"마우스 위치: {local_pos.x()}, {local_pos.y()}, 화면 크기: {self.width()}, {self.height()}")
+
+            # UI 상태 변경 여부를 추적하기 위한 변수
+            ui_state_changed = False
+            title_bar_changed = False
+            slider_changed = False
+            buttons_changed = False
+
+            # 상단 영역에 있을 때 타이틀바 표시
+            if local_pos.y() <= title_bar_area_height:
+                if hasattr(self, 'title_bar') and self.title_bar.isHidden():
+                    self.title_bar.show()
+                    title_bar_changed = True
+            else:
+                # 상단 영역을 벗어나면 타이틀바 숨김
+                if hasattr(self, 'title_bar') and not self.title_bar.isHidden():
+                    self.title_bar.hide()
+                    title_bar_changed = True
+
+            # 하단 영역에 있을 때 슬라이더와 버튼 표시
+            if local_pos.y() >= self.height() - bottom_area_height:
+                if hasattr(self, 'slider_widget') and self.slider_widget.isHidden():
+                    self.slider_widget.show()
+                    slider_changed = True
                 
-                # 하단 영역 (슬라이더 및 버튼 표시 영역)
-                bottom_area_height = 250  # 마우스가 하단 100px 이내일 때 컨트롤 표시
+                # 폴더 버튼 표시 설정
+                for row in self.buttons:
+                    for button in row:
+                        if button.isHidden():
+                            button.show()
+                            buttons_changed = True
+            else:
+                # 하단 영역을 벗어나면 슬라이더와 버튼 숨김
+                if hasattr(self, 'slider_widget') and not self.slider_widget.isHidden():
+                    self.slider_widget.hide()
+                    slider_changed = True
                 
-                # 디버깅용 출력
-                print(f"마우스 위치: {local_pos.x()}, {local_pos.y()}, 화면 크기: {self.width()}, {self.height()}")
+                # 폴더 버튼 숨김 설정
+                for row in self.buttons:
+                    for button in row:
+                        if not button.isHidden():
+                            button.hide()
+                            buttons_changed = True
+
+            # 모든 변경사항 처리 후 한 번만 UI 상태 변경 확인
+            ui_state_changed = title_bar_changed or slider_changed or buttons_changed
+
+            # UI 상태가 변경되었으면 이미지 크기 조정 (하단 UI 변경 시 지연 시간 증가)
+            if ui_state_changed:
+                # 기존 타이머가 실행 중이면 중지
+                if self.ui_update_timer.isActive():
+                    self.ui_update_timer.stop()
                 
-                # UI 상태 변경 여부를 추적하기 위한 변수
-                ui_state_changed = False
-                
-                # 상단 영역에 있을 때 타이틀바 표시
-                if local_pos.y() <= title_bar_area_height:
-                    if hasattr(self, 'title_bar') and self.title_bar.isHidden():
-                        self.title_bar.show()
-                        ui_state_changed = True
+                # 하단 UI 변경이면 지연 시간 더 길게 설정
+                if slider_changed or buttons_changed:
+                    delay = 150  # 하단 UI 변경 시 150ms 지연
                 else:
-                    # 상단 영역을 벗어나면 타이틀바 숨김
-                    if hasattr(self, 'title_bar') and not self.title_bar.isHidden():
-                        self.title_bar.hide()
-                        ui_state_changed = True
+                    delay = 50   # 상단 UI만 변경 시 50ms 지연
                 
-                # 하단 영역에 있을 때 슬라이더와 버튼 표시
-                if local_pos.y() >= self.height() - bottom_area_height:
-                    if hasattr(self, 'slider_widget') and self.slider_widget.isHidden():
-                        self.slider_widget.show()
-                        ui_state_changed = True
-                    
-                    # 폴더 버튼 표시 설정
-                    buttons_changed = False
-                    for row in self.buttons:
-                        for button in row:
-                            if button.isHidden():
-                                button.show()
-                                buttons_changed = True
-                    
-                    if buttons_changed:
-                        ui_state_changed = True
-                else:
-                    # 하단 영역을 벗어나면 슬라이더와 버튼 숨김
-                    if hasattr(self, 'slider_widget') and not self.slider_widget.isHidden():
-                        self.slider_widget.hide()
-                        ui_state_changed = True
-                    
-                    # 폴더 버튼 숨김 설정
-                    buttons_changed = False
-                    for row in self.buttons:
-                        for button in row:
-                            if not button.isHidden():
-                                button.hide()
-                                buttons_changed = True
-                    
-                    if buttons_changed:
-                        ui_state_changed = True
+                # 디버깅용 메시지
+                print(f"UI 업데이트 타이머 시작: {delay}ms 지연, 상단변경: {title_bar_changed}, 하단변경: {slider_changed or buttons_changed}")
                 
-                # UI 상태가 변경되었으면 이미지 크기 조정
-                if ui_state_changed:
-                    # 약간의 지연 시간을 두고 리사이징 호출
-                    QTimer.singleShot(50, self.delayed_resize)
+                # 지연 시간 설정 후 타이머 시작
+                self.ui_update_timer.start(delay)
             
             # 창이 최대화 상태가 아닐 때만 크기 조절 가능
             if not self.isMaximized():
