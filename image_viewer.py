@@ -1233,7 +1233,35 @@ class ImageViewer(QWidget):
                 }}
             """)
             self.message_label.adjustSize()
-            self.message_label.move(margin, margin + 20)
+            toolbar_height = 90  # 제목바(30) + 툴바(40) + 추가 여백(20)
+            self.message_label.move(margin, toolbar_height + margin)
+
+        # resizeEvent 함수 내에 다음 코드 추가 (message_label 업데이트 코드 아래에)
+        # 이미지 정보 레이블 즉시 업데이트 
+        if hasattr(self, 'image_info_label') and self.image_info_label.isVisible():
+            window_width = self.width()
+            font_size = max(12, min(32, int(window_width * 0.02)))
+            padding = max(8, min(12, int(window_width * 0.008))) 
+            margin = max(10, min(30, int(window_width * 0.02)))
+            
+            self.image_info_label.setStyleSheet(f"""
+                QLabel {{
+                    color: white;
+                    background-color: rgba(52, 73, 94, 0.9);
+                    font-size: {font_size}px;
+                    padding: {padding}px {padding + 4}px;
+                    border-radius: 3px;
+                    font-weight: normal;
+                }}
+            """)
+            self.image_info_label.adjustSize()
+            
+            # 우측 상단에 위치
+            toolbar_height = 90  # 제목바(30) + 툴바(40) + 추가 여백(20)
+            x = self.width() - self.image_info_label.width() - margin
+            y = toolbar_height + margin
+            
+            self.image_info_label.move(x, y)
         
         # 슬라이더 위젯 자체의 패딩 조정
         if hasattr(self, 'slider_widget'):
@@ -1252,6 +1280,11 @@ class ImageViewer(QWidget):
         
         # 부모 클래스의 resizeEvent 호출
         super().resizeEvent(event)
+
+        # 잠금 버튼과 북마크 버튼 상태 업데이트
+        self.update_ui_lock_button_state()
+        self.update_title_lock_button_state()
+        self.update_bookmark_button_state()
 
     def delayed_resize(self):
         """리사이징 완료 후 지연된 UI 업데이트 처리"""
@@ -1294,10 +1327,15 @@ class ImageViewer(QWidget):
                     # MPV 플레이어 윈도우 ID 업데이트
                     if hasattr(self, 'player'):
                         self.player.wid = int(self.image_label.winId())
-                
+            
             # 이미지 정보 레이블 업데이트
             if hasattr(self, 'image_info_label') and self.image_files:
                 self.update_image_info()
+
+            # 잠금 버튼과 북마크 버튼 상태 업데이트 (리사이징 후 스타일 복원)
+            self.update_ui_lock_button_state()
+            self.update_title_lock_button_state()
+            self.update_bookmark_button_state()
                     
         except Exception as e:
             print(f"지연된 리사이징 처리 중 오류 발생: {e}")
