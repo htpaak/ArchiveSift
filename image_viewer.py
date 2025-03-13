@@ -2646,35 +2646,57 @@ class ImageViewer(QWidget):
                 # 디버깅용 출력
                 print(f"마우스 위치: {local_pos.x()}, {local_pos.y()}, 화면 크기: {self.width()}, {self.height()}")
                 
+                # UI 상태 변경 여부를 추적하기 위한 변수
+                ui_state_changed = False
+                
                 # 상단 영역에 있을 때 타이틀바 표시
                 if local_pos.y() <= title_bar_area_height:
                     if hasattr(self, 'title_bar') and self.title_bar.isHidden():
                         self.title_bar.show()
+                        ui_state_changed = True
                 else:
                     # 상단 영역을 벗어나면 타이틀바 숨김
                     if hasattr(self, 'title_bar') and not self.title_bar.isHidden():
                         self.title_bar.hide()
+                        ui_state_changed = True
                 
                 # 하단 영역에 있을 때 슬라이더와 버튼 표시
                 if local_pos.y() >= self.height() - bottom_area_height:
                     if hasattr(self, 'slider_widget') and self.slider_widget.isHidden():
                         self.slider_widget.show()
+                        ui_state_changed = True
                     
                     # 폴더 버튼 표시 설정
+                    buttons_changed = False
                     for row in self.buttons:
                         for button in row:
                             if button.isHidden():
                                 button.show()
+                                buttons_changed = True
+                    
+                    if buttons_changed:
+                        ui_state_changed = True
                 else:
                     # 하단 영역을 벗어나면 슬라이더와 버튼 숨김
                     if hasattr(self, 'slider_widget') and not self.slider_widget.isHidden():
                         self.slider_widget.hide()
+                        ui_state_changed = True
                     
                     # 폴더 버튼 숨김 설정
+                    buttons_changed = False
                     for row in self.buttons:
                         for button in row:
                             if not button.isHidden():
                                 button.hide()
+                                buttons_changed = True
+                    
+                    if buttons_changed:
+                        ui_state_changed = True
+                
+                # UI 상태가 변경되었으면 이미지 크기 조정
+                if ui_state_changed:
+                    # 약간의 지연 시간을 두고 리사이징 호출
+                    QTimer.singleShot(50, self.delayed_resize)
             
             # 창이 최대화 상태가 아닐 때만 크기 조절 가능
             if not self.isMaximized():
