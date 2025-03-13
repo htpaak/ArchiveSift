@@ -6,7 +6,7 @@ import shutil  # 파일 복사 및 이동 기능 제공 (고급 파일 작업)
 import re  # 정규표현식 처리 기능 제공 (패턴 검색 및 문자열 처리)
 import json  # JSON 파일 처리를 위한 모듈
 from collections import OrderedDict  # LRU 캐시 구현을 위한 정렬된 딕셔너리
-from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout, QPushButton, QFileDialog, QHBoxLayout, QSizePolicy, QSlider, QLayout, QSpacerItem, QStyle, QStyleOptionSlider, QMenu, QAction, QScrollArea, QListWidgetItem, QListWidget, QAbstractItemView, QInputDialog, QMessageBox, QDialog, QTableWidget, QTableWidgetItem, QHeaderView, QFrame, QLineEdit  # PyQt5 UI 위젯 (사용자 인터페이스 구성 요소)
+from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout, QPushButton, QFileDialog, QHBoxLayout, QSizePolicy, QSlider, QLayout, QSpacerItem, QStyle, QStyleOptionSlider, QMenu, QAction, QScrollArea, QListWidgetItem, QListWidget, QAbstractItemView, QInputDialog, QMessageBox, QDialog, QTableWidget, QTableWidgetItem, QHeaderView, QFrame, QLineEdit, QStackedWidget  # PyQt5 UI 위젯 (사용자 인터페이스 구성 요소)
 from PyQt5.QtGui import QPixmap, QImage, QImageReader, QFont, QMovie, QCursor, QIcon, QColor, QPalette, QFontMetrics, QTransform, QKeySequence  # 그래픽 요소 처리 (이미지, 폰트, 커서 등)
 from PyQt5.QtCore import Qt, QSize, QTimer, QEvent, QPoint, pyqtSignal, QRect, QMetaObject, QObject, QUrl, QThread, QBuffer  # Qt 코어 기능 (이벤트, 신호, 타이머 등)
 import cv2  # OpenCV 라이브러리 - 비디오 처리용 (프레임 추출, 이미지 변환 등)
@@ -3548,7 +3548,7 @@ class ImageViewer(QWidget):
             
             # 키 설정 메뉴 항목
             key_settings_action = QAction("환경 설정", self)
-            key_settings_action.triggered.connect(self.show_key_settings_dialog)
+            key_settings_action.triggered.connect(self.show_preferences_dialog)
             self.dropdown_menu.addAction(key_settings_action)
             
             # 구분선 추가
@@ -4190,9 +4190,9 @@ class ImageViewer(QWidget):
         except Exception as e:
             print(f"키 설정 저장 오류: {e}")
     
-    def show_key_settings_dialog(self):
+    def show_preferences_dialog(self):
         # 키 설정 다이얼로그 표시
-        dialog = KeySettingDialog(self, self.key_settings)
+        dialog = PreferencesDialog(self, self.key_settings)
         if dialog.exec_() == QDialog.Accepted:
             # 변경된 키 설정 적용
             self.key_settings = dialog.get_key_settings()
@@ -4340,14 +4340,13 @@ class AboutDialog(QDialog):
         layout.addLayout(button_layout)
 
 
-class KeySettingDialog(QDialog):
-    """키 설정을 변경할 수 있는 다이얼로그"""
+class PreferencesDialog(QDialog):
+    """환경 설정을 변경할 수 있는 다이얼로그"""
     
     def __init__(self, parent=None, key_settings=None):
         super().__init__(parent)
-        self.setWindowTitle("키 설정")
+        self.setWindowTitle("환경 설정")
         self.setMinimumWidth(900)
-
         self.setMinimumHeight(600)
         
         # 기본 키 설정 정의
@@ -4403,7 +4402,7 @@ class KeySettingDialog(QDialog):
                 background-color: rgba(52, 73, 94, 0.8);
                 min-height: 40px;
                 font-size: 10pt;
-                color: rgb(255, 255, 255, 1.0);
+                color: rgba(255, 255, 255, 1.0);
             }
             QPushButton:hover {
                 background-color: rgba(52, 73, 94, 1.0);
@@ -4412,15 +4411,20 @@ class KeySettingDialog(QDialog):
                 background-color: rgba(52, 73, 94, 1.0);
             }
         """
+        
+        button_style_selected = button_style + "QPushButton { background-color: rgba(52, 73, 94, 1.0); }"
 
         # 왼쪽 패널 버튼들 생성
         button_names = ["일반", "보기", "영상 처리", "확장자", "키보드", "마우스", "책갈피", "탐색기 메뉴", "기타"]
         self.left_buttons = []
 
-        for name in button_names:
+        for i, name in enumerate(button_names):
             button = QPushButton(name)
             button.setStyleSheet(button_style)
             button.setMinimumWidth(150)
+            # 버튼에 인덱스 저장하여 클릭 시 구분
+            button.setProperty("index", i)
+            button.clicked.connect(self.on_left_button_clicked)
             left_panel.addWidget(button)
             self.left_buttons.append(button)
 
@@ -4433,13 +4437,18 @@ class KeySettingDialog(QDialog):
         left_panel_widget.setMaximumWidth(200)
         main_layout.addWidget(left_panel_widget)
 
-        # 오른쪽 패널 (기존 테이블과 버튼) 생성
-        right_panel = QVBoxLayout()
-
+        # 오른쪽 패널 (스택 위젯) 생성
+        self.stack_widget = QStackedWidget()
+        main_layout.addWidget(self.stack_widget)
+        
+        # 키보드 설정 위젯 생성
+        self.keyboard_widget = QWidget()
+        keyboard_layout = QVBoxLayout(self.keyboard_widget)
+        
         # 설명 레이블
         label = QLabel("단축키를 변경하려면 해당 행을 클릭한 후 원하는 키를 누르세요.")
         label.setWordWrap(True)
-        right_panel.addWidget(label)
+        keyboard_layout.addWidget(label)
         
         # 테이블 생성 및 설정
         self.table = QTableWidget(len(self.key_settings), 2)
@@ -4479,7 +4488,7 @@ class KeySettingDialog(QDialog):
         for i in range(self.table.rowCount()):
             self.table.setRowHeight(i, 30)
         
-        right_panel.addWidget(self.table)
+        keyboard_layout.addWidget(self.table)
         
         # 버튼 레이아웃
         button_layout = QHBoxLayout()
@@ -4501,18 +4510,28 @@ class KeySettingDialog(QDialog):
         cancel_button.clicked.connect(self.reject)
         button_layout.addWidget(cancel_button)
         
-        right_panel.addLayout(button_layout)
+        keyboard_layout.addLayout(button_layout)
 
-        # 오른쪽 패널을 메인 레이아웃에 추가
-        right_panel_widget = QWidget()
-        right_panel_widget.setLayout(right_panel)
-        main_layout.addWidget(right_panel_widget)
+        # 스택 위젯에 키보드 위젯 추가
+        self.stack_widget.addWidget(self.keyboard_widget)
+        
+        # 마우스 설정 위젯 생성 (간단한 내용만 포함)
+        self.mouse_widget = QWidget()
+        mouse_layout = QVBoxLayout(self.mouse_widget)
+        
+        # 마우스 설정 레이블
+        mouse_label = QLabel("마우스 설정이 준비 중입니다.")
+        mouse_label.setAlignment(Qt.AlignCenter)
+        mouse_layout.addWidget(mouse_label)
+        
+        # 스택 위젯에 마우스 위젯 추가
+        self.stack_widget.addWidget(self.mouse_widget)
         
         # 테이블 셀 클릭 이벤트 연결
         self.table.cellClicked.connect(self.cell_clicked)
 
         # 키보드 버튼을 기본적으로 선택된 상태로 설정
-        self.left_buttons[4].setStyleSheet(button_style + "QPushButton { background-color: rgba(52, 73, 94, 1.0); }")
+        self.left_buttons[4].setStyleSheet(button_style_selected)
         
         # 현재 편집 중인 셀
         self.current_edit_row = -1
@@ -4520,6 +4539,48 @@ class KeySettingDialog(QDialog):
         
         # 키 입력 이벤트 필터 설치
         self.table.installEventFilter(self)
+    
+    def on_left_button_clicked(self):
+        """왼쪽 버튼 패널의 버튼 클릭 이벤트 처리"""
+        sender = self.sender()
+        if not sender:
+            return
+            
+        # 모든 버튼 스타일 초기화
+        button_style = """
+            QPushButton {
+                text-align: left;
+                padding: 10px;
+                border: none;
+                background-color: rgba(52, 73, 94, 0.8);
+                min-height: 40px;
+                font-size: 10pt;
+                color: rgba(255, 255, 255, 1.0);
+            }
+            QPushButton:hover {
+                background-color: rgba(52, 73, 94, 1.0);
+            }
+            QPushButton:pressed {
+                background-color: rgba(52, 73, 94, 1.0);
+            }
+        """
+        
+        button_style_selected = button_style + "QPushButton { background-color: rgba(52, 73, 94, 1.0); }"
+        
+        for btn in self.left_buttons:
+            btn.setStyleSheet(button_style)
+            
+        # 클릭된 버튼 스타일 변경
+        sender.setStyleSheet(button_style_selected)
+        
+        # 버튼 인덱스 가져오기
+        index = sender.property("index")
+        
+        # 해당 인덱스에 따라 적절한 위젯 표시
+        if index == 4:  # 키보드
+            self.stack_widget.setCurrentIndex(0)
+        elif index == 5:  # 마우스
+            self.stack_widget.setCurrentIndex(1)
     
     def cell_clicked(self, row, col):
         if col == 1:  # 단축키 열을 클릭한 경우
