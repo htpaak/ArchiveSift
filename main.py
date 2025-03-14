@@ -30,6 +30,8 @@ from core.utils import format_time, atoi, natural_keys  # 유틸리티 함수들
 from core.config import load_settings, save_settings  # 설정 관리 함수들
 # 북마크 관리
 from features.bookmark_manager import BookmarkManager  # 북마크 관리 클래스
+# 미디어 처리
+from media.image_handler import ImageHandler  # 이미지 처리 클래스
 
 # MPV DLL 경로를 환경 변수 PATH에 추가 (mpv 모듈 import 전에 필수)
 mpv_path = os.path.join(get_app_directory(), 'mpv')
@@ -63,7 +65,7 @@ class ImageViewer(QWidget):
 
         # UI 잠금 상태 변수 분리
         self.is_bottom_ui_locked = True  # 하단 UI 고정 상태 (True: 항상 표시, False: 마우스 위치에 따라 표시/숨김)
-        self.is_title_ui_locked = True  # 상단 제목표시줄 고정 상태 (True: 항상 표시, False: 마우스 위치에 따라 표시/숨김)
+        self.is_title_ui_locked = True  # 상단 타이틀바 고정 상태
 
         # 이전 호환성을 위한 변수 유지
         self.is_ui_locked = True
@@ -729,6 +731,9 @@ class ImageViewer(QWidget):
         # __init__ 메서드 끝에 타이머 추가
         QTimer.singleShot(0, self.update_ui_lock_button_state)
 
+        # 미디어 핸들러 초기화
+        self.image_handler = ImageHandler(self, self.image_label)
+
     def delete_current_image(self):
         """현재 이미지를 삭제합니다 (크로스 플랫폼)."""
         if not self.current_image_path or not self.image_files:
@@ -929,10 +934,8 @@ class ImageViewer(QWidget):
                 
                 # 이미지 타입에 따른 리사이징 처리
                 if file_ext in ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.ico', '.heic', '.heif']:
-                    pixmap = QPixmap(self.current_image_path)
-                    if not pixmap.isNull():
-                        scaled_pixmap = pixmap.scaled(self.image_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
-                        self.image_label.setPixmap(scaled_pixmap)
+                    # ImageHandler를 사용하여 이미지 크기 조정
+                    self.image_handler.resize()
                 elif file_ext == '.gif' and hasattr(self, 'current_movie'):
                     # 애니메이션 크기 조정 처리
                     print("GIF 애니메이션 리사이징")  # 디버깅용 메시지
@@ -1246,70 +1249,11 @@ class ImageViewer(QWidget):
         elif file_ext in ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.ico', '.heic', '.heif']:  # JPG, JPEG, PNG 파일 처리
             self.current_media_type = 'image'  # 미디어 타입 업데이트
             
-            # 파일 크기 확인 (대용량 이미지 확인)
-            file_size_mb = os.path.getsize(image_path) / (1024 * 1024)
+            # ImageHandler를 사용하여 이미지 로드
+            self.image_handler.load(image_path)
             
-            # 대용량 이미지인 경우 먼저 저해상도 미리보기 표시
-            if file_size_mb > 20:  # 20MB 이상인 경우
-                # 로딩 중 표시
-                self.show_loading_indicator()
-                
-                # "대용량 이미지 로딩 중" 메시지 표시
-                self.show_message(f"대용량 이미지 로딩 중 ({file_size_mb:.1f}MB)")
-                
-                # 미리보기 이미지 표시 (빠른 로딩)
-                reader = QImageReader(image_path)
-                reader.setScaledSize(QSize(800, 600))  # 작은 크기로 미리보기
-                preview = reader.read()
-                if not preview.isNull():
-                    preview_pixmap = QPixmap.fromImage(preview)
-                    # float를 int로 변환
-                    label_size = self.image_label.size()
-                    self.image_label.setPixmap(preview_pixmap.scaled(
-                        label_size,
-                        Qt.KeepAspectRatio,
-                        Qt.FastTransformation  # 빠른 변환 적용
-                    ))
-                    QApplication.processEvents()  # UI 즉시 업데이트
-            
-            # 캐시에서 먼저 확인
-            cached_pixmap = self.image_cache.get(image_path)
-            
-            if cached_pixmap is not None:
-                # 캐시에서 찾은 경우 바로 사용
-                pixmap = cached_pixmap
-                print(f"이미지 캐시 히트: {os.path.basename(image_path)}")
-                
-                # 회전 각도가 0이 아니면 회전 적용
-                if hasattr(self, 'current_rotation') and self.current_rotation != 0:
-                    # 회전 변환 적용 (원본 이미지에 직접 적용)
-                    transform = QTransform().rotate(self.current_rotation)
-                    pixmap = pixmap.transformed(transform, Qt.SmoothTransformation)
-                    print(f"캐시된 이미지에 회전 적용됨: {self.current_rotation}°")
-                
-                # 이미지 바로 표시 (크기 조정 후)
-                label_size = self.image_label.size()
-                scaled_pixmap = pixmap.scaled(
-                    label_size, 
-                    Qt.KeepAspectRatio, 
-                    Qt.SmoothTransformation
-                )
-                self.image_label.setPixmap(scaled_pixmap)
-            else:
-                # 로딩 중 표시
-                self.show_loading_indicator()
-                
-                # 기존 스레드 정리
-                self.cleanup_loader_threads()
-                
-                # 비동기 로딩 시작
-                loader = ImageLoaderThread(image_path, 'image')
-                loader.loaded.connect(self.on_image_loaded)
-                loader.error.connect(self.on_image_error)
-                
-                # 스레드 추적
-                self.loader_threads[image_path] = loader
-                loader.start()
+            # 이미지 정보 업데이트
+            self.update_image_info()
         elif file_ext == '.webp':  # WEBP 이미지/애니메이션 처리
             # WEBP 파일은 애니메이션일 수도 있고 일반 이미지일 수도 있음
             # show_webp 함수에서 알맞은 미디어 타입을 설정함 ('image' 또는 'webp_animation')
