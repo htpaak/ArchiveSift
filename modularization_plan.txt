@@ -1,0 +1,59 @@
+# 이미지 뷰어 애플리케이션 모듈화 계획
+
+## 디렉토리 구조
+project/
+├── main.py (진입점, MediaViewer 인스턴스 생성)
+├── core/
+│   ├── media_viewer.py (MediaViewer 클래스 - 통합 관리)
+│   ├── config.py (설정 관리)
+│   └── utils.py (유틸리티 함수)
+├── media/
+│   ├── media_handler.py (미디어 처리 기본 클래스)
+│   ├── image_handler.py (이미지 처리 클래스)
+│   ├── psd_handler.py (PSD 파일 처리 클래스)
+│   ├── animation_handler.py (GIF/WEBP 처리 클래스)
+│   └── video_handler.py (비디오 처리 클래스)
+├── file/
+│   ├── file_navigator.py (파일 탐색 기능)
+│   ├── file_manager.py (파일 관리 기능)
+│   └── file_operations.py (파일 작업 기능)
+├── ui/
+│   ├── main_layout.py (메인 레이아웃 관리)
+│   ├── controls.py (컨트롤 요소 관리)
+│   ├── display.py (디스플레이 관리)
+│   └── dialogs.py (대화상자)
+├── features/
+│   ├── bookmark_manager.py (북마크 기능)
+│   ├── preferences.py (환경설정 기능)
+│   └── ui_lock.py (UI 잠금 기능)
+└── events/
+    ├── event_handler.py (이벤트 처리 기본 클래스)
+    ├── keyboard_handler.py (키보드 이벤트)
+    ├── mouse_handler.py (마우스 이벤트)
+    └── resize_handler.py (크기 조정 이벤트)
+
+## 구현 우선순위
+1. 핵심 미디어 처리 모듈화 (media 패키지)
+2. 파일 관리 모듈화 (file 패키지)
+3. UI 관련 모듈화 (ui 패키지)
+4. 부가 기능 모듈화 (features 패키지)
+5. 이벤트 처리 모듈화 (events 패키지)
+6. 코어 구조 완성 (core 패키지)
+
+## 모듈 간 통신 방식
+- 직접 참조: 밀접한 관계의 모듈
+- 신호-슬롯: UI와 기능 모듈 사이
+- 이벤트 패턴: 서로 다른 패키지 간
+- 콜백 함수: 비동기 작업
+
+## 고려사항 및 모범 사례
+- 자체 완결성: 각 모듈은 가능한 독립적으로 작동하도록 설계
+- 인터페이스 설계: 모듈 간 명확한 인터페이스 정의
+- 의존성 방향: 의존성은 항상 더 안정적인 모듈을 향하도록 설계
+- 순환 의존성 방지: 모듈 간 순환 참조 피하기
+- 단계적 마이그레이션: 한 번에 모든 것을 변경하지 않고 점진적으로 모듈화
+
+## 기존 모듈 처리
+- 유지: core.app_paths, core.cache, ui.dialogs
+- 확장: media.image_loader, ui.custom_widgets
+- 신규: 나머지 모든 모듈 

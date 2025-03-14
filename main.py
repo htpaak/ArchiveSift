@@ -24,6 +24,12 @@ from media.image_loader import ImageLoaderThread
 from ui.custom_widgets import ClickableSlider, ScrollableMenu
 # 대화상자
 from ui.dialogs import AboutDialog, PreferencesDialog, KeyInputEdit
+# 유틸리티 함수
+from core.utils import format_time, atoi, natural_keys  # 유틸리티 함수들
+# 설정 관리
+from core.config import load_settings, save_settings  # 설정 관리 함수들
+# 북마크 관리
+from features.bookmark_manager import BookmarkManager  # 북마크 관리 클래스
 
 # MPV DLL 경로를 환경 변수 PATH에 추가 (mpv 모듈 import 전에 필수)
 mpv_path = os.path.join(get_app_directory(), 'mpv')
@@ -39,8 +45,11 @@ import mpv  # 비디오 재생 라이브러리 (고성능 미디어 플레이어
 # 메인 이미지 뷰어 클래스 정의
 class ImageViewer(QWidget):
     def __init__(self):
-        """이미지 뷰어 초기화"""
-        super().__init__()
+        super().__init__()  # 부모 클래스 생성자 호출
+        # 앱 데이터 디렉토리 확인 및 생성
+        app_data_dir = get_user_data_directory()
+        if not os.path.exists(app_data_dir):
+            os.makedirs(app_data_dir)
         
         # 변수 초기화
         self.image_files = []  # 이미지 파일 목록
@@ -48,9 +57,9 @@ class ImageViewer(QWidget):
         self.current_image_path = ""  # 현재 이미지 경로
         self.base_folder = ""  # 기준 폴더 경로
         self.folder_buttons = []  # 폴더 버튼 목록
-        # 북마크 관련 변수 초기화
-        self.bookmarks = []  # 책갈피된 파일 경로 리스트
-        self.bookmark_menu = None  # 북마크 메뉴 객체
+        
+        # 북마크 관리자 초기화
+        self.bookmark_manager = BookmarkManager(self)
 
         # UI 잠금 상태 변수 분리
         self.is_bottom_ui_locked = True  # 하단 UI 고정 상태 (True: 항상 표시, False: 마우스 위치에 따라 표시/숨김)
@@ -58,9 +67,6 @@ class ImageViewer(QWidget):
 
         # 이전 호환성을 위한 변수 유지
         self.is_ui_locked = True
-
-        # 전체화면 모드 상태 추적 변수
-        self.is_in_fullscreen = False
 
         self.installEventFilter(self)
         
@@ -151,8 +157,8 @@ class ImageViewer(QWidget):
         # 리소스 관리를 위한 객체 추적
         self.timers = []  # 모든 타이머 추적 - 먼저 초기화
 
-        # 책갈피 관련 변수 초기화
-        self.bookmark_menu = None  # 책갈피 드롭다운 메뉴 객체
+        # 책갈피 관련 변수 - BookmarkManager에서 관리함
+        # self.bookmark_menu = None  # 책갈피 드롭다운 메뉴 객체 - 더 이상 사용하지 않음
 
         # 화면 해상도의 75%로 초기 창 크기 설정 (화면에 맞게 조정)
         screen = QApplication.primaryScreen().geometry()
@@ -296,7 +302,7 @@ class ImageViewer(QWidget):
         self.image_container.setStyleSheet("background-color: white;")  # 흰색 배경
         
         # 책갈피 메뉴 초기화
-        self.update_bookmark_menu()
+        self.bookmark_manager.update_bookmark_menu()
         
         # 컨테이너 레이아웃 설정
         container_layout = QVBoxLayout(self.image_container)
@@ -538,6 +544,9 @@ class ImageViewer(QWidget):
         # 북마크 토글 기능 대신 위로 펼쳐지는 메뉴 표시 기능으로 변경
         self.slider_bookmark_btn.clicked.connect(self.show_bookmark_menu_above)
         new_slider_layout.addWidget(self.slider_bookmark_btn)
+        
+        # 북마크 버튼을 북마크 매니저에 등록
+        self.bookmark_manager.set_bookmark_button(self.slider_bookmark_btn)
 
         # 여기에 UI 고정 버튼 추가 (완전히 새로운 코드로 교체)
         self.ui_lock_btn = QPushButton('🔒', self)  # 잠금 아이콘으로 초기화
@@ -676,7 +685,7 @@ class ImageViewer(QWidget):
         self.wheel_cooldown_ms = 1000  # 1000ms 쿨다운 (500ms에서 변경됨) - 휠 이벤트 속도 제한
 
         # 리소스 관리를 위한 객체 추적
-        self.timers = []  # 모든 타이머 추적
+        self.timers = []  # 모든 타이머 추적 - 먼저 초기화
 
         # 메뉴 관련 변수 초기화
         self.dropdown_menu = None  # 드롭다운 메뉴 객체
@@ -767,11 +776,9 @@ class ImageViewer(QWidget):
                     # 휴지통으로 파일 이동
                     send2trash(str(file_path))
                     
-                    # 북마크에서 제거
-                    if self.current_image_path in self.bookmarks:
-                        self.bookmarks.remove(self.current_image_path)
-                        self.save_bookmarks()
-                        self.update_bookmark_menu()
+                    # 북마크에서 제거 (BookmarkManager를 통해 처리)
+                    if self.current_image_path in self.bookmark_manager.bookmarks:
+                        self.bookmark_manager.remove_bookmark()
                     
                     # 이미지 파일 리스트에서 제거
                     self.image_files.remove(self.current_image_path)
@@ -987,12 +994,7 @@ class ImageViewer(QWidget):
                     button.setText('')
                     button.setToolTip('')
 
-            # 자연스러운 정렬을 위한 함수 정의 (숫자가 포함된 텍스트 정렬용)
-            def natural_keys(text):
-                import re
-                def atoi(text):
-                    return int(text) if text.isdigit() else text  # 숫자는 정수로 변환
-                return [atoi(c) for c in re.split('([0-9]+)', text)]  # 숫자와 텍스트 부분 분리
+            # core.utils 모듈의 natural_keys 함수를 사용합니다
 
             # 하위 폴더 목록 가져오기
             subfolders = [f.path for f in os.scandir(self.base_folder) if f.is_dir()]  # 디렉토리만 선택
@@ -1198,7 +1200,7 @@ class ImageViewer(QWidget):
         self.update_bookmark_button_state()
         
         # 북마크 메뉴 업데이트 추가 - 이미지 변경 시 메뉴 상태도 함께 업데이트
-        self.update_bookmark_menu()
+        self.bookmark_manager.update_bookmark_menu()
         
         # 파일 확장자 확인 (소문자로 변환)
         file_ext = os.path.splitext(image_path)[1].lower()
@@ -2066,9 +2068,8 @@ class ImageViewer(QWidget):
 
     def format_time(self, seconds):
         """초를 'MM:SS' 형식으로 변환합니다."""
-        minutes = int(seconds // 60)
-        seconds = int(seconds % 60)
-        return f"{minutes:02}:{seconds:02}"
+        # core.utils 모듈의 format_time 함수를 사용합니다
+        return format_time(seconds)
 
     def update_play_button(self):
         """재생 상태에 따라 버튼 텍스트 업데이트"""
@@ -2807,189 +2808,29 @@ class ImageViewer(QWidget):
                 pass  # 예외 발생 시 무시
 
     def toggle_bookmark(self):
-        """현재 이미지를 책갈피에 추가하거나 제거합니다."""
-        if not hasattr(self, 'current_image_path') or not self.current_image_path:
-            self.show_message("북마크할 이미지가 없습니다")
-            return
-            
-        # 이미 책갈피되어 있는지 확인
-        if self.current_image_path in self.bookmarks:
-            # 책갈피 제거
-            self.bookmarks.remove(self.current_image_path)
-            self.show_message("북마크에서 제거되었습니다")
-        else:
-            # 책갈피 추가
-            self.bookmarks.append(self.current_image_path)
-            self.show_message("북마크에 추가되었습니다")
-            
-        # 북마크 버튼 상태 업데이트
-        self.update_bookmark_button_state()
-            
-        # 책갈피 메뉴 업데이트
-        self.update_bookmark_menu()
+        """현재 이미지의 북마크 상태를 토글합니다 (북마크 추가 또는 제거)"""
+        # 북마크 매니저를 통해 토글 처리
+        self.bookmark_manager.toggle_bookmark()
 
     def update_bookmark_menu(self):
-        """책갈피 메뉴를 업데이트합니다."""
-        # 기존 메뉴가 없으면 생성
-        if not self.bookmark_menu:
-            self.bookmark_menu = ScrollableMenu(self)
-        else:
-            # 메뉴가 있으면 비우기
-            self.bookmark_menu.clear()
-        
-        # 북마크 관리 액션 추가 - 항상 표시
-        add_bookmark_action = QAction("북마크 추가", self)
-        add_bookmark_action.triggered.connect(self.add_bookmark)  # 추가 기능 연결
-        self.bookmark_menu.addAction(add_bookmark_action)
-        
-        # 현재 북마크 삭제 버튼 - 항상 표시
-        remove_bookmark_action = QAction("현재 북마크 삭제", self)
-        remove_bookmark_action.triggered.connect(self.remove_bookmark)  # 삭제 기능 연결
-        
-        # 현재 이미지가 북마크되어 있지 않을 경우 비활성화
-        if not hasattr(self, 'current_image_path') or self.current_image_path not in self.bookmarks:
-            remove_bookmark_action.setEnabled(False)
-            
-        self.bookmark_menu.addAction(remove_bookmark_action)
-        
-        # 모든 책갈피 지우기 액션 - 항상 표시 (북마크 삭제 바로 아래로 이동)
-        clear_action = QAction("모든 북마크 지우기", self)
-        clear_action.triggered.connect(self.clear_bookmarks)
-        # 북마크가 없을 경우 비활성화
-        if not self.bookmarks:
-            clear_action.setEnabled(False)
-            
-        self.bookmark_menu.addAction(clear_action)
-            
-        # 구분선 추가
-        self.bookmark_menu.addSeparator()
-            
-        # 북마크 목록 섹션
-        if not self.bookmarks:
-            empty_action = QAction("북마크 없음", self)
-            empty_action.setEnabled(False)
-            self.bookmark_menu.addAction(empty_action)
-        else:
-            # 북마크 수 표시
-            bookmark_count_action = QAction(f"총 북마크: {len(self.bookmarks)}개", self)
-            bookmark_count_action.setEnabled(False)
-            self.bookmark_menu.addAction(bookmark_count_action)
-            
-            # 구분선 추가
-            self.bookmark_menu.addSeparator()
-            
-            # 최대 100개까지 표시 (기존 30개에서 변경)
-            max_bookmarks = min(100, len(self.bookmarks))
-            
-            # 책갈피 목록 추가
-            for idx, path in enumerate(self.bookmarks[:max_bookmarks]):
-                # 파일 이름만 추출
-                filename = os.path.basename(path)
-                
-                # 경로 처리 - 너무 길면 축약
-                path_display = path
-                if len(path_display) > 60:  # 경로가 60자 이상인 경우
-                    # 드라이브와 마지막 2개 폴더만 표시
-                    drive, tail = os.path.splitdrive(path_display)
-                    parts = tail.split(os.sep)
-                    if len(parts) > 2:
-                        # 드라이브 + '...' + 마지막 2개 폴더
-                        path_display = f"{drive}{os.sep}...{os.sep}{os.sep.join(parts[-2:])}"
-                
-                # 표시 번호 추가 (간결하게 수정)
-                display_text = f"{idx + 1}. {filename}"  # 경로 없이 파일명만 표시
-                
-                # 메뉴 항목에 파일명만 표시하고 툴팁에 전체 경로 표시
-                bookmark_action = QAction(display_text, self)
-                bookmark_action.setToolTip(path_display)  # 전체 경로는 툴팁으로 표시
-                
-                # 클릭 시 해당 이미지로 이동하는 함수 생성 (람다 함수의 캡처 문제 해결)
-                def create_bookmark_handler(bookmark_path):
-                    return lambda: self.load_bookmarked_image(bookmark_path)
-                
-                # 각 북마크 항목마다 고유한 핸들러 함수 생성
-                bookmark_action.triggered.connect(create_bookmark_handler(path))
-                self.bookmark_menu.addAction(bookmark_action)
-            
-            # 북마크가 100개 이상이면 메시지 표시
-            if len(self.bookmarks) > 100:
-                more_action = QAction(f"... 외 {len(self.bookmarks) - 100}개 더 있습니다.", self)
-                more_action.setEnabled(False)
-                self.bookmark_menu.addAction(more_action)
-
-        # 메뉴에 직접 스크롤 활성화 속성 설정
-        self.bookmark_menu.setProperty("_q_scrollable", True)
-        
-        # 북마크가 7개 이상이면 스크롤을 위한 추가 설정
-        if len(self.bookmarks) > 7:
-            # 메뉴 크기 제한 설정
-            desktop = QApplication.desktop().availableGeometry()
-            max_height = min(800, desktop.height() * 0.7)
-            self.bookmark_menu.setMaximumHeight(int(max_height))
-            
-            # 스타일시트 재적용
-            self.bookmark_menu.setStyle(self.bookmark_menu.style())
+        """북마크 메뉴를 업데이트합니다."""
+        # 메서드 내용 전체 삭제
+        # 함수 정의부터 다음 메서드가 시작되기 전까지 모두 삭제
 
     def load_bookmarked_image(self, path):
-        """책갈피된 이미지를 로드합니다."""
-        if os.path.exists(path):
-            # 이미지가 위치한 폴더 경로 추출
-            folder_path = os.path.dirname(path)
-            
-            # 폴더 내의 이미지 목록 가져오기
-            self.image_files = self.get_image_files(folder_path)
-            
-            if self.image_files:
-                # 파일 목록 정렬
-                self.image_files.sort()
-                
-                # 현재 이미지의 인덱스 찾기
-                if path in self.image_files:
-                    self.current_index = self.image_files.index(path)
-                    
-                    # 이미지 표시
-                    self.show_image(path)
-                    
-                    # 이미지 정보 업데이트
-                    self.update_image_info()
-                    
-                    self.show_message(f"북마크 폴더 열기: {os.path.basename(folder_path)}")
-                else:
-                    # 정렬된 목록에 이미지가 없는 경우 (드물게 발생 가능)
-                    self.show_image(path)
-                    self.show_message(f"북마크 이미지를 표시합니다: {os.path.basename(path)}")
-            else:
-                # 폴더에 이미지가 없는 경우 (드물게 발생 가능)
-                self.show_image(path)
-                self.show_message(f"북마크 이미지를 표시합니다: {os.path.basename(path)}")
-            
-            # 북마크 메뉴 업데이트
-            self.update_bookmark_menu()
-        else:
-            self.show_message(f"파일을 찾을 수 없습니다: {os.path.basename(path)}")
-            # 존재하지 않는 책갈피 제거
-            if path in self.bookmarks:
-                self.bookmarks.remove(path)
-                self.update_bookmark_menu()
+        """북마크된 이미지를 불러옵니다."""
+        # 북마크 매니저를 통해 북마크된 이미지를 불러옵니다.
+        self.bookmark_manager.load_bookmarked_image(path)
 
     def clear_bookmarks(self):
-        """모든 책갈피를 지웁니다."""
-        self.bookmarks = []
-        # 페이지 관련 변수 제거
-        # self.current_bookmark_page = 0  # 현재 북마크 페이지
-        # 북마크 버튼 상태 업데이트
-        self.update_bookmark_button_state()
-        # 북마크 메뉴 업데이트
-        self.update_bookmark_menu()
-        # 메시지 표시
-        self.show_message("모든 북마크가 삭제되었습니다")
-        # 북마크 저장
-        self.save_bookmarks()
-        
+        """모든 북마크를 지웁니다."""
+        # 북마크 매니저를 통해 모든 북마크를 지웁니다.
+        self.bookmark_manager.clear_bookmarks()
+
     def update_bookmark_button_state(self):
         """북마크 버튼 상태 업데이트"""
         # 초기 상태 확인: 현재 이미지 경로가 있고 북마크에 포함되어 있는지 확인
-        if hasattr(self, 'current_image_path') and self.current_image_path and self.current_image_path in self.bookmarks:
+        if hasattr(self, 'current_image_path') and self.current_image_path and self.current_image_path in self.bookmark_manager.bookmarks:
             # 북마크된 상태
             self.slider_bookmark_btn.setStyleSheet("""
                 QPushButton {
@@ -3022,149 +2863,25 @@ class ImageViewer(QWidget):
 
     def add_bookmark(self):
         """현재 이미지를 북마크에 추가합니다."""
-        if not hasattr(self, 'current_image_path') or not self.current_image_path:
-            self.show_message("북마크할 이미지가 없습니다")
-            return
-            
-        # 이미 북마크되어 있는지 확인
-        if self.current_image_path in self.bookmarks:
-            self.show_message("이미 북마크되어 있습니다")
-            return
-            
-        # 북마크 추가
-        self.bookmarks.append(self.current_image_path)
-        
-        # 북마크 버튼 상태 업데이트
-        self.update_bookmark_button_state()
-        
-        # 북마크 메뉴 업데이트
-        self.update_bookmark_menu()
-        
-        self.show_message("북마크에 추가되었습니다")
-        
-        # 북마크 저장
-        self.save_bookmarks()
-        
+        # 메서드 내용 전체 삭제
+
     def remove_bookmark(self):
-        """현재 이미지를 북마크에서 제거합니다."""
-        if not hasattr(self, 'current_image_path') or not self.current_image_path:
-            self.show_message("북마크 제거할 이미지가 없습니다")
-            return
-            
-        # 북마크에 있는지 확인
-        if self.current_image_path not in self.bookmarks:
-            self.show_message("북마크에 없는 이미지입니다")
-            return
-            
-        # 북마크 제거
-        self.bookmarks.remove(self.current_image_path)
-        
-        # 북마크 버튼 상태 업데이트
-        self.update_bookmark_button_state()
-        
-        # 북마크 메뉴 업데이트
-        self.update_bookmark_menu()
-        
-        self.show_message("북마크에서 제거되었습니다")
-        
-        # 북마크 저장
-        self.save_bookmarks()
+      """현재 이미지를 북마크에서 제거합니다."""
+       # 메서드 내용 전체 삭제
 
     def save_bookmarks(self):
-        """북마크 정보를 JSON 파일로 저장합니다."""
-        try:
-            # 앱 데이터 폴더 확인 및 생성
-            app_data_dir = get_user_data_directory()
-            if not os.path.exists(app_data_dir):
-                os.makedirs(app_data_dir)
-                
-            # 북마크 파일 저장 경로
-            bookmarks_file = os.path.join(app_data_dir, "bookmarks.json")
-            
-            # 현재 북마크 목록을 JSON으로 저장
-            with open(bookmarks_file, 'w', encoding='utf-8') as f:
-                json.dump(self.bookmarks, f, ensure_ascii=False, indent=4)
-                
-            # 디버깅용 메시지 (실제 사용 시 제거)
-            print(f"북마크가 저장되었습니다: {bookmarks_file}")
-        except Exception as e:
-            print(f"북마크 저장 중 오류 발생: {e}")
+       """북마크 정보를 JSON 파일로 저장합니다."""
+       # 메서드 내용 전체 삭제
     
     def load_bookmarks(self):
-        """JSON 파일에서 북마크 정보를 불러옵니다."""
-        try:
-            # 앱 데이터 폴더 경로
-            app_data_dir = get_user_data_directory()
-            bookmarks_file = os.path.join(app_data_dir, "bookmarks.json")
-            
-            # 파일이 존재하면 불러오기
-            if os.path.exists(bookmarks_file):
-                with open(bookmarks_file, 'r', encoding='utf-8') as f:
-                    loaded_bookmarks = json.load(f)
-                    
-                # 북마크 중 존재하는 파일만 리스트에 추가
-                valid_bookmarks = []
-                for bookmark in loaded_bookmarks:
-                    if os.path.exists(bookmark):
-                        valid_bookmarks.append(bookmark)
-                
-                # 유효한 북마크만 설정
-                self.bookmarks = valid_bookmarks
-                
-                # 디버깅용 메시지 (실제 사용 시 제거)
-                print(f"북마크 {len(self.bookmarks)}개가 로드되었습니다")
-        except Exception as e:
-            print(f"북마크 불러오기 중 오류 발생: {e}")
-            # 오류 발생 시 빈 리스트로 초기화
-            self.bookmarks = []
+       """JSON 파일에서 북마크 정보를 불러옵니다."""
+       # 메서드 내용 전체 삭제
 
     def show_bookmark_menu_above(self):
         """북마크 메뉴를 버튼 위에 표시"""
-        if self.bookmark_menu:
-            # 메뉴를 표시하기 전에 업데이트하여 크기를 정확히 계산
-            self.update_bookmark_menu()
-            
-            # 버튼 좌표를 전역 좌표로 변환
-            pos = self.slider_bookmark_btn.mapToGlobal(QPoint(0, 0))
-            
-            # 메뉴 사이즈 계산
-            menu_width = self.bookmark_menu.sizeHint().width()
-            button_width = self.slider_bookmark_btn.width()
-            
-            # 최대 높이 설정
-            desktop = QApplication.desktop().availableGeometry()
-            max_height = min(800, desktop.height() * 0.8)  # 화면 높이의 80%까지 사용
-            self.bookmark_menu.setMaximumHeight(int(max_height))
-            
-            # 메뉴 높이가 화면 높이보다 크면 화면의 80%로 제한
-            menu_height = min(self.bookmark_menu.sizeHint().height(), max_height)
-            
-            # 화면 정보 가져오기
-            desktop = QApplication.desktop().availableGeometry()
-            
-            # 기준을 버튼의 오른쪽 변으로 설정 (메뉴의 오른쪽 가장자리를 버튼의 오른쪽 가장자리에 맞춤)
-            button_right_edge = pos.x() + button_width
-            x_pos = button_right_edge - menu_width  # 메뉴의 오른쪽 끝이 버튼의 오른쪽 끝과 일치하도록 계산
-            y_pos = pos.y() - menu_height  # 버튼 위에 메뉴가 나타나도록 설정
-            
-            # 메뉴가 화면 왼쪽 경계를 벗어나는지 확인
-            if x_pos < desktop.left():
-                x_pos = desktop.left()
-            
-            # 메뉴가 화면 위로 넘어가지 않도록 조정
-            if y_pos < desktop.top():
-                # 화면 위로 넘어가면 버튼 아래에 표시
-                y_pos = pos.y() + self.slider_bookmark_btn.height()
-            
-            # 메뉴가 화면 아래로 넘어가지 않도록 조정
-            if y_pos + menu_height > desktop.bottom():
-                # 화면 아래로 넘어가면 버튼 위에 표시하되, 필요한 만큼만 위로 올림
-                y_pos = desktop.bottom() - menu_height
-            
-            # 메뉴 팝업 (스크롤이 필요한 경우를 위해 높이 속성 명시적 설정)
-            self.bookmark_menu.setProperty("_q_scrollable", True)
-            self.bookmark_menu.popup(QPoint(x_pos, y_pos))
-    
+        # BookmarkManager를 통해 북마크 메뉴를 버튼 위에 표시
+        self.bookmark_manager.show_menu_above_button()
+
     def show_menu_above(self):
         """메뉴 버튼 위에 드롭업 메뉴를 표시합니다."""
         # 메뉴가 없으면 생성
@@ -3760,9 +3477,6 @@ class ImageViewer(QWidget):
     def load_key_settings(self):
         """키 설정을 로드합니다."""
         try:
-            app_data_dir = get_user_data_directory()
-            settings_path = os.path.join(app_data_dir, "key_settings.json")
-            
             # 기본 키 설정
             default_settings = {
                 "next_image": Qt.Key_Right,
@@ -3778,40 +3492,36 @@ class ImageViewer(QWidget):
                 "toggle_maximize_state": Qt.Key_Return  # Enter 키 추가
             }
             
-            # 파일이 존재하면 로드
-            if os.path.exists(settings_path):
-                with open(settings_path, 'r', encoding='utf-8') as f:
-                    loaded_settings = json.load(f)
-                    
-                    # 문자열로 저장된 키 값을 정수로 변환
-                    for key, value in loaded_settings.items():
-                        if key in default_settings:
-                            default_settings[key] = int(value)
+            # core.config 모듈의 load_settings 함수를 사용해 설정을 로드합니다
+            loaded_settings = load_settings("key_settings.json")
             
-            # 로드된 설정을 self.key_settings에 직접 할당
+            # 기존 설정 파일에서 값을 불러와 기본 설정에 적용합니다
+            for key, value in loaded_settings.items():
+                if key in default_settings:
+                    try:
+                        # JSON에서 불러온 값은 문자열이나 숫자일 수 있으므로 정수로 변환합니다
+                        default_settings[key] = int(value)
+                    except (ValueError, TypeError) as e:
+                        # 변환할 수 없는 경우 오류 메시지 출력하고 기본값 유지
+                        print(f"키 설정 '{key}'의 값을 변환할 수 없습니다: {e}")
+            
+            # 최종 설정을 self.key_settings에 할당합니다
             self.key_settings = default_settings
-            print(f"키 설정 로드 완료: {settings_path}")
+            print("키 설정 로드 완료")
             
         except Exception as e:
+            # 로드 중 예외가 발생하면 기본 설정을 사용합니다
             print(f"키 설정 로드 오류: {e}")
-            return default_settings
+            self.key_settings = default_settings
 
     def save_key_settings(self):
-        """키 설정을 JSON 파일로 저장합니다."""
+        """키 설정을 저장합니다."""
         try:
-            # 앱 데이터 폴더 확인 및 생성
-            app_data_dir = get_user_data_directory()
-            if not os.path.exists(app_data_dir):
-                os.makedirs(app_data_dir)
-                
-            # 키 설정 파일 저장 경로
-            settings_file = os.path.join(app_data_dir, "key_settings.json")
-            
-            # 현재 키 설정을 JSON으로 저장
-            with open(settings_file, 'w', encoding='utf-8') as f:
-                json.dump(self.key_settings, f, ensure_ascii=False, indent=4)
-                
-            print(f"키 설정이 저장되었습니다: {settings_file}")
+            # core.config 모듈의 save_settings 함수를 사용해 설정을 저장합니다
+            if save_settings(self.key_settings, "key_settings.json"):
+                print("키 설정이 저장되었습니다")
+            else:
+                print("키 설정 저장에 실패했습니다")
         except Exception as e:
             print(f"키 설정 저장 오류: {e}")
     
