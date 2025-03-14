@@ -7,16 +7,16 @@
 
 from media.media_handler import MediaHandler
 from media.image_handler import ImageHandler
+from media.psd_handler import PSDHandler
 # 아래 클래스들은 구현 후 순차적으로 주석 해제
-# from media.psd_handler import PSDHandler
 # from media.animation_handler import AnimationHandler
 # from media.video_handler import VideoHandler
 
 __all__ = [
     'MediaHandler',
     'ImageHandler',
+    'PSDHandler',
     # 아래 클래스들은 구현 후 순차적으로 주석 해제
-    # 'PSDHandler',
     # 'AnimationHandler',
     # 'VideoHandler',
 ]

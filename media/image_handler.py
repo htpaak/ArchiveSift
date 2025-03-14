@@ -7,7 +7,7 @@ ImageHandler 클래스를 제공합니다.
 
 import os
 import time
-from PyQt5.QtGui import QPixmap, QImage
+from PyQt5.QtGui import QPixmap, QImage, QTransform
 from PyQt5.QtCore import Qt, QSize
 
 from media.media_handler import MediaHandler
@@ -67,6 +67,13 @@ class ImageHandler(MediaHandler):
                 self.parent.show_message(f"이미지 로드 실패: {filename}")
                 self.parent.hide_loading_indicator()
                 return False
+            
+            # 회전 적용 (parent의 current_rotation 값 사용)
+            if hasattr(self.parent, 'current_rotation') and self.parent.current_rotation != 0:
+                # 회전 변환 적용
+                transform = QTransform().rotate(self.parent.current_rotation)
+                pixmap = pixmap.transformed(transform, Qt.SmoothTransformation)
+                print(f"이미지에 회전 적용됨: {self.parent.current_rotation}°")
             
             # 이미지 로드 성공
             self.original_pixmap = pixmap

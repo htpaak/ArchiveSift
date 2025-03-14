@@ -32,6 +32,7 @@ from core.config import load_settings, save_settings  # 설정 관리 함수들
 from features.bookmark_manager import BookmarkManager  # 북마크 관리 클래스
 # 미디어 처리
 from media.image_handler import ImageHandler  # 이미지 처리 클래스
+from media.psd_handler import PSDHandler  # PSD 처리 클래스
 
 # MPV DLL 경로를 환경 변수 PATH에 추가 (mpv 모듈 import 전에 필수)
 mpv_path = os.path.join(get_app_directory(), 'mpv')
@@ -679,9 +680,9 @@ class ImageViewer(QWidget):
         QTimer.singleShot(100, self.update_image_info)
 
         # 이미지 캐시 초기화
-        self.image_cache = LRUCache(30)  # 일반 이미지용 캐시 (30개 항목)
+        self.image_cache = LRUCache(10)  # 일반 이미지용 캐시 (최대 10개 항목)
+        self.gif_cache = LRUCache(3)      # GIF 파일용 캐시 (최대 3개 항목)
         self.psd_cache = LRUCache(3)     # PSD 파일용 캐시 (5→3개 항목으로 축소)
-        self.gif_cache = LRUCache(8)     # GIF/애니메이션용 캐시 (10→8개 항목으로 축소)
 
         self.last_wheel_time = 0  # 마지막 휠 이벤트 발생 시간 (휠 이벤트 쓰로틀링용)
         self.wheel_cooldown_ms = 1000  # 1000ms 쿨다운 (500ms에서 변경됨) - 휠 이벤트 속도 제한
@@ -733,6 +734,7 @@ class ImageViewer(QWidget):
 
         # 미디어 핸들러 초기화
         self.image_handler = ImageHandler(self, self.image_label)
+        self.psd_handler = PSDHandler(self, self.image_label)
 
     def delete_current_image(self):
         """현재 이미지를 삭제합니다 (크로스 플랫폼)."""
@@ -936,6 +938,9 @@ class ImageViewer(QWidget):
                 if file_ext in ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.ico', '.heic', '.heif']:
                     # ImageHandler를 사용하여 이미지 크기 조정
                     self.image_handler.resize()
+                elif file_ext == '.psd':
+                    # PSDHandler를 사용하여 PSD 파일 크기 조정
+                    self.psd_handler.resize()
                 elif file_ext == '.gif' and hasattr(self, 'current_movie'):
                     # 애니메이션 크기 조정 처리
                     print("GIF 애니메이션 리사이징")  # 디버깅용 메시지
@@ -955,9 +960,6 @@ class ImageViewer(QWidget):
                         if not pixmap.isNull():
                             scaled_pixmap = pixmap.scaled(self.image_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
                             self.image_label.setPixmap(scaled_pixmap)
-                elif file_ext == '.psd':
-                    # PSD 파일 리사이징 처리
-                    self.show_psd(self.current_image_path)
                 elif file_ext in ['.mp4', '.avi', '.wmv', '.ts', '.m2ts', '.mov', '.qt', '.mkv', '.flv', '.webm', '.3gp', '.m4v', '.mpg', '.mpeg', '.vob', '.wav', '.flac', '.mp3', '.aac', '.m4a', '.ogg']:
                     # MPV 플레이어 윈도우 ID 업데이트
                     if hasattr(self, 'player'):
@@ -1227,25 +1229,11 @@ class ImageViewer(QWidget):
         elif file_ext == '.psd':  # PSD 파일 처리
             self.current_media_type = 'image'  # 미디어 타입 업데이트
             
-            # 기존 진행 중인 PSD 로더 스레드 확인 및 종료
-            for path, loader in list(self.loader_threads.items()):
-                if path != image_path and loader.isRunning():
-                    try:
-                        # 이전 로더 강제 종료
-                        loader.terminate()
-                        loader.wait(100)  # 최대 100ms 대기
-                        print(f"PSD 로더 종료: {os.path.basename(path)}")
-                    except Exception as e:
-                        print(f"PSD 로더 종료 중 오류: {e}")
+            # PSDHandler를 사용하여 PSD 파일 로드
+            self.psd_handler.load(image_path)
             
-            # PSD 파일 로딩 시작
-            try:
-                self.show_psd(image_path)  # PSD를 표시하는 메서드 호출
-            except Exception as e:
-                print(f"PSD 표시 중 오류: {e}")
-                # 오류 발생 시 기본 이미지 또는 오류 메시지 표시
-                self.image_label.setText("PSD 파일 로드 중 오류 발생")
-                self.show_message(f"PSD 파일 로드 오류: {str(e)}")
+            # 이미지 정보 업데이트
+            self.update_image_info()
         elif file_ext in ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.ico', '.heic', '.heif']:  # JPG, JPEG, PNG 파일 처리
             self.current_media_type = 'image'  # 미디어 타입 업데이트
             
@@ -1280,76 +1268,6 @@ class ImageViewer(QWidget):
         if self.isFullScreen():
             QTimer.singleShot(300, self.delayed_resize)
             print("전체화면 모드에서 이미지 로드 후 지연된 리사이징 예약")
-
-    def show_psd(self, image_path):
-        """PSD 파일을 처리하는 메서드입니다."""
-        # 이미 로딩 중인지 확인
-        loading_in_progress = False
-        for path, loader in list(self.loader_threads.items()):
-            if path == image_path and loader.isRunning():
-                loading_in_progress = True
-                print(f"이미 로딩 중: {os.path.basename(image_path)}")
-                break
-        
-        if loading_in_progress:
-            # 이미 로딩 중이면 다시 시작하지 않음
-            return
-        
-        # 로딩 표시 시작
-        self.show_loading_indicator()
-        
-        # LRUCache에서 캐시된 이미지 확인
-        pixmap = self.psd_cache.get(image_path)
-        
-        if pixmap is not None:
-            # 캐시에서 찾은 경우 바로 사용
-            print(f"PSD 캐시 히트: {os.path.basename(image_path)}")
-            
-            # 회전 각도가 0이 아니면 회전 적용
-            if hasattr(self, 'current_rotation') and self.current_rotation != 0:
-                # 회전 변환 적용
-                transform = QTransform().rotate(self.current_rotation)
-                pixmap = pixmap.transformed(transform, Qt.SmoothTransformation)
-                print(f"PSD에 회전 적용됨: {self.current_rotation}°")
-            
-            # 이미지 크기 조정 후 표시
-            scaled_pixmap = pixmap.scaled(self.image_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
-            self.image_label.setPixmap(scaled_pixmap)
-            
-            # 로딩 인디케이터 숨기기
-            self.hide_loading_indicator()
-        else:
-            # 진행 중인 모든 PSD 로더를 안전하게 처리
-            for path, loader in list(self.loader_threads.items()):
-                if loader.isRunning():
-                    # 실행 중인 다른 PSD 로더의 연결을 해제하여 신호가 처리되지 않도록 함
-                    try:
-                        loader.loaded.disconnect()
-                        loader.error.disconnect()
-                    except Exception:
-                        pass
-                        
-                    # 강제 종료는 하지 않고 자연스럽게 종료되도록 함
-                    # terminate()는 불안정할 수 있으므로 사용하지 않음
-            
-            # 로더 스레드 목록 비우기 (새 시작 전에)
-            self.loader_threads.clear()
-            
-            # 비동기 로딩 시작
-            print(f"새 PSD 로더 시작: {os.path.basename(image_path)}")
-            loader = ImageLoaderThread(image_path, 'psd')
-            loader.loaded.connect(self.on_image_loaded)
-            loader.error.connect(self.on_image_error)
-            
-            # 스레드 추적
-            self.loader_threads[image_path] = loader
-            loader.start()
-            
-            # 로딩 시작 메시지 (파일 경로 포함)
-            print(f"PSD 파일 로딩 시작: {image_path}")
-            
-            # 로딩 메시지 표시
-            self.show_message(f"PSD 파일 로딩 중... ({os.path.basename(image_path)})")
 
     def show_gif(self, image_path):
         # gif 애니메이션을 처리하기 위해 QImageReader를 사용
@@ -2679,6 +2597,13 @@ class ImageViewer(QWidget):
             except Exception as e:
                 print(f"플레이어 종료 오류: {e}")
         
+        # 미디어 핸들러 정리
+        if hasattr(self, 'image_handler'):
+            self.image_handler.unload()
+            
+        if hasattr(self, 'psd_handler'):
+            self.psd_handler.unload()
+        
         # 캐시 정리
         if hasattr(self, 'image_cache'):
             self.image_cache.clear()
@@ -2695,7 +2620,7 @@ class ImageViewer(QWidget):
                 self.current_movie = None
             except Exception as e:
                 print(f"QMovie 정리 오류: {e}")
-            
+        
         # 타이머 정리
         for timer in list(self.timers):
             try:
@@ -3239,50 +3164,29 @@ class ImageViewer(QWidget):
             # 일반 이미지 회전 - 현재 회전 각도에 따라 새로 이미지를 로드하여 처리
             file_ext = os.path.splitext(self.current_image_path)[1].lower()
             if file_ext == '.psd':
-                # PSD 파일은 다시 로드
-                self.show_psd(self.current_image_path)
-            elif file_ext in ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.ico', '.heic', '.heif', '.webp']:
-                # 일반 이미지는 캐시에서 다시 가져오거나 새로 로드
-                if file_ext == '.webp':
-                    # WEBP 일반 이미지 
-                    image = QImage(self.current_image_path)
-                    if not image.isNull():
-                        pixmap = QPixmap.fromImage(image)
-                        transform = QTransform().rotate(self.current_rotation)
-                        rotated_pixmap = pixmap.transformed(transform, Qt.SmoothTransformation)
-                        
-                        # 회전된 이미지를 화면에 맞게 크기 조절
-                        label_size = self.image_label.size()
-                        scaled_pixmap = rotated_pixmap.scaled(
-                            label_size,
-                            Qt.KeepAspectRatio,
-                            Qt.SmoothTransformation
-                        )
-                        self.image_label.setPixmap(scaled_pixmap)
-                        print(f"WEBP 일반 이미지 회전 즉시 적용: {self.current_rotation}°")
-                else:
-                    # 다른 일반 이미지 처리
-                    cached_pixmap = self.image_cache.get(self.current_image_path)
-                    if cached_pixmap is not None:
-                        # 캐시에서 원본을 가져와서 현재 회전 각도를 직접 적용
-                        original_pixmap = cached_pixmap
-                        transform = QTransform().rotate(self.current_rotation)
-                        rotated_pixmap = original_pixmap.transformed(transform, Qt.SmoothTransformation)
-                        
-                        # 회전된 이미지를 화면에 맞게 크기 조절
-                        label_size = self.image_label.size()
-                        scaled_pixmap = rotated_pixmap.scaled(
-                            label_size,
-                            Qt.KeepAspectRatio,
-                            Qt.SmoothTransformation
-                        )
-                        self.image_label.setPixmap(scaled_pixmap)
-                        print(f"캐시된 이미지 회전 적용: {self.current_rotation}°")
-                    else:
-                        # 캐시에 없으면 이미지를 다시 로드 (로더 스레드에서 회전 적용됨)
-                        # 현재 경로를 다시 로드 - on_image_loaded에서 회전 적용
-                        self.show_image(self.current_image_path)
-                
+                # PSD 파일은 PSDHandler를 통해 다시 로드
+                self.psd_handler.load(self.current_image_path)
+            elif file_ext in ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.ico', '.heic', '.heif']:
+                # 일반 이미지는 ImageHandler를 통해 다시 로드
+                self.image_handler.load(self.current_image_path)
+                print(f"일반 이미지 회전 적용: {self.current_rotation}°")
+            elif file_ext == '.webp':
+                # WEBP 일반 이미지 
+                image = QImage(self.current_image_path)
+                if not image.isNull():
+                    pixmap = QPixmap.fromImage(image)
+                    transform = QTransform().rotate(self.current_rotation)
+                    rotated_pixmap = pixmap.transformed(transform, Qt.SmoothTransformation)
+                    
+                    # 회전된 이미지를 화면에 맞게 크기 조절
+                    label_size = self.image_label.size()
+                    scaled_pixmap = rotated_pixmap.scaled(
+                        label_size,
+                        Qt.KeepAspectRatio,
+                        Qt.SmoothTransformation
+                    )
+                    self.image_label.setPixmap(scaled_pixmap)
+                print(f"WEBP 일반 이미지 회전 즉시 적용: {self.current_rotation}°")
         elif self.current_media_type in ['gif', 'webp', 'webp_animation']:
             # 애니메이션 회전을 위한 더 안전한 방법 구현
             try:
