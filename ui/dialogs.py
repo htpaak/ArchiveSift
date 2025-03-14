@@ -250,7 +250,13 @@ class KeyInputEdit(QLineEdit):
         
         # 일반 키의 이름을 가져와서 추가해요
         # 예: A, B, 1, F1 등
-        text += QKeySequence(key).toString()
+        key_text = QKeySequence(key).toString()
+        
+        # Enter/Return 키인 경우 특별히 처리
+        if key == Qt.Key_Return or key == Qt.Key_Enter:
+            key_text = "Enter"  # 화면에는 'Enter'로 표시
+            
+        text += key_text
         self.setText(text)  # 만든 텍스트를 화면에 표시해요
         
         # 이벤트를 처리했다고 표시해요
@@ -480,8 +486,18 @@ class PreferencesDialog(QDialog):
             name_item = QTableWidgetItem(self.key_names.get(key, key))
             self.table.setItem(row, 0, name_item)
             
-            # 단축키 칸
-            key_item = QTableWidgetItem(QKeySequence(value).toString())
+            # 단축키 칸 - 특별한 키 처리 (Return/Enter 일관성 유지)
+            key_text = QKeySequence(value).toString()
+            
+            # Return 키를 Enter로 일관되게 표시
+            if (value & ~Qt.ControlModifier) == Qt.Key_Return:
+                # Ctrl+Return 조합인 경우
+                if value & Qt.ControlModifier:
+                    key_text = "Ctrl+Enter"
+                else:
+                    key_text = "Enter"
+            
+            key_item = QTableWidgetItem(key_text)
             self.table.setItem(row, 1, key_item)
             
             # 행 번호와 키 이름 매핑 (나중에 어떤 단축키가 변경되었는지 알기 위해)
@@ -599,7 +615,19 @@ class PreferencesDialog(QDialog):
         if self.editing and self.current_row != -1:
             key_name = self.table.item(self.current_row, 1).data(Qt.UserRole)
             value = self.key_settings[key_name]
-            self.table.item(self.current_row, 1).setText(QKeySequence(value).toString())
+            
+            # 키 표시 텍스트 생성 - Return 키를 특별히 처리
+            key_text = QKeySequence(value).toString()
+            
+            # Return 키를 Enter로 일관되게 표시
+            if (value & ~Qt.ControlModifier) == Qt.Key_Return:
+                # Ctrl+Return 조합인 경우
+                if value & Qt.ControlModifier:
+                    key_text = "Ctrl+Enter"
+                else:
+                    key_text = "Enter"
+            
+            self.table.item(self.current_row, 1).setText(key_text)
         
         # 키 입력 열(1번 열)을 클릭했을 때만 편집 모드 시작
         if col == 1:  # 1번 열은 단축키 열이에요
@@ -614,7 +642,20 @@ class PreferencesDialog(QDialog):
             
             # KeyInputEdit 초기화
             self.key_input.key_value = value
-            self.key_input.setText(QKeySequence(value).toString())
+            
+            # 키 표시 텍스트 생성 - Return 키를 특별히 처리
+            key_text = QKeySequence(value).toString()
+            
+            # Return 키를 Enter로 일관되게 표시
+            if (value & ~Qt.ControlModifier) == Qt.Key_Return:
+                # Ctrl+Return 조합인 경우
+                if value & Qt.ControlModifier:
+                    key_text = "Ctrl+Enter"
+                else:
+                    key_text = "Enter"
+            
+            # 키 입력 위젯에 설정된 텍스트 표시
+            self.key_input.setText(key_text)
             
             # 셀 위치 계산
             rect = self.table.visualItemRect(self.table.item(row, col))
@@ -640,15 +681,13 @@ class PreferencesDialog(QDialog):
         """
         이벤트 필터 함수에요. 키 입력 상자의 이벤트를 처리해요.
         
-        키 입력 상자가 포커스를 잃거나 엔터 키가 눌리면 입력을 마치고
-        새로운 단축키를 저장해요.
+        키 입력 상자가 포커스를 잃으면 입력을 마치고
+        새로운 단축키를 저장해요. Enter 키는 단축키로 등록 가능하도록 변경했어요.
         """
         # KeyInputEdit 객체에 대한 이벤트 처리
         if obj == self.key_input:
-            # 포커스를 잃었을 때 또는 엔터 키를 눌렀을 때 처리
-            if (event.type() == QEvent.FocusOut or 
-                (event.type() == QEvent.KeyPress and 
-                 event.key() == Qt.Key_Return)):
+            # 포커스를 잃었을 때만 처리 (Enter 키는 단축키로 등록할 수 있게 변경)
+            if event.type() == QEvent.FocusOut:
                 
                 if self.editing and self.current_row != -1:
                     # 변경된 키 값 적용
@@ -659,10 +698,17 @@ class PreferencesDialog(QDialog):
                         # 키 설정에 새 값 저장
                         self.key_settings[key_name] = self.key_input.key_value
                         
-                        # 테이블에 새 값 표시
-                        self.table.item(self.current_row, 1).setText(
-                            QKeySequence(self.key_input.key_value).toString()
-                        )
+                        # 테이블에 새 값 표시 - Enter/Return 키를 특별히 처리
+                        key_text = QKeySequence(self.key_input.key_value).toString()
+                        # Qt.Key_Return과 Qt.ControlModifier의 조합인 경우 "Ctrl+Enter"로 표시
+                        if (self.key_input.key_value & ~Qt.ControlModifier) == Qt.Key_Return:
+                            # Ctrl 키가 있는지 확인
+                            if self.key_input.key_value & Qt.ControlModifier:
+                                key_text = "Ctrl+Enter"
+                            else:
+                                key_text = "Enter"
+                        
+                        self.table.item(self.current_row, 1).setText(key_text)
                     
                     # KeyInputEdit 숨기기
                     self.key_input.hide()
@@ -672,9 +718,21 @@ class PreferencesDialog(QDialog):
                     # 포커스를 테이블로 돌려요
                     self.table.setFocus()
                     
-                    # 이벤트 처리 완료
-                    return True
-        
+                # 처리 완료
+                return True
+            # 키 입력 상자가 보이는 상태에서 Escape 키를 누르면 취소
+            elif event.type() == QEvent.KeyPress and event.key() == Qt.Key_Escape:
+                # 키 입력 취소
+                self.key_input.hide()
+                self.editing = False
+                self.current_row = -1
+                
+                # 포커스를 테이블로 돌려요
+                self.table.setFocus()
+                
+                # 처리 완료
+                return True
+                
         # 기본 이벤트 처리
         return super().eventFilter(obj, event)
 
@@ -708,7 +766,19 @@ class PreferencesDialog(QDialog):
             key_name = self.table.item(row, 1).data(Qt.UserRole)
             if key_name in self.key_settings:
                 value = self.key_settings[key_name]
-                self.table.item(row, 1).setText(QKeySequence(value).toString())
+                
+                # 키 표시 텍스트 생성 - Return 키를 특별히 처리
+                key_text = QKeySequence(value).toString()
+                
+                # Return 키를 Enter로 일관되게 표시
+                if (value & ~Qt.ControlModifier) == Qt.Key_Return:
+                    # Ctrl+Return 조합인 경우
+                    if value & Qt.ControlModifier:
+                        key_text = "Ctrl+Enter"
+                    else:
+                        key_text = "Enter"
+                
+                self.table.item(row, 1).setText(key_text)
         
         # 편집 중이었다면 중단
         if self.editing:
