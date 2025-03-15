@@ -1,59 +1,323 @@
-# 이미지 뷰어 애플리케이션 모듈화 계획
+# 이미지 뷰어 애플리케이션 모듈화 계획 (개선버전)
 
 ## 디렉토리 구조
+```
 project/
 ├── main.py (진입점, MediaViewer 인스턴스 생성)
 ├── core/
-│   ├── media_viewer.py (MediaViewer 클래스 - 통합 관리)
-│   ├── config.py (설정 관리)
-│   └── utils.py (유틸리티 함수)
+│   ├── __init__.py
+│   ├── media_viewer.py (미디어 통합 관리)
+│   ├── config_manager.py (설정 관리 및 저장)
+│   ├── state_manager.py (애플리케이션 상태 관리)
+│   ├── version.py (버전 관리)
+│   ├── logger.py (로깅 시스템)
+│   └── utils/
+│       ├── __init__.py
+│       ├── path_utils.py (경로 관련 유틸리티)
+│       └── thread_utils.py (스레드 관리 유틸리티)
 ├── media/
-│   ├── media_handler.py (미디어 처리 기본 클래스)
-│   ├── image_handler.py (이미지 처리 클래스)
-│   ├── psd_handler.py (PSD 파일 처리 클래스)
-│   ├── animation_handler.py (GIF/WEBP 처리 클래스)
-│   └── video_handler.py (비디오 처리 클래스)
+│   ├── __init__.py
+│   ├── format_detector.py (파일 형식 감지 및 적절한 핸들러 연결)
+│   ├── handlers/
+│   │   ├── __init__.py
+│   │   ├── base_handler.py (모든 미디어 핸들러의 기본 클래스)
+│   │   ├── image_handler.py (이미지 처리)
+│   │   ├── animation_handler.py (GIF/WEBP 처리)
+│   │   ├── video_handler.py (비디오 처리)
+│   │   └── psd_handler.py (PSD 파일 처리)
+│   └── loaders/
+│       ├── __init__.py
+│       ├── image_loader.py (이미지 비동기 로딩)
+│       └── cache_manager.py (이미지 캐시 관리)
 ├── file/
-│   ├── file_navigator.py (파일 탐색 기능)
-│   ├── file_manager.py (파일 관리 기능)
-│   └── file_operations.py (파일 작업 기능)
+│   ├── __init__.py
+│   ├── navigator.py (파일 탐색 및 다음/이전 이미지 로드)
+│   ├── browser.py (폴더 선택 및 열기)
+│   └── operations.py (복사, 이동, 삭제 등 파일 작업)
 ├── ui/
-│   ├── main_layout.py (메인 레이아웃 관리)
-│   ├── controls.py (컨트롤 요소 관리)
-│   ├── display.py (디스플레이 관리)
-│   └── dialogs.py (대화상자)
+│   ├── __init__.py
+│   ├── layouts/
+│   │   ├── __init__.py
+│   │   ├── main_layout.py (메인 UI 레이아웃)
+│   │   ├── controls_layout.py (컨트롤 패널 레이아웃)
+│   │   └── sidebar_layout.py (사이드바 레이아웃)
+│   ├── components/
+│   │   ├── __init__.py
+│   │   ├── media_display.py (미디어 표시 영역)
+│   │   ├── control_buttons.py (컨트롤 버튼)
+│   │   ├── slider.py (비디오/애니메이션 슬라이더)
+│   │   └── scrollable_menu.py (스크롤 가능한 메뉴)
+│   ├── styles/
+│   │   ├── __init__.py
+│   │   ├── style_manager.py (스타일 관리)
+│   │   └── themes.py (테마 정의)
+│   └── dialogs/
+│       ├── __init__.py
+│       ├── preferences_dialog.py (환경설정 대화상자)
+│       ├── about_dialog.py (정보 대화상자)
+│       └── message_box.py (메시지 박스 기능)
 ├── features/
-│   ├── bookmark_manager.py (북마크 기능)
-│   ├── preferences.py (환경설정 기능)
-│   └── ui_lock.py (UI 잠금 기능)
-└── events/
-    ├── event_handler.py (이벤트 처리 기본 클래스)
-    ├── keyboard_handler.py (키보드 이벤트)
-    ├── mouse_handler.py (마우스 이벤트)
-    └── resize_handler.py (크기 조정 이벤트)
+│   ├── __init__.py
+│   ├── bookmark/
+│   │   ├── __init__.py
+│   │   ├── bookmark_manager.py (북마크 데이터 관리)
+│   │   └── bookmark_ui.py (북마크 UI 구성요소)
+│   ├── ui_lock/
+│   │   ├── __init__.py
+│   │   ├── lock_manager.py (UI 잠금 상태 관리)
+│   │   └── lock_ui.py (UI 잠금 관련 UI 요소)
+│   ├── rotation/
+│   │   ├── __init__.py
+│   │   ├── rotation_manager.py (회전 상태 관리)
+│   │   └── rotation_ui.py (회전 UI 요소)
+│   └── i18n/
+│       ├── __init__.py
+│       ├── translation_manager.py (번역 관리)
+│       └── locales/ (언어별 번역 파일)
+│           ├── en.json (영어)
+│           ├── ko.json (한국어)
+│           └── ja.json (일본어)
+├── events/
+│   ├── __init__.py
+│   ├── event_dispatcher.py (이벤트 중앙 관리)
+│   ├── handlers/
+│   │   ├── __init__.py
+│   │   ├── keyboard_handler.py (키보드 이벤트)
+│   │   ├── mouse_handler.py (마우스 이벤트)
+│   │   └── window_handler.py (창 이벤트 - 크기조정 등)
+│   └── signals.py (커스텀 신호 정의)
+├── exceptions/
+│   ├── __init__.py
+│   ├── base_exception.py (기본 예외 클래스)
+│   ├── media_exceptions.py (미디어 처리 관련 예외)
+│   ├── file_exceptions.py (파일 처리 관련 예외)
+│   └── error_handler.py (예외 처리 및 로깅)
+└── 
+```
 
-## 구현 우선순위
-1. 핵심 미디어 처리 모듈화 (media 패키지)
-2. 파일 관리 모듈화 (file 패키지)
-3. UI 관련 모듈화 (ui 패키지)
-4. 부가 기능 모듈화 (features 패키지)
-5. 이벤트 처리 모듈화 (events 패키지)
-6. 코어 구조 완성 (core 패키지)
+## 구현 우선순위 및 단계
 
-## 모듈 간 통신 방식
-- 직접 참조: 밀접한 관계의 모듈
-- 신호-슬롯: UI와 기능 모듈 사이
-- 이벤트 패턴: 서로 다른 패키지 간
-- 콜백 함수: 비동기 작업
+### 1단계: 핵심 구조 및 기반 시스템 설계
+1. **core/ 패키지 초기 구조 설정**
+   - media_viewer.py (주요 클래스의 뼈대)
+   - config_manager.py (설정 관리 기능)
+   - logger.py (로깅 시스템)
+   - version.py (버전 관리)
 
-## 고려사항 및 모범 사례
-- 자체 완결성: 각 모듈은 가능한 독립적으로 작동하도록 설계
-- 인터페이스 설계: 모듈 간 명확한 인터페이스 정의
-- 의존성 방향: 의존성은 항상 더 안정적인 모듈을 향하도록 설계
-- 순환 의존성 방지: 모듈 간 순환 참조 피하기
-- 단계적 마이그레이션: 한 번에 모든 것을 변경하지 않고 점진적으로 모듈화
+2. **예외 처리 시스템 구축**
+   - exceptions/base_exception.py
+   - exceptions/error_handler.py
 
-## 기존 모듈 처리
-- 유지: core.app_paths, core.cache, ui.dialogs
-- 확장: media.image_loader, ui.custom_widgets
-- 신규: 나머지 모든 모듈 
+### 2단계: 미디어 처리 모듈화 (최우선)
+1. **media/handlers/ 패키지 구현**
+   - base_handler.py (공통 인터페이스 정의)
+   - image_handler.py (이미지 처리)
+   - animation_handler.py (GIF/WEBP 처리)
+   - video_handler.py (비디오 처리)
+
+2. **media/format_detector.py 구현**
+   - 파일 형식 감지 및 적절한 핸들러 연결
+   
+3. **media/loaders/ 패키지 구현**
+   - image_loader.py (비동기 로딩)
+   - cache_manager.py (캐시 관리)
+
+### 3단계: 파일 관리 모듈화
+1. **file/ 패키지 구현**
+   - navigator.py (파일 탐색)
+   - browser.py (폴더 선택)
+   - operations.py (파일 작업)
+
+### 4단계: 독립 기능 모듈화
+1. **features/bookmark/ 패키지 구현**
+   - bookmark_manager.py (데이터 관리)
+   - bookmark_ui.py (UI 요소)
+
+2. **features/rotation/ 패키지 구현**
+   - rotation_manager.py (회전 상태 관리)
+   - rotation_ui.py (UI 요소)
+
+3. **features/ui_lock/ 패키지 구현**
+   - lock_manager.py (잠금 상태 관리)
+   - lock_ui.py (UI 요소)
+
+4. **features/i18n/ 패키지 구현**
+   - translation_manager.py (번역 관리)
+   - 기본 언어 파일 생성
+
+### 5단계: UI 모듈화
+1. **ui/components/ 패키지 구현**
+   - media_display.py (미디어 표시)
+   - control_buttons.py (컨트롤 버튼)
+   - slider.py (슬라이더)
+
+2. **ui/layouts/ 패키지 구현**
+   - main_layout.py (메인 레이아웃)
+   - controls_layout.py (컨트롤 패널)
+
+3. **ui/dialogs/ 패키지 구현**
+   - preferences_dialog.py (환경설정)
+   - about_dialog.py (정보 창)
+
+### 6단계: 이벤트 처리 모듈화
+1. **events/handlers/ 패키지 구현**
+   - keyboard_handler.py (키보드)
+   - mouse_handler.py (마우스)
+   - window_handler.py (창 이벤트)
+
+2. **events/event_dispatcher.py 구현**
+   - 이벤트 중앙 관리 및 라우팅
+
+### 7단계: 테스트 작성 및 통합
+1. **단위 테스트 작성**
+   - 주요 모듈별 단위 테스트
+
+2. **통합 테스트 작성**
+   - 주요 기능 흐름 테스트
+
+### 8단계: 통합 및 최적화
+1. **core/media_viewer.py 완성**
+   - 모든 모듈 통합
+   - 상태 관리 최적화
+
+2. **main.py 리팩토링**
+   - 진입점 코드 정리
+
+## 모듈 간 통신 및 의존성 관리
+
+### 통신 방식
+1. **이벤트 기반 통신** (Observer 패턴)
+   - events/signals.py에 커스텀 신호 정의
+   - events/event_dispatcher.py를 통한 중앙 이벤트 관리
+
+2. **의존성 주입**
+   - 상위 모듈에서 하위 모듈로 의존성 주입
+   - 순환 참조 방지
+
+3. **인터페이스 기반 설계**
+   - 구체적인 구현보다 인터페이스에 의존
+   - 각 모듈은 필요한 인터페이스만 알도록 설계
+
+## 마이그레이션 전략
+1. **점진적 마이그레이션**
+   - 전체 코드를 한 번에 변경하지 않고 단계별 접근
+   - 각 모듈 구현 후 통합 테스트
+
+2. **병행 작동 단계**
+   - 새 모듈이 구현되면 기존 코드와 병행하여 테스트
+   - 안정성 확보 후 기존 코드 대체
+
+3. **단계별 리팩토링**
+   - 모듈화 완료 후 코드 품질 향상을 위한 추가 리팩토링
+
+## 문서화 전략
+1. **코드 내 문서화**
+   - 모든 모듈, 클래스, 메서드에 독스트링(docstring) 작성
+   - 파이썬 표준 문서화 형식(NumPy/Google 스타일) 준수
+
+2. **API 문서 자동 생성**
+   - Sphinx를 사용하여 API 문서 자동 생성
+   - GitHub Pages 또는 ReadTheDocs에 호스팅
+
+3. **사용자 매뉴얼**
+   - 주요 기능에 대한 사용자 가이드 작성
+   - 스크린샷과 예제 포함
+
+4. **개발자 문서**
+   - 아키텍처 개요 및 모듈 관계도
+   - 확장 방법 및 기여 가이드
+
+## 테스트 전략
+1. **단위 테스트**
+   - 각 모듈의 핵심 기능에 대한 단위 테스트
+   - pytest 프레임워크 사용
+   - 모의 객체(Mock)를 사용한 의존성 분리
+
+2. **통합 테스트**
+   - 주요 사용자 시나리오 기반 테스트
+   - 모듈 간 상호작용 테스트
+
+3. **UI 테스트**
+   - PyQt 위젯 테스트
+   - 사용자 상호작용 시뮬레이션
+
+4. **테스트 자동화**
+   - CI/CD 파이프라인에 테스트 통합
+   - 테스트 커버리지 보고서 생성
+
+## 로깅 및 모니터링 전략
+1. **계층적 로깅 시스템**
+   - core/logger.py를 통한 중앙 집중식 로깅
+   - 다양한 로그 레벨 지원 (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+
+2. **로그 형식 표준화**
+   - 시간, 모듈, 함수, 로그 레벨, 메시지 포함
+   - JSON 형식 옵션 제공
+
+3. **로그 출력 다각화**
+   - 콘솔, 파일, 원격 서버 등 다양한 로그 대상 지원
+   - 로그 회전(rotation) 구현으로 디스크 공간 관리
+
+4. **사용자 활동 로깅**
+   - 주요 사용자 작업에 대한 로깅
+   - 문제 해결 및 사용 패턴 분석용
+
+## 예외 처리 전략
+1. **계층적 예외 구조**
+   - 모든 애플리케이션 예외는 공통 기본 예외 클래스 상속
+   - 모듈별로 특화된 예외 클래스 정의
+
+2. **중앙 집중식 예외 처리**
+   - exceptions/error_handler.py를 통한 일관된 예외 처리
+   - 예외 발생 시 자동 로깅
+
+3. **사용자 친화적 오류 메시지**
+   - 기술적 세부사항 대신 사용자가 이해할 수 있는 메시지 표시
+   - 가능한 경우 문제 해결 방법 제안
+
+4. **복구 메커니즘**
+   - 가능한 경우 예외 상황에서 자동 복구
+   - 중요 데이터 자동 백업 및 복원 기능
+
+## 국제화/현지화 전략
+1. **번역 시스템**
+   - features/i18n/ 패키지를 통한 번역 관리
+   - JSON 형식의 언어 파일 사용
+
+2. **동적 언어 전환**
+   - 런타임에 언어 전환 지원
+   - 사용자 설정에 따른 자동 언어 선택
+
+3. **번역 워크플로우**
+   - 새로운 문자열 추가 시 자동 번역 항목 생성
+   - 외부 번역자를 위한 작업 프로세스
+
+4. **문화적 고려사항**
+   - 날짜, 시간, 숫자 형식의 지역화
+   - 아이콘 및 색상의 문화적 적합성 고려
+
+## 버전 관리 전략
+1. **시맨틱 버전 관리**
+   - 주 버전(MAJOR): 호환되지 않는 API 변경
+   - 부 버전(MINOR): 하위 호환성 있는 기능 추가
+   - 수 버전(PATCH): 하위 호환성 있는 버그 수정
+
+2. **버전 정보 관리**
+   - core/version.py에서 중앙 관리
+   - 빌드 정보 및 릴리스 날짜 포함
+
+3. **변경 로그**
+   - 각 버전의 변경사항 문서화
+   - 사용자에게 주요 변경사항 알림
+
+4. **업데이트 확인 및 알림**
+   - 새 버전 확인 메커니즘
+   - 사용자에게 업데이트 알림
+
+## 구현 시 고려사항
+1. **결합도 최소화**: 모듈 간 의존성을 최소화하여 독립적인 개발과 테스트 가능하게 함
+2. **응집도 최대화**: 각 모듈은 명확한 단일 책임을 가지도록 설계
+3. **확장성**: 새로운 미디어 형식이나 기능을 쉽게 추가할 수 있는 구조
+4. **유지보수성**: 명확한 네이밍과 일관된 코딩 스타일 유지
+5. **성능 최적화**: 비동기 작업, 캐시, 리소스 관리를 통한 성능 향상
+6. **사용자 경험**: 반응성 높고 직관적인 인터페이스 유지 

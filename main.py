@@ -15,32 +15,46 @@ from io import BytesIO  # 바이트 데이터 처리용 (메모리 내 파일 �
 import time  # 시간 관련 기능 (시간 측정, 지연 등)
 # ===== 우리가 만든 모듈 =====
 # 경로 관련 기능
-from core.app_paths import get_app_directory, get_user_data_directory
-# 캐시 관리 기능
-from core.cache import LRUCache
-# 이미지 로딩 기능
-from media.image_loader import ImageLoaderThread
-# 사용자 정의 UI 위젯
-from ui.custom_widgets import ClickableSlider, ScrollableMenu
-# 대화상자
-from ui.dialogs import AboutDialog, PreferencesDialog, KeyInputEdit
+from core.utils.path_utils import get_app_directory, get_user_data_directory
 # 유틸리티 함수
-from core.utils import format_time, atoi, natural_keys  # 유틸리티 함수들
+from core.utils.time_utils import format_time
+from core.utils.sort_utils import atoi, natural_keys  # 유틸리티 함수들
+# 캐시 관리 기능
+from media.loaders.cache_manager import LRUCache
 # 설정 관리
-from core.config import load_settings, save_settings  # 설정 관리 함수들
-# 북마크 관리
-from features.bookmark_manager import BookmarkManager  # 북마크 관리 클래스
+from core.config_manager import load_settings, save_settings  # 설정 관리 함수들
+# 이미지 로딩 기능
+from media.loaders.image_loader import ImageLoaderThread
 # 미디어 처리
-from media.image_handler import ImageHandler  # 이미지 처리 클래스
-from media.psd_handler import PSDHandler  # PSD 처리 클래스
+from media.handlers.image_handler import ImageHandler  # 이미지 처리 클래스
+from media.handlers.psd_handler import PSDHandler  # PSD 처리 클래스
+# 사용자 정의 UI 위젯
+from ui.components.slider import ClickableSlider
+from ui.components.scrollable_menu import ScrollableMenu
+# 대화상자
+from ui.dialogs.about_dialog import AboutDialog
+from ui.dialogs.preferences_dialog import PreferencesDialog
+from events.handlers.keyboard_handler import KeyInputEdit
+# 북마크 관리
+from features.bookmark import BookmarkManager  # 북마크 관리 클래스
+
 
 # MPV DLL 경로를 환경 변수 PATH에 추가 (mpv 모듈 import 전에 필수)
 mpv_path = os.path.join(get_app_directory(), 'mpv')
+print(f"MPV 경로: {mpv_path}")
+dll_path = os.path.join(mpv_path, 'libmpv-2.dll')
+print(f"DLL 파일 존재 여부: {os.path.exists(dll_path)}")
+print(f"DLL 파일 크기: {os.path.getsize(dll_path) if os.path.exists(dll_path) else '파일 없음'}")
+
 if not os.path.exists(mpv_path):
     os.makedirs(mpv_path, exist_ok=True)
     print(f"MPV 폴더가 생성되었습니다: {mpv_path}")
 
 os.environ["PATH"] = mpv_path + os.pathsep + os.environ["PATH"]
+
+# Windows에서는 os.add_dll_directory()가 PATH보다 더 확실한 방법입니다
+if os.path.exists(mpv_path):
+    os.add_dll_directory(mpv_path)
 
 # MPV 모듈 import (경로 설정 후에 가능)
 import mpv  # 비디오 재생 라이브러리 (고성능 미디어 플레이어)
