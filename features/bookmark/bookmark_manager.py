@@ -176,7 +176,7 @@ class BookmarkManager:
     def update_bookmark_button_state(self):
         """
         북마크 버튼의 상태를 업데이트해요.
-        현재 이미지가 북마크에 있으면 노란색, 없으면 하얀색으로 표시해요.
+        현재 이미지가 북마크에 있으면 노란색 배경, 없으면 기본 배경으로 표시해요.
         """
         # 북마크 버튼이 설정되지 않았으면 종료
         if not self.bookmark_button:
@@ -186,11 +186,11 @@ class BookmarkManager:
         if (hasattr(self.parent, 'current_image_path') and 
             self.parent.current_image_path and 
             self.parent.current_image_path in self.bookmarks):
-            # 북마크에 있으면 노란색 별표로 표시
+            # 북마크에 있으면 노란색 배경의 버튼으로 표시
             self.bookmark_button.setStyleSheet("""
                 QPushButton {
-                    background-color: rgba(52, 73, 94, 0.6);
-                    color: #FFD700;  /* 골드 색상 */
+                    background-color: rgba(241, 196, 15, 0.9);  /* 노란색 배경 */
+                    color: white;
                     font-weight: bold;
                     border: none;
                     border-radius: 3px;
@@ -199,11 +199,11 @@ class BookmarkManager:
                 }
                 
                 QPushButton:hover {
-                    background-color: rgba(52, 73, 94, 1.0);
+                    background-color: rgba(241, 196, 15, 1.0);  /* 호버 시 더 진한 노란색 */
                 }
             """)
         else:
-            # 북마크에 없으면 하얀색 별표로 표시
+            # 북마크에 없으면 기본 배경의 버튼으로 표시
             self.bookmark_button.setStyleSheet("""
                 QPushButton {
                     background-color: rgba(52, 73, 94, 0.6);

@@ -28,6 +28,7 @@ from media.loaders.image_loader import ImageLoaderThread
 # 미디어 처리
 from media.handlers.image_handler import ImageHandler  # 이미지 처리 클래스
 from media.handlers.psd_handler import PSDHandler  # PSD 처리 클래스
+from media.handlers.video_handler import VideoHandler  # 비디오 처리 클래스
 # 사용자 정의 UI 위젯
 from ui.components.slider import ClickableSlider
 from ui.components.scrollable_menu import ScrollableMenu
@@ -749,6 +750,7 @@ class ImageViewer(QWidget):
         # 미디어 핸들러 초기화
         self.image_handler = ImageHandler(self, self.image_label)
         self.psd_handler = PSDHandler(self, self.image_label)
+        self.video_handler = VideoHandler(self, self.image_label)
 
     def delete_current_image(self):
         """현재 이미지를 삭제합니다 (크로스 플랫폼)."""
@@ -1089,40 +1091,10 @@ class ImageViewer(QWidget):
 
     def stop_video(self):
         """비디오 재생 중지 및 관련 리소스 정리"""
-        
-        # OpenCV 비디오 캡처 객체 정리
-        if self.cap is not None:
-            self.cap.release()  # 비디오 캡처 객체 해제
-            self.cap = None  # 참조 제거
-        
-        # 비디오 프레임 업데이트 타이머 중지
-        if hasattr(self, 'timer') and self.timer.isActive():
-            self.timer.stop()  # 타이머 중지
-            if self.timer in self.timers:
-                self.timers.remove(self.timer)
-        
-        # MPV 플레이어 정지 (플레이어가 존재하고 실행 중인 경우)
-        if hasattr(self, 'player') and self.player:
-            try:
-                # 플레이어가 재생 중인지 확인
-                if self.player.playback_time is not None:  # 재생 시간이 있으면 재생 중
-                    self.player.stop()  # 재생 중지
-                    # mpv 속성 초기화
-                    self.player.loop = False
-                    self.player.mute = False
-            except Exception as e:
-                print(f"비디오 정지 에러: {e}")  # 에러 로깅
-                
-        # 비디오 타이머 정지
-        if hasattr(self, 'video_timer') and self.video_timer.isActive():
-            self.video_timer.stop()  # 비디오 타이머 중지
-            if self.video_timer in self.timers:
-                self.timers.remove(self.video_timer)
-                
+        self.video_handler.unload()
         # 슬라이더 값 초기화
         if hasattr(self, 'playback_slider'):
             self.playback_slider.setValue(0)
-            
         # 시간 표시 초기화
         if hasattr(self, 'time_label'):
             self.time_label.setText("00:00 / 00:00")
@@ -1696,69 +1668,16 @@ class ImageViewer(QWidget):
 
     def play_video(self, video_path):
         """MPV를 사용하여 비디오 재생"""
-        
-        # 로딩 표시 시작
-        self.show_loading_indicator()
-        
-        # 비디오가 표시되고 500ms 후에 로딩 인디케이터 숨기기
-        QTimer.singleShot(500, self.hide_loading_indicator)
-        
-        # 기존 비디오 중지
-        self.stop_video()
-        
-        # 애니메이션이 재생 중일 경우 정지
-        if hasattr(self, 'current_movie') and self.current_movie:
-            self.current_movie.stop()
-            self.current_movie.deleteLater()  # Qt 객체 명시적 삭제 요청
-            
-            if hasattr(self, 'gif_timer') and self.gif_timer.isActive():
-                self.gif_timer.stop()
-                if self.gif_timer in self.timers:
-                    self.timers.remove(self.gif_timer)
-        
-        # MPV 플레이어가 초기화되지 않은 경우 재초기화 시도
-        if not hasattr(self, 'player') or self.player is None:
-            try:
-                self.player = mpv.MPV(log_handler=print, 
-                                    ytdl=True, 
-                                    input_default_bindings=True, 
-                                    input_vo_keyboard=True,
-                                    hwdec='no')  # 하드웨어 가속 비활성화 (문제 해결을 위해)
-                print("MPV 플레이어 동적 초기화 성공")
-            except Exception as e:
-                print(f"MPV 플레이어 초기화 실패: {e}")
-                self.hide_loading_indicator()
-                self.show_message("비디오 플레이어 초기화 실패")
-                return
-                
-        # MPV로 비디오 재생
-        try:
-            # 화면에 비디오 출력을 위한 윈도우 핸들 설정
-            wid = int(self.image_label.winId())
-            self.player.wid = wid
-            
-            # MPV 옵션 설정
-            self.player.loop = True  # 비디오 반복 재생
-            self.player.volume = 100  # 볼륨 100%로 설정
-            self.player.seekable = True  # seek 가능하도록 설정
-            self.player.pause = False  # 항상 재생 상태로 시작
-            
-            # 회전 각도 설정
-            self.player['video-rotate'] = str(self.current_rotation)
-            
-            # 비디오 파일 재생
-            self.player.play(video_path)
-            
+        # 비디오 핸들러를 사용하여 비디오 로드
+        result = self.video_handler.load(video_path)
+        if result:
             # 비디오 정보 업데이트
             self.current_image_path = video_path
-            self.current_media_type = 'video'  # 미디어 타입 설정
+            self.current_media_type = 'video'
             
-            # 슬라이더 초기화
+            # 슬라이더 초기화 및 설정
             self.playback_slider.setRange(0, 0)  # 슬라이더 범위를 0으로 설정
             self.playback_slider.setValue(0)  # 슬라이더 초기값을 0으로 설정
-            
-            # 재생 버튼 상태 업데이트
-            self.play_button.setText("❚❚")  # 재생 중이므로 일시정지 아이콘 표시
             
             # 슬라이더 시그널 연결 전에 기존 연결 해제
             self.disconnect_all_slider_signals()
@@ -1769,55 +1688,13 @@ class ImageViewer(QWidget):
             self.playback_slider.valueChanged.connect(self.seek_video)
             self.playback_slider.clicked.connect(self.slider_clicked)
             
-            # 비디오 프레임 레이트에 맞춰 타이머 간격 설정
-            try:
-                # OpenCV로 비디오 프레임 레이트 확인
-                cap = cv2.VideoCapture(video_path)
-                fps = cap.get(cv2.CAP_PROP_FPS)
-                cap.release()
-                
-                # 프레임 레이트가 유효한 경우에만 사용
-                if fps > 0:
-                    # 밀리초 단위로 변환 (1000/fps)
-                    timer_interval = int(1000 / fps)
-                    # 최소 16ms (약 60fps), 최대 100ms (약 10fps)로 제한
-                    timer_interval = max(16, min(timer_interval, 100))
-                else:
-                    timer_interval = 33  # 약 30fps (기본값)
-            except Exception as e:
-                print(f"프레임 레이트 확인 오류: {e}")
-                timer_interval = 33  # 오류 발생 시 약 30fps로 기본 설정
+            # 재생 버튼 상태 업데이트
+            self.play_button.setText("❚❚")  # 재생 중이므로 일시정지 아이콘 표시
             
-            # MPV의 재생 상태를 주기적으로 업데이트하기 위한 타이머 설정
-            self.video_timer = QTimer(self)
-            self.video_timer.timeout.connect(self.update_video_playback)  # 슬라이더 업데이트 호출
-            self.video_timer.start(timer_interval)  # 비디오 프레임 레이트에 맞춰 설정
-            self.timers.append(self.video_timer)  # 타이머 추적에 추가
+            # 비디오 재생 시작
+            self.video_handler.play()
             
-            # 비디오 종료 시 타이머 중지
-            self.player.observe_property('playback-restart', self.on_video_end)  # 비디오 종료 시 호출될 메서드 등록
-            
-            # 이전 duration 관찰자가 있으면 제거
-            if hasattr(self, 'duration_observer_callback'):
-                try:
-                    self.player.unobserve_property('duration', self.duration_observer_callback)
-                except Exception as e:
-                    print(f"관찰자 제거 오류: {e}")
-                    pass  # 기존 관찰자가 없거나 오류 발생 시 무시
-            
-            # duration 속성 관찰 (추가 정보 용도)
-            def check_video_loaded(name, value):
-                if value is not None and value > 0:
-                    print(f"비디오 로드 완료: {video_path}, 길이: {value}초")
-            
-            # 새 관찰자 등록 및 참조 저장
-            self.duration_observer_callback = check_video_loaded
-            self.player.observe_property('duration', self.duration_observer_callback)
-            
-        except Exception as e:
-            print(f"비디오 재생 에러: {e}")  # 에러 로깅
-            self.hide_loading_indicator()  # 에러 발생 시 로딩 인디케이터 숨김
-            self.show_message(f"비디오 재생 오류: {str(e)}")
+        return result
 
     def on_video_end(self, name, value):
         """비디오가 종료될 때 호출되는 메서드입니다."""
@@ -1846,14 +1723,14 @@ class ImageViewer(QWidget):
                 pass  # 예외 발생 시 무시
         
         # 비디오 처리
-        if self.current_media_type == 'video' and hasattr(self, 'player') and self.player:
+        if self.current_media_type == 'video':
             try:
-                if self.player.playback_time is not None:  # 재생 중인지 확인
-                    # 클릭한 위치의 값을 초 단위로 변환
-                    seconds = value / 1000.0  # 밀리초를 초 단위로 변환
-                    # MPV의 seek 함수를 사용하여 정확한 위치로 이동
-                    self.player.command('seek', seconds, 'absolute')
+                # 클릭한 위치의 값을 초 단위로 변환
+                seconds = value / 1000.0  # 밀리초를 초 단위로 변환
+                # VideoHandler의 seek 함수를 사용하여 정확한 위치로 이동
+                self.video_handler.seek(seconds)
             except Exception as e:
+                print(f"비디오 Seek 오류: {e}")  # 오류 내용 출력
                 pass  # 예외 발생 시 무시
                 
         # 슬라이더 클릭 후 약간의 지연을 두고 창에 포커스를 돌려줌
@@ -1880,12 +1757,12 @@ class ImageViewer(QWidget):
                 pass  # 예외 발생 시 무시
                 
         # 비디오 처리
-        elif self.current_media_type == 'video' and hasattr(self, 'player') and self.player:
+        elif self.current_media_type == 'video':
             try:
-                if self.player.playback_time is not None:  # 재생 중인지 확인
-                    seconds = self.playback_slider.value() / 1000.0  # 밀리초를 초 단위로 변환
-                    self.player.command('seek', seconds, 'absolute')  # MPV의 seek 함수 사용
+                seconds = self.playback_slider.value() / 1000.0  # 밀리초를 초 단위로 변환
+                self.video_handler.seek(seconds)  # VideoHandler의 seek 함수 사용
             except Exception as e:
+                print(f"비디오 Seek 오류: {e}")  # 오류 내용 출력
                 pass  # 예외 발생 시 무시
                 
         # 슬라이더 조작 후 약간의 지연을 두고 창에 포커스를 돌려줌
@@ -1893,15 +1770,11 @@ class ImageViewer(QWidget):
 
     def seek_video(self, value):
         """슬라이더 값에 따라 비디오 재생 위치를 변경합니다."""
-        if hasattr(self, 'player') and self.is_slider_dragging:
-            # MPV가 비디오를 재생 중인지 확인
-            if self.player.playback_time is None or self.player.playback_time < 0:
-                return  # MPV가 비디오를 재생 중이지 않으면 seek 명령을 실행하지 않음
-
+        if self.is_slider_dragging:
             # 슬라이더 값을 초 단위로 변환 (value는 밀리초 단위)
             seconds = value / 1000.0  # 밀리초를 초 단위로 변환
-            # MPV의 seek 함수를 사용하여 정확한 위치로 이동
-            self.player.command('seek', seconds, 'absolute')
+            # VideoHandler의 seek 함수를 사용하여 정확한 위치로 이동
+            self.video_handler.seek(seconds)
 
     def seek_animation(self, value):
         """슬라이더 값에 따라 애니메이션 재생 위치를 변경합니다."""
@@ -1912,13 +1785,13 @@ class ImageViewer(QWidget):
             self.current_movie.jumpToFrame(frame)
 
     def update_video_playback(self):
-        """MPV 비디오의 재생 위치에 따라 슬라이더 값을 업데이트합니다."""
-        if hasattr(self, 'player') and not self.is_slider_dragging:
+        """VideoHandler를 사용하여 비디오의 재생 위치에 따라 슬라이더 값을 업데이트합니다."""
+        if not self.is_slider_dragging:
             try:
-                position = self.player.playback_time  # 현재 재생 위치
-                duration = self.player.duration  # 총 길이
+                position = self.video_handler.get_position()  # 현재 재생 위치
+                duration = self.video_handler.get_duration()  # 총 길이
                 
-                # playback_time 값이 None인 경우 처리
+                # 재생 위치 값이 None인 경우 처리
                 if position is None:
                     return  # 슬라이더 업데이트를 건너뜁니다.
 
@@ -1930,7 +1803,7 @@ class ImageViewer(QWidget):
                     # 현재 위치가 duration을 초과하면 0으로 리셋
                     if position >= duration:
                         self.playback_slider.setValue(0)
-                        self.player.command('seek', 0, 'absolute')  # seek_to 대신 command 사용
+                        self.video_handler.seek(0)
                     else:
                         # 슬라이더 값을 밀리초 단위로 설정 (1000으로 곱해서 더 세밀하게)
                         self.playback_slider.setValue(int(position * 1000))
@@ -1939,7 +1812,8 @@ class ImageViewer(QWidget):
 
                 self.previous_position = position  # 현재 위치를 이전 위치로 저장
 
-            except mpv.ShutdownError:
+            except Exception as e:
+                print(f"비디오 업데이트 에러: {e}")
                 self.video_timer.stop()  # 타이머 중지
 
     def format_time(self, seconds):
@@ -1956,13 +1830,14 @@ class ImageViewer(QWidget):
                 self.play_button.setText("❚❚")  # 일시정지 아이콘
             else:
                 self.play_button.setText("▶")  # 재생 아이콘
-        elif self.current_media_type == 'video' and hasattr(self, 'player') and self.player:
+        elif self.current_media_type == 'video':
             # 비디오 재생 상태 확인
             try:
-                if self.player.playback_time is not None:  # 비디오가 로드되었는지 확인
-                    self.play_button.setText("❚❚" if not self.player.pause else "▶")
-                    self.update_video_playback()  # 슬라이더 업데이트 호출
-            except mpv.ShutdownError:
+                is_playing = self.video_handler.is_video_playing()
+                self.play_button.setText("❚❚" if is_playing else "▶")
+                self.update_video_playback()  # 슬라이더 업데이트 호출
+            except Exception as e:
+                print(f"재생 버튼 업데이트 오류: {e}")
                 self.play_button.setEnabled(False)  # 버튼 비활성화
 
     def update_video_frame(self):
@@ -2558,14 +2433,14 @@ class ImageViewer(QWidget):
 
     def restore_video_state(self, was_playing, position):
         """비디오 재생 상태를 복구합니다"""
-        if hasattr(self, 'player') and self.current_media_type == 'video':
+        if self.current_media_type == 'video':
             try:
                 # 위치 복구
-                self.player.command('seek', position, 'absolute')
+                self.video_handler.seek(position)
                 
                 # 재생 상태 복구
                 if was_playing:
-                    self.player.pause = False
+                    self.video_handler.play()
                     self.update_play_button()
                 
                 # 슬라이더 위치 업데이트 강제
@@ -2603,13 +2478,12 @@ class ImageViewer(QWidget):
                     print(f"스레드 종료 오류: {e}")
         self.loader_threads.clear()
         
-        # MPV 플레이어 정리
-        if hasattr(self, 'player'):
+        # VideoHandler 정리
+        if hasattr(self, 'video_handler') and self.video_handler:
             try:
-                self.player.terminate()  # 플레이어 종료
-                self.player = None  # 참조 제거
+                self.video_handler.unload()  # VideoHandler의 unload 메서드 호출
             except Exception as e:
-                print(f"플레이어 종료 오류: {e}")
+                print(f"비디오 핸들러 정리 오류: {e}")
         
         # 미디어 핸들러 정리
         if hasattr(self, 'image_handler'):
@@ -2652,20 +2526,29 @@ class ImageViewer(QWidget):
 
     def toggle_mute(self):
         """음소거 상태를 토글합니다."""
-        if hasattr(self, 'player'):
-            self.player.mute = not self.player.mute  # MPV의 음소거 상태를 토글
+        try:
+            # VideoHandler의 toggle_mute 메서드 사용
+            is_muted = self.video_handler.toggle_mute()
+            
             # 버튼 아이콘 변경 (음소거 상태에 따라)
-            if self.player.mute:
+            if is_muted:  # 토글 후 상태
                 self.mute_button.setText("🔇")  # 음소거 상태 아이콘 (소리 없음)
             else:
                 self.mute_button.setText("🔈")  # 음소거 해제 상태 아이콘 (소리 있음)
+        except Exception as e:
+            print(f"음소거 토글 오류: {e}")
+            pass
 
     def adjust_volume(self, volume):
         """음량을 조절합니다."""
-        if hasattr(self, 'player'):
+        try:
             # 현재 슬라이더 값을 가져와서 볼륨을 설정
             volume_value = self.volume_slider.value()  # 슬라이더의 현재 값
-            self.player.volume = volume_value  # MPV의 볼륨 설정
+            # VideoHandler의 set_volume 메서드 사용
+            self.video_handler.set_volume(volume_value)
+        except Exception as e:
+            print(f"볼륨 조절 오류: {e}")
+            pass
 
     def toggle_animation_playback(self):
         """애니메이션(GIF, WEBP) 또는 비디오 재생/일시정지 토글"""
@@ -2682,12 +2565,18 @@ class ImageViewer(QWidget):
             self.play_button.setText("▶" if not is_paused else "❚❚")  # 토글된 상태에 따라 아이콘 설정
                 
         # 비디오 처리
-        elif self.current_media_type == 'video' and hasattr(self, 'player'):
+        elif self.current_media_type == 'video':
             try:
-                is_paused = self.player.pause
-                self.player.pause = not is_paused  # 비디오 재생/일시정지 토글
-                self.play_button.setText("▶" if self.player.pause else "❚❚")  # 버튼 상태 업데이트
+                # VideoHandler를 사용하여 재생 상태 확인 및 토글
+                is_playing = self.video_handler.is_video_playing()
+                if is_playing:
+                    self.video_handler.pause()  # 재생 중이면 일시정지
+                else:
+                    self.video_handler.play()  # 일시정지 중이면 재생
+                # 버튼 상태 업데이트
+                self.update_play_button()
             except Exception as e:
+                print(f"비디오 재생/일시정지 토글 오류: {e}")
                 pass  # 예외 발생 시 무시
 
     def toggle_bookmark(self):
@@ -2712,37 +2601,40 @@ class ImageViewer(QWidget):
 
     def update_bookmark_button_state(self):
         """북마크 버튼 상태 업데이트"""
-        # 초기 상태 확인: 현재 이미지 경로가 있고 북마크에 포함되어 있는지 확인
-        if hasattr(self, 'current_image_path') and self.current_image_path and self.current_image_path in self.bookmark_manager.bookmarks:
-            # 북마크된 상태
-            self.slider_bookmark_btn.setStyleSheet("""
-                QPushButton {
-                    background-color: rgba(241, 196, 15, 0.9);  /* 노란색 배경 */
-                    color: white;
-                    border: none;
-                    padding: 8px;
-                    border-radius: 3px;
-                    font-size: 12px;
-                }
-                QPushButton:hover {
-                    background-color: rgba(241, 196, 15, 1.0);  /* 호버 시 더 진한 노란색 */
-                }
-            """)
-        else:
-            # 북마크되지 않은 상태 또는 이미지가 로드되지 않은 상태
-            self.slider_bookmark_btn.setStyleSheet("""
-                QPushButton {
-                    background-color: rgba(52, 73, 94, 0.6);  /* 일반 버튼과 동일한 색상 */
-                    color: white;
-                    border: none;
-                    padding: 8px;
-                    border-radius: 3px;
-                    font-size: 12px;
-                }
-                QPushButton:hover {
-                    background-color: rgba(52, 73, 94, 1.0);
-                }
-            """)
+        # 북마크 매니저의 메서드를 호출하여 북마크 버튼 상태를 업데이트
+        self.bookmark_manager.update_bookmark_button_state()
+
+        # 아래 직접 스타일을 설정하는 코드는 제거
+        # if hasattr(self, 'current_image_path') and self.current_image_path and self.current_image_path in self.bookmark_manager.bookmarks:
+        #     # 북마크된 상태
+        #     self.slider_bookmark_btn.setStyleSheet("""
+        #         QPushButton {
+        #             background-color: rgba(241, 196, 15, 0.9);  /* 노란색 배경 */
+        #             color: white;
+        #             border: none;
+        #             padding: 8px;
+        #             border-radius: 3px;
+        #             font-size: 12px;
+        #         }
+        #         QPushButton:hover {
+        #             background-color: rgba(241, 196, 15, 1.0);  /* 호버 시 더 진한 노란색 */
+        #         }
+        #     """)
+        # else:
+        #     # 북마크되지 않은 상태 또는 이미지가 로드되지 않은 상태
+        #     self.slider_bookmark_btn.setStyleSheet("""
+        #         QPushButton {
+        #             background-color: rgba(52, 73, 94, 0.6);  /* 일반 버튼과 동일한 색상 */
+        #             color: white;
+        #             border: none;
+        #             padding: 8px;
+        #             border-radius: 3px;
+        #             font-size: 12px;
+        #         }
+        #         QPushButton:hover {
+        #             background-color: rgba(52, 73, 94, 1.0);
+        #         }
+        #     """)
 
     def add_bookmark(self):
         """현재 이미지를 북마크에 추가합니다."""
@@ -3235,11 +3127,10 @@ class ImageViewer(QWidget):
         elif self.current_media_type == 'video':
             # 비디오 회전 처리
             try:
-                if hasattr(self, 'player') and self.player:
-                    # MPV의 video-rotate 속성 설정
-                    # MPV에서는 회전 각도가 0, 90, 180, 270도만 지원됨
-                    self.player['video-rotate'] = str(self.current_rotation)
-                    print(f"비디오 회전 적용: {self.current_rotation}°")
+                # 기존 코드 교체: self.player 대신 video_handler 사용
+                if hasattr(self, 'video_handler') and self.video_handler:
+                    # 비디오 핸들러의 rotate 메서드 호출
+                    self.video_handler.rotate(self.current_rotation)
             except Exception as e:
                 self.show_message(f"비디오 회전 중 오류 발생: {str(e)}")
                 return
