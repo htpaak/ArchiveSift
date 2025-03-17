@@ -7,7 +7,7 @@
 
 import os
 import json
-from PyQt5.QtWidgets import QAction, QApplication, QPushButton, QSizePolicy, QMenu, QWidget
+from PyQt5.QtWidgets import QAction, QApplication, QPushButton, QSizePolicy, QMenu, QWidget, QLabel
 from PyQt5.QtCore import QPoint, Qt
 
 from core.utils.path_utils import get_user_data_directory
@@ -323,30 +323,18 @@ class BookmarkManager:
         self.bookmark_menu.setStyle(self.bookmark_menu.style())
     
     def load_bookmarked_image(self, path):
-        """
-        북마크된 이미지를 불러와요.
-        
-        매개변수:
-            path: 불러올 이미지 경로
-        """
-        # 파일이 존재하는지 확인
+        """북마크된 이미지를 불러옵니다."""
+        # 파일 존재 확인
         if not os.path.exists(path):
             self.parent.show_message(f"파일을 찾을 수 없습니다: {path}")
-            
-            # 북마크가 존재하지 않으면 북마크에서 제거
-            if path in self.bookmarks:
-                self.bookmarks.remove(path)
-                self.update_bookmark_menu()
-                self.save_bookmarks()
             return
         
         # 이미지가 있는 폴더의 모든 파일 불러오기
         folder_path = os.path.dirname(path)
-        self.parent.image_files = self.parent.get_image_files(folder_path)  # 지원되는 미디어 파일 목록 가져오기
+        self.parent.image_files = self.parent.get_image_files(folder_path)
         
-        if self.parent.image_files:  # 유효한 파일이 있는 경우
-            self.parent.image_files.sort()  # 파일 목록 정렬
-            
+        if self.parent.image_files:
+            self.parent.image_files.sort()
             # 현재 인덱스 설정
             try:
                 self.parent.current_index = self.parent.image_files.index(path)
@@ -354,40 +342,69 @@ class BookmarkManager:
                 self.parent.current_index = 0
         
         # 기존 미디어 중지
-        # 비디오 정지
         self.parent.stop_video()
         
-        # GIF/WEBP 애니메이션 정지
+        # 애니메이션 정지 (GIF/WEBP)
         if hasattr(self.parent, 'current_movie') and self.parent.current_movie:
             try:
                 self.parent.current_movie.stop()
                 self.parent.current_movie = None
-            except:
-                pass
-            
-        # 파일 형식에 따라 적절한 처리
-        file_ext = os.path.splitext(path)[1].lower()
+            except Exception as e:
+                print(f"애니메이션 정지 오류: {e}")
         
-        if file_ext in ['.mp4', '.avi', '.mkv', '.mov', '.wmv', '.webm']:
-            # 비디오 파일
-            self.parent.play_video(path)
-        elif file_ext in ['.gif']:
-            # GIF 파일
-            self.parent.show_gif(path)
-        elif file_ext in ['.webp']:
-            # WEBP 파일
-            self.parent.show_webp(path)
-        elif file_ext in ['.psd']:
-            # PSD 파일
-            self.parent.show_psd(path)
-        else:
-            # 일반 이미지 파일
-            self.parent.show_image(path)
-            
-        # 이미지를 불러오는 것을 마치면
-        self.parent.update_bookmark_button_state()
+        # 현재 이미지 경로 명시적 설정
+        self.parent.current_image_path = path
         
-        # 이미지 정보 업데이트 (현재 파일 순서/전체 파일 숫자)
+        # 파일 이름을 제목표시줄에 표시
+        file_name = os.path.basename(path)
+        title_text = f"Image Viewer - {file_name}"
+        
+        # 제목표시줄 라벨 찾아서 텍스트 업데이트
+        if hasattr(self.parent, 'title_bar'):
+            for child in self.parent.title_bar.children():
+                if isinstance(child, QLabel):
+                    child.setText(title_text)
+                    break
+        
+        # FormatDetector를 사용해서 파일 형식 감지 (기존 모듈 사용)
+        # 해당 경로가 없는 경우를 대비해 try-except 사용
+        try:
+            # media.format_detector 모듈 import
+            from media.format_detector import FormatDetector
+            file_format = FormatDetector.detect_format(path)
+            
+            # 감지된 형식에 따라 적절한 처리
+            if file_format == 'video':
+                self.parent.play_video(path)
+            elif file_format in ['gif_image', 'gif_animation']:
+                self.parent.current_media_type = file_format
+                self.parent.show_gif(path)
+            elif file_format in ['webp_image', 'webp_animation']:
+                self.parent.current_media_type = file_format
+                self.parent.show_webp(path)
+            elif file_format == 'psd':
+                self.parent.show_psd(path)
+            else:
+                self.parent.show_image(path)
+                
+        except ImportError:
+            # FormatDetector 모듈을 찾을 수 없는 경우 확장자로 판단
+            print("FormatDetector 모듈을 로드할 수 없습니다. 확장자로 판단합니다.")
+            file_ext = os.path.splitext(path)[1].lower()
+            
+            # 확장자에 따른 처리
+            if file_ext in ['.mp4', '.avi', '.mkv', '.mov', '.flv', '.wmv']:
+                self.parent.play_video(path)
+            elif file_ext == '.gif':
+                self.parent.show_gif(path)
+            elif file_ext == '.webp':
+                self.parent.show_webp(path)
+            elif file_ext == '.psd' and hasattr(self.parent, 'show_psd'):
+                self.parent.show_psd(path)
+            else:
+                self.parent.show_image(path)
+        
+        # 이미지 정보 업데이트 (인덱스 표시 등)
         self.parent.update_image_info()
     
     def clear_bookmarks(self):
