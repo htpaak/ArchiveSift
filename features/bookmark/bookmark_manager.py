@@ -341,6 +341,10 @@ class BookmarkManager:
             except ValueError:
                 self.parent.current_index = 0
         
+        # AnimationHandler 정리 (중요!)
+        if hasattr(self.parent, 'animation_handler'):
+            self.parent.animation_handler.cleanup()
+        
         # 기존 미디어 중지
         self.parent.stop_video()
         
@@ -351,6 +355,10 @@ class BookmarkManager:
                 self.parent.current_movie = None
             except Exception as e:
                 print(f"애니메이션 정지 오류: {e}")
+        
+        # 이미지 레이블 초기화 (중요!)
+        if hasattr(self.parent, 'image_label'):
+            self.parent.image_label.clear()
         
         # 현재 이미지 경로 명시적 설정
         self.parent.current_image_path = path
@@ -366,47 +374,37 @@ class BookmarkManager:
                     child.setText(title_text)
                     break
         
-        # FormatDetector를 사용해서 파일 형식 감지 (기존 모듈 사용)
-        # 해당 경로가 없는 경우를 대비해 try-except 사용
+        # 시간 딜레이를 추가하여 기존 이미지가 제거될 시간을 확보
+        QApplication.processEvents()
+        
+        # show_image 호출로 통합 (AnimationHandler를 사용하도록)
+        self.parent.show_image(path)
+        
+        # 이미지 정보 업데이트 (인덱스 표시 등)
+        self.parent.update_image_info()
+        
+        # 비디오 파일인 경우에만 추가 처리
         try:
             # media.format_detector 모듈 import
             from media.format_detector import FormatDetector
             file_format = FormatDetector.detect_format(path)
             
-            # 감지된 형식에 따라 적절한 처리
+            # 비디오 파일만 추가 처리
             if file_format == 'video':
                 self.parent.play_video(path)
-            elif file_format in ['gif_image', 'gif_animation']:
-                self.parent.current_media_type = file_format
-                self.parent.show_gif(path)
-            elif file_format in ['webp_image', 'webp_animation']:
-                self.parent.current_media_type = file_format
-                self.parent.show_webp(path)
-            elif file_format == 'psd':
-                self.parent.show_psd(path)
-            else:
-                self.parent.show_image(path)
                 
         except ImportError:
             # FormatDetector 모듈을 찾을 수 없는 경우 확장자로 판단
             print("FormatDetector 모듈을 로드할 수 없습니다. 확장자로 판단합니다.")
             file_ext = os.path.splitext(path)[1].lower()
             
-            # 확장자에 따른 처리
+            # 비디오 파일만 추가 처리
             if file_ext in ['.mp4', '.avi', '.mkv', '.mov', '.flv', '.wmv']:
                 self.parent.play_video(path)
-            elif file_ext == '.gif':
-                self.parent.show_gif(path)
-            elif file_ext == '.webp':
-                self.parent.show_webp(path)
-            elif file_ext == '.psd' and hasattr(self.parent, 'show_psd'):
-                self.parent.show_psd(path)
-            else:
-                self.parent.show_image(path)
         
         # 이미지 정보 업데이트 (인덱스 표시 등)
         self.parent.update_image_info()
-    
+
     def clear_bookmarks(self):
         """
         모든 북마크를 지워요.

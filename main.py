@@ -31,6 +31,7 @@ from media.loaders.image_loader import ImageLoaderThread
 from media.handlers.image_handler import ImageHandler  # 이미지 처리 클래스
 from media.handlers.psd_handler import PSDHandler  # PSD 처리 클래스
 from media.handlers.video_handler import VideoHandler  # 비디오 처리 클래스
+from media.handlers.animation_handler import AnimationHandler  # 애니메이션 처리 클래스 추가
 # 사용자 정의 UI 위젯
 from ui.components.slider import ClickableSlider
 from ui.components.scrollable_menu import ScrollableMenu
@@ -1130,6 +1131,10 @@ class ImageViewer(QWidget):
 
     def show_image(self, image_path):
         """이미지/미디어 파일 표시 및 관련 UI 업데이트"""
+        # AnimationHandler 리소스 정리 (이미지 전환 전에 꼭 필요)
+        if hasattr(self, 'animation_handler'):
+            self.animation_handler.cleanup()
+            
         self.stop_video()  # 기존 비디오 재생 중지
 
         # 이미지 크기 확인
@@ -1213,15 +1218,24 @@ class ImageViewer(QWidget):
         
         # FormatDetector를 사용하여 파일 형식 감지
         file_format = FormatDetector.detect_format(image_path)
-        
+
+        # 파일 형식 감지 결과에 따라 적절한 핸들러 호출
         if file_format == 'gif_image' or file_format == 'gif_animation':
-            # GIF 파일 처리 (정적/애니메이션 구분)
-            self.current_media_type = file_format  # 미디어 타입 업데이트
-            self.show_gif(image_path)  # GIF를 표시하는 메서드 호출
+            # AnimationHandler로 GIF 처리
+            if hasattr(self, 'animation_handler'):
+                detected_type = self.animation_handler.load_gif(image_path)
+                self.current_media_type = detected_type
+            else:
+                # AnimationHandler가 없는 경우 기존 방식으로 처리
+                self.show_gif(image_path) 
         elif file_format == 'webp_image' or file_format == 'webp_animation':
-            # WEBP 파일 처리 (정적/애니메이션 구분)
-            self.current_media_type = file_format  # 미디어 타입 업데이트
-            self.show_webp(image_path)  # WEBP 파일 처리
+            # AnimationHandler로 WEBP 처리
+            if hasattr(self, 'animation_handler'):
+                detected_type = self.animation_handler.load_webp(image_path)
+                self.current_media_type = detected_type
+            else:
+                # AnimationHandler가 없는 경우 기존 방식으로 처리
+                self.show_webp(image_path)
         elif file_format == 'psd':
             # PSD 파일 처리
             self.current_media_type = 'image'  # 미디어 타입 업데이트
@@ -1798,7 +1812,11 @@ class ImageViewer(QWidget):
 
     def seek_animation(self, value):
         """슬라이더 값에 따라 애니메이션 재생 위치를 변경합니다."""
-        if hasattr(self, 'current_movie'):
+        # AnimationHandler 사용
+        if self.current_media_type in ['gif_animation', 'webp_animation'] and hasattr(self, 'animation_handler'):
+            self.animation_handler.seek_to_frame(value)
+        # 기존 방식 (AnimationHandler가 없는 경우)
+        elif hasattr(self, 'current_movie') and self.current_movie:
             # 슬라이더 값을 프레임 번호로 변환
             frame = value
             # 애니메이션이 재생 중일 경우 해당 프레임으로 점프
@@ -2570,11 +2588,11 @@ class ImageViewer(QWidget):
             return
             
         # 미디어 타입에 따라 처리
-        if hasattr(self, 'current_movie') and self.current_movie:
-            # GIF나 WEBP 애니메이션 처리
-            is_paused = self.current_movie.state() != QMovie.Running
-            self.current_movie.setPaused(not is_paused)  # 상태 토글
-            self.play_button.setText("▶" if not is_paused else "❚❚")  # 토글된 상태에 따라 아이콘 설정
+        if self.current_media_type in ['gif_animation', 'webp_animation']:
+            # AnimationHandler 사용
+            if hasattr(self, 'animation_handler'):
+                self.animation_handler.toggle_playback()
+                # 버튼 텍스트는 animation_handler 내에서 직접 업데이트됨
                 
         # 비디오 처리
         elif self.current_media_type == 'video':
@@ -2871,6 +2889,8 @@ class ImageViewer(QWidget):
         
         # 연결 추가 (이벤트와 함수 연결)
         self.volume_slider.valueChanged.connect(self.adjust_volume)  # 슬라이더 값 변경 시 음량 조절 메서드 연결 (볼륨 실시간 조절)
+        # AnimationHandler 초기화 (UI 설정 완료 후)
+        self.animation_handler = AnimationHandler(self.image_label, self)
 
     def show_loading_indicator(self):
         """로딩 인디케이터를 화면 중앙에 표시합니다."""
@@ -3077,6 +3097,10 @@ class ImageViewer(QWidget):
         rotation_delta = 90 if clockwise else -90
         self.current_rotation = (self.current_rotation + rotation_delta) % 360
         
+        # AnimationHandler에 회전 각도 전달
+        if hasattr(self, 'animation_handler'):
+            self.animation_handler.current_rotation = self.current_rotation
+        
         # 현재 미디어 타입에 따라 다르게 처리
         if self.current_media_type == 'image':
             # 일반 이미지 회전 - 현재 회전 각도에 따라 새로 이미지를 로드하여 처리
@@ -3106,35 +3130,77 @@ class ImageViewer(QWidget):
                     self.image_label.setPixmap(scaled_pixmap)
                 print(f"WEBP 일반 이미지 회전 즉시 적용: {self.current_rotation}°")
         elif self.current_media_type in ['gif_animation', 'webp_animation']:
-            # 애니메이션 회전을 위한 더 안전한 방법 구현
-            try:
+            # AnimationHandler가 있으면 사용, 없으면 기존 방식으로 처리
+            if hasattr(self, 'animation_handler'):
+                # 현재 재생 상태 기억
+                was_playing = False
+                current_frame = 0
+                
                 if hasattr(self, 'current_movie') and self.current_movie:
-                    # 현재 재생 상태 및 프레임 기억
                     was_playing = self.current_movie.state() == QMovie.Running
                     current_frame = self.current_movie.currentFrameNumber()
                     
-                    # 재로드 방식으로 처리
+                    # 기존 애니메이션 정지 및 정리
+                    self.current_movie.stop()
+                    
+                # 이미지 레이블 초기화 (중요: 깜빡임 방지)
+                self.image_label.clear()
+                
+                # 애니메이션 핸들러 정리
+                self.animation_handler.cleanup()
+                
+                # 이벤트 처리로 UI 갱신 시간 확보
+                QApplication.processEvents()
+                
+                # AnimationHandler를 통해 다시 로드
+                if self.current_media_type == 'gif_animation':
+                    self.animation_handler.load_gif(self.current_image_path)
+                elif self.current_media_type == 'webp_animation':
+                    self.animation_handler.load_webp(self.current_image_path)
+                    
+                # 프레임 및 재생 상태 복원
+                if hasattr(self, 'current_movie') and self.current_movie:
+                    if current_frame < self.current_movie.frameCount():
+                        self.current_movie.jumpToFrame(current_frame)
+                    if not was_playing:
+                        self.current_movie.setPaused(True)
+                        self.play_button.setText("▶")  # 재생 아이콘
+            else:
+                # 기존 방식 (AnimationHandler 없는 경우)
+                try:
+                    if hasattr(self, 'current_movie') and self.current_movie:
+                        # 현재 재생 상태 및 프레임 기억
+                        was_playing = self.current_movie.state() == QMovie.Running
+                        current_frame = self.current_movie.currentFrameNumber()
+                        
+                        # 이미지 레이블 초기화
+                        self.image_label.clear()
+                        
+                        # 이벤트 처리로 UI 갱신 시간 확보
+                        QApplication.processEvents()
+                        
+                        # 재로드 방식으로 처리
+                        if self.current_media_type == 'gif_animation':
+                            self.show_gif(self.current_image_path)
+                        else:  # webp 또는 webp_animation
+                            self.show_webp(self.current_image_path)
+                            
+                        # 프레임 복원 시도
+                        if self.current_movie and current_frame < self.current_movie.frameCount():
+                            self.current_movie.jumpToFrame(current_frame)
+                            
+                        # 정지 상태였다면 유지
+                        if not was_playing and self.current_movie:
+                            self.current_movie.setPaused(True)
+                            
+                except Exception as e:
+                    self.show_message(f"애니메이션 회전 중 오류 발생: {str(e)}")
+                    # 오류 발생 시 원본 이미지 다시 로드
                     if self.current_media_type == 'gif_animation':
                         self.show_gif(self.current_image_path)
-                    else:  # webp 또는 webp_animation
+                    else:
                         self.show_webp(self.current_image_path)
-                        
-                    # 프레임 복원 시도
-                    if self.current_movie and current_frame < self.current_movie.frameCount():
-                        self.current_movie.jumpToFrame(current_frame)
-                        
-                    # 정지 상태였다면 유지
-                    if not was_playing and self.current_movie:
-                        self.current_movie.setPaused(True)
-                        
-            except Exception as e:
-                self.show_message(f"애니메이션 회전 중 오류 발생: {str(e)}")
-                # 오류 발생 시 원본 이미지 다시 로드
-                if self.current_media_type == 'gif_animation':
-                    self.show_gif(self.current_image_path)
-                else:
-                    self.show_webp(self.current_image_path)
-                return
+                    return
         
         elif self.current_media_type == 'video':
             # 비디오 회전 처리
