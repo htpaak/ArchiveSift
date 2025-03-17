@@ -32,3 +32,22 @@ update_bookmark_button_state (2602~2638줄):
 북마크 상태 확인 및 버튼 스타일 설정
 wheelEvent (2071~2097줄):
 미디어 타입에 따른 쿨다운 계산 및 이미지 전환
+
+현재 애니메이션 핸들러 모듈화 진행 상황:
+✅ 완료된 부분:
+animation_handler.py 클래스 구조 생성
+load_gif 메서드 구현 (GIF 애니메이션 처리)
+load_webp 메서드 구현 (WEBP 애니메이션 처리)
+scale_animation 메서드 구현 (애니메이션 크기 조절)
+seek_to_frame, toggle_playback 메서드 구현 (재생 제어)
+회전 처리 적용 (transform 및 frameChanged 이벤트 연결)
+🔄 진행 중인 부분:
+📝 남은 부분:
+main.py에서 기존 애니메이션 처리 코드 완전 제거
+모든 기존 애니메이션 처리를 새 모듈로 이전
+전반적인 코드 최적화 및 주석 보완
+
+main.py에서 남아있는 show_gif 및 show_webp 메서드를 찾아서 제거
+이 메서드들이 호출되는 모든 위치를 AnimationHandler 사용으로 변경
+main.py에서 GIF/WEBP 관련 속성 및 변수들을 AnimationHandler로 이전
+먼저 main.py에서 show_gif와 show_webp 메서드를 찾아보겠습니다:
