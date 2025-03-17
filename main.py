@@ -1431,11 +1431,22 @@ class ImageViewer(QWidget):
         # WEBP 애니메이션을 처리하기 위해 QImageReader를 사용
         reader = QImageReader(image_path)
 
-        # 이미지를 로드하고 애니메이션으로 처리
-        if reader.supportsAnimation():  # 애니메이션을 지원하면
-            # 애니메이션 WEBP로 미디어 타입 설정
-            self.current_media_type = 'webp_animation'
-            
+        # FormatDetector로 이미 타입이 결정되었는지 확인
+        # (show_image 메서드에서 FormatDetector 사용 시)
+        if self.current_media_type != 'webp_image' and self.current_media_type != 'webp_animation':
+            # 아직 타입이 설정되지 않은 경우 직접 결정
+            if reader.supportsAnimation():
+                # 프레임 수를 확인하여 1개 이상이면 애니메이션으로 간주
+                frame_count = reader.imageCount()
+                if frame_count > 1:
+                    self.current_media_type = 'webp_animation'
+                else:
+                    self.current_media_type = 'webp_image'
+            else:
+                self.current_media_type = 'webp_image'
+
+        # 애니메이션 WEBP 처리
+        if self.current_media_type == 'webp_animation':
             # 기존 타이머 정지 및 관리
             if hasattr(self, 'gif_timer'):
                 self.gif_timer.stop()
