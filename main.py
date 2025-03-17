@@ -23,6 +23,8 @@ from core.utils.sort_utils import atoi, natural_keys  # 유틸리티 함수들
 from media.loaders.cache_manager import LRUCache
 # 설정 관리
 from core.config_manager import load_settings, save_settings  # 설정 관리 함수들
+# 파일 형식 감지
+from media.format_detector import FormatDetector  # 파일 형식 감지 클래스
 # 이미지 로딩 기능
 from media.loaders.image_loader import ImageLoaderThread
 # 미디어 처리
@@ -1195,7 +1197,7 @@ class ImageViewer(QWidget):
         
         # 파일 확장자 확인 (소문자로 변환)
         file_ext = os.path.splitext(image_path)[1].lower()
-
+        
         # 애니메이션이 재생 중일 경우 정지
         if hasattr(self, 'current_movie') and self.current_movie:
             self.current_movie.stop()  # 애니메이션 정지
@@ -1208,11 +1210,20 @@ class ImageViewer(QWidget):
 
         # 재생 버튼을 재생 상태로 초기화 (파일이 변경될 때마다 항상 재생 상태로 시작)
         self.play_button.setText("❚❚")  # 일시정지 아이콘으로 변경 (재생 중 상태)
-
-        if file_ext == '.gif':  # GIF 파일 처리
-            self.current_media_type = 'gif'  # 미디어 타입 업데이트
+        
+        # FormatDetector를 사용하여 파일 형식 감지
+        file_format = FormatDetector.detect_format(image_path)
+        
+        if file_format == 'gif_image' or file_format == 'gif_animation':
+            # GIF 파일 처리 (정적/애니메이션 구분)
+            self.current_media_type = file_format  # 미디어 타입 업데이트
             self.show_gif(image_path)  # GIF를 표시하는 메서드 호출
-        elif file_ext == '.psd':  # PSD 파일 처리
+        elif file_format == 'webp_image' or file_format == 'webp_animation':
+            # WEBP 파일 처리 (정적/애니메이션 구분)
+            self.current_media_type = file_format  # 미디어 타입 업데이트
+            self.show_webp(image_path)  # WEBP 파일 처리
+        elif file_format == 'psd':
+            # PSD 파일 처리
             self.current_media_type = 'image'  # 미디어 타입 업데이트
             
             # PSDHandler를 사용하여 PSD 파일 로드
@@ -1220,7 +1231,12 @@ class ImageViewer(QWidget):
             
             # 이미지 정보 업데이트
             self.update_image_info()
-        elif file_ext in ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.ico', '.heic', '.heif']:  # JPG, JPEG, PNG 파일 처리
+        elif file_format == 'video':
+            # 비디오 파일 처리
+            self.current_media_type = 'video'  # 미디어 타입 업데이트
+            self.play_video(image_path)  # 비디오 재생
+        elif file_format == 'image' or file_ext in ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.ico', '.heic', '.heif']:
+            # 일반 이미지 파일 처리
             self.current_media_type = 'image'  # 미디어 타입 업데이트
             
             # ImageHandler를 사용하여 이미지 로드
@@ -1228,17 +1244,8 @@ class ImageViewer(QWidget):
             
             # 이미지 정보 업데이트
             self.update_image_info()
-        elif file_ext == '.webp':  # WEBP 이미지/애니메이션 처리
-            # WEBP 파일은 애니메이션일 수도 있고 일반 이미지일 수도 있음
-            # show_webp 함수에서 알맞은 미디어 타입을 설정함 ('image' 또는 'webp_animation')
-            self.show_webp(self.current_image_path)  # WEBP 파일 처리
-        elif file_ext in ['.mp4', '.avi', '.wmv', '.ts', '.m2ts', '.mov', '.qt', '.mkv', '.flv', '.webm', '.3gp', '.m4v', '.mpg', '.mpeg', '.vob', '.wav', '.flac', '.mp3', '.aac', '.m4a', '.ogg']:  # MP4 파일 처리-
-            self.current_media_type = 'video'  # 미디어 타입 업데이트
-            self.play_video(image_path)  # MP4 비디오 재생
         else:
             self.current_media_type = 'unknown'  # 미디어 타입 업데이트
-
-        self.update_image_info()  # 이미지 정보 업데이트 메소드 호출
 
         # 시간 레이블 초기화
         self.time_label.setText("00:00 / 00:00")  # 시간 레이블 초기화
@@ -1261,6 +1268,9 @@ class ImageViewer(QWidget):
 
         # 이미지를 로드하고 애니메이션으로 처리
         if reader.supportsAnimation():  # 애니메이션을 지원하면
+            # 애니메이션 GIF로 미디어 타입 설정 (FormatDetector가 이미 분석 완료했다면 유지)
+            if self.current_media_type != 'gif_animation':
+                self.current_media_type = 'gif_animation'
             
             # 기존 타이머 정지 및 관리
             if hasattr(self, 'gif_timer'):
@@ -2558,7 +2568,7 @@ class ImageViewer(QWidget):
             return
             
         # 미디어 타입에 따라 처리
-        if self.current_media_type in ['gif', 'webp', 'webp_animation'] and hasattr(self, 'current_movie') and self.current_movie:
+        if self.current_media_type in ['gif', 'gif_animation', 'webp', 'webp_animation'] and hasattr(self, 'current_movie') and self.current_movie:
             # GIF나 WEBP 애니메이션 처리
             is_paused = self.current_movie.state() != QMovie.Running
             self.current_movie.setPaused(not is_paused)  # 상태 토글
@@ -3093,7 +3103,7 @@ class ImageViewer(QWidget):
                     )
                     self.image_label.setPixmap(scaled_pixmap)
                 print(f"WEBP 일반 이미지 회전 즉시 적용: {self.current_rotation}°")
-        elif self.current_media_type in ['gif', 'webp', 'webp_animation']:
+        elif self.current_media_type in ['gif', 'gif_animation', 'webp', 'webp_animation']:
             # 애니메이션 회전을 위한 더 안전한 방법 구현
             try:
                 if hasattr(self, 'current_movie') and self.current_movie:
@@ -3102,7 +3112,7 @@ class ImageViewer(QWidget):
                     current_frame = self.current_movie.currentFrameNumber()
                     
                     # 재로드 방식으로 처리
-                    if self.current_media_type == 'gif':
+                    if self.current_media_type in ['gif', 'gif_animation']:
                         self.show_gif(self.current_image_path)
                     else:  # webp 또는 webp_animation
                         self.show_webp(self.current_image_path)
@@ -3118,7 +3128,7 @@ class ImageViewer(QWidget):
             except Exception as e:
                 self.show_message(f"애니메이션 회전 중 오류 발생: {str(e)}")
                 # 오류 발생 시 원본 이미지 다시 로드
-                if self.current_media_type == 'gif':
+                if self.current_media_type in ['gif', 'gif_animation']:
                     self.show_gif(self.current_image_path)
                 else:
                     self.show_webp(self.current_image_path)
@@ -3138,7 +3148,7 @@ class ImageViewer(QWidget):
         # 회전 상태 메시지 표시
         if self.current_media_type == 'video':
             self.show_message(f"비디오 회전: {self.current_rotation}°")
-        elif self.current_media_type in ['gif', 'webp', 'webp_animation']:
+        elif self.current_media_type in ['gif', 'gif_animation', 'webp', 'webp_animation']:
             self.show_message(f"애니메이션 회전: {self.current_rotation}°")
         else:
             self.show_message(f"이미지 회전: {self.current_rotation}°")
