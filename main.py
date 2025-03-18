@@ -1129,6 +1129,19 @@ class ImageViewer(QWidget):
         except (TypeError, RuntimeError):
             pass  # 연결된 슬롯이 없으면 무시
 
+    def cancel_pending_loaders(self, current_path=None):
+        """현재 로딩 중인 이미지를 제외한 모든 로더 스레드를 취소합니다."""
+        # 기존 진행 중인 로딩 스레드 취소 (현재 로딩 중인 이미지는 제외)
+        for path, loader in list(self.loader_threads.items()):
+            if (current_path is None or path != current_path) and loader.isRunning():
+                try:
+                    loader.terminate()
+                    loader.wait(100)  # 최대 100ms 대기
+                except:
+                    pass
+                del self.loader_threads[path]
+                print(f"이미지 로딩 취소: {os.path.basename(path)}")
+
     def show_image(self, image_path):
         """이미지/미디어 파일 표시 및 관련 UI 업데이트"""
         print(f"\n========= 이미지 로드 시작: {os.path.basename(image_path)} =========")
@@ -1152,16 +1165,8 @@ class ImageViewer(QWidget):
         # 현재 이미지 경로 저장
         self.current_image_path = image_path
         
-        # 기존 진행 중인 로딩 스레드 취소 (현재 로딩 중인 이미지는 제외)
-        for path, loader in list(self.loader_threads.items()):
-            if path != image_path and loader.isRunning():
-                try:
-                    loader.terminate()
-                    loader.wait(100)  # 최대 100ms 대기
-                except:
-                    pass
-                del self.loader_threads[path]
-                print(f"이미지 로딩 취소: {os.path.basename(path)}")
+        # 기존 진행 중인 로딩 스레드 취소
+        self.cancel_pending_loaders(image_path)
 
         # 파일 이름을 제목표시줄에 표시
         file_name = os.path.basename(image_path) if image_path else "Image Viewer"
