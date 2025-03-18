@@ -1133,11 +1133,8 @@ class ImageViewer(QWidget):
         """이미지/미디어 파일 표시 및 관련 UI 업데이트"""
         print(f"\n========= 이미지 로드 시작: {os.path.basename(image_path)} =========")
         
-        # AnimationHandler 리소스 정리 (이미지 전환 전에 꼭 필요)
-        if hasattr(self, 'animation_handler'):
-            self.animation_handler.cleanup()
-            
-        self.stop_video()  # 기존 비디오 재생 중지
+        # 기존 미디어 리소스 정리
+        self.cleanup_current_media()
 
         # 이미지 크기 확인
         image_size_mb = 0
@@ -1154,9 +1151,6 @@ class ImageViewer(QWidget):
 
         # 현재 이미지 경로 저장
         self.current_image_path = image_path
-
-        # 이전 이미지/애니메이션 정지 및 정리
-        self.image_label.clear()  # 레이블 내용 지우기 (애니메이션 정지)
         
         # 기존 진행 중인 로딩 스레드 취소 (현재 로딩 중인 이미지는 제외)
         for path, loader in list(self.loader_threads.items()):
@@ -1168,24 +1162,6 @@ class ImageViewer(QWidget):
                     pass
                 del self.loader_threads[path]
                 print(f"이미지 로딩 취소: {os.path.basename(path)}")
-        
-        # 기존 QMovie 정리
-        try:
-            if hasattr(self, 'current_movie') and self.current_movie is not None:
-                try:
-                    self.current_movie.stop()
-                except RuntimeError:
-                    # 이미 삭제된 객체인 경우 무시
-                    pass
-                try:
-                    self.current_movie.deleteLater()  # Qt 객체 명시적 삭제 요청
-                except RuntimeError:
-                    # 이미 삭제된 객체인 경우 무시
-                    pass
-                self.current_movie = None
-        except Exception as e:
-            print(f"QMovie 객체 정리 중 오류: {e}")
-            self.current_movie = None
 
         # 파일 이름을 제목표시줄에 표시
         file_name = os.path.basename(image_path) if image_path else "Image Viewer"
@@ -1204,19 +1180,6 @@ class ImageViewer(QWidget):
         
         # 파일 확장자 확인 (소문자로 변환)
         file_ext = os.path.splitext(image_path)[1].lower()
-        
-        # 애니메이션이 재생 중일 경우 정지
-        if hasattr(self, 'current_movie') and self.current_movie:
-            self.current_movie.stop()  # 애니메이션 정지
-        # 슬라이더 신호 연결 해제
-        self.disconnect_all_slider_signals()
-
-        # 슬라이더 초기화
-        self.playback_slider.setRange(0, 0)  # 슬라이더 범위를 0으로 설정
-        self.playback_slider.setValue(0)  # 슬라이더 초기값을 0으로 설정
-
-        # 재생 버튼을 재생 상태로 초기화 (파일이 변경될 때마다 항상 재생 상태로 시작)
-        self.play_button.setText("❚❚")  # 일시정지 아이콘으로 변경 (재생 중 상태)
         
         # FormatDetector를 사용하여 파일 형식 감지
         file_format = FormatDetector.detect_format(image_path)
@@ -1264,10 +1227,6 @@ class ImageViewer(QWidget):
             self.update_image_info()
         else:
             self.current_media_type = 'unknown'  # 미디어 타입 업데이트
-
-        # 시간 레이블 초기화
-        self.time_label.setText("00:00 / 00:00")  # 시간 레이블 초기화
-        self.time_label.show()  # 시간 레이블 표시
 
         # 제목표시줄과 이미지 정보 레이블을 앞으로 가져옴
         if hasattr(self, 'title_bar'):
@@ -3047,6 +3006,48 @@ class ImageViewer(QWidget):
         # 정보 다이얼로그 표시
         dialog = AboutDialog(self)
         dialog.exec_()
+
+    def cleanup_current_media(self):
+        """현재 미디어 리소스를 정리합니다."""
+        # AnimationHandler 리소스 정리
+        if hasattr(self, 'animation_handler'):
+            self.animation_handler.cleanup()
+            
+        # 비디오 재생 중지
+        self.stop_video()  
+
+        # 이미지 레이블 초기화
+        self.image_label.clear()  # 레이블 내용 지우기 (애니메이션 정지)
+        
+        # 기존 QMovie 정리
+        try:
+            if hasattr(self, 'current_movie') and self.current_movie is not None:
+                try:
+                    self.current_movie.stop()
+                except RuntimeError:
+                    # 이미 삭제된 객체인 경우 무시
+                    pass
+                try:
+                    self.current_movie.deleteLater()  # Qt 객체 명시적 삭제 요청
+                except RuntimeError:
+                    # 이미 삭제된 객체인 경우 무시
+                    pass
+                self.current_movie = None
+        except Exception as e:
+            print(f"QMovie 객체 정리 중 오류: {e}")
+            self.current_movie = None
+        
+        # 슬라이더 신호 연결 해제 및 초기화
+        self.disconnect_all_slider_signals()
+        self.playback_slider.setRange(0, 0)  # 슬라이더 범위를 0으로 설정
+        self.playback_slider.setValue(0)  # 슬라이더 초기값을 0으로 설정
+
+        # 재생 버튼을 재생 상태로 초기화
+        self.play_button.setText("❚❚")  # 일시정지 아이콘으로 변경 (재생 중 상태)
+        
+        # 시간 레이블 초기화
+        self.time_label.setText("00:00 / 00:00")
+        self.time_label.show()
 
 class ScrollableMenu(QMenu):
     """스크롤을 지원하는 메뉴 클래스"""
