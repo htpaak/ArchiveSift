@@ -8,6 +8,7 @@
 from PyQt5.QtWidgets import QLabel
 from PyQt5.QtGui import QMovie, QImageReader, QPixmap, QImage, QTransform
 from PyQt5.QtCore import Qt, QTimer, QSize
+import os
 
 class AnimationHandler:
     """
@@ -121,91 +122,6 @@ class AnimationHandler:
         
         return media_type
     
-    def _handle_static_image(self, file_path):
-        """정적 이미지 (애니메이션이 아닌 GIF/WEBP) 처리"""
-        # 이미지 파일 로드
-        image = QImage(file_path)
-        if not image.isNull():
-            pixmap = QPixmap.fromImage(image)
-            
-            # 회전 적용
-            if self.current_rotation != 0:
-                transform = QTransform().rotate(self.current_rotation)
-                pixmap = pixmap.transformed(transform, Qt.SmoothTransformation)
-            
-            # 화면 크기에 맞게 이미지 조정 (비율 유지, 고품질 보간)
-            if self.image_label:
-                scaled_pixmap = pixmap.scaled(
-                    self.image_label.width(),
-                    self.image_label.height(),
-                    Qt.KeepAspectRatio,
-                    Qt.SmoothTransformation
-                )
-                self.image_label.setPixmap(scaled_pixmap)
-        
-        # 슬라이더 초기화 (정적 이미지인 경우)
-        if self.parent:
-            self.parent.playback_slider.setRange(0, 0)
-            self.parent.playback_slider.setValue(0)
-            self.parent.time_label.setText("00:00 / 00:00")
-            self.parent.time_label.show()
-    
-    def _setup_animation_timer(self, file_path):
-        """애니메이션 타이머 설정"""
-        if not self.parent or not self.current_movie:
-            return
-            
-        # 슬라이더 업데이트 함수
-        def update_slider():
-            if hasattr(self, 'current_movie') and self.current_movie:
-                current_frame = self.current_movie.currentFrameNumber()
-                if self.current_movie.state() == QMovie.Running:
-                    self.parent.playback_slider.setValue(current_frame)
-                    # 현재 프레임 / 총 프레임 표시 업데이트
-                    self.parent.time_label.setText(f"{current_frame + 1} / {self.current_movie.frameCount()}")
-        
-        try:
-            # 총 프레임 수와 애니메이션 속도 가져오기
-            frame_count = self.current_movie.frameCount()
-            animation_speed = self.current_movie.speed()  # 기본 속도는 100%
-            
-            # 프레임 지연 시간 계산 (근사값)
-            reader = QImageReader(file_path)
-            if reader.supportsAnimation() and frame_count > 0:
-                # 첫 프레임 지연 시간 (밀리초)
-                delay = reader.nextImageDelay()
-                if delay <= 0:  # 유효하지 않은 경우 기본값 사용
-                    delay = 100  # 기본값 100ms (약 10fps)
-            else:
-                delay = 100  # 정보를 얻을 수 없는 경우 기본값
-            
-            # 애니메이션 속도를 고려하여 지연 시간 조정
-            timer_interval = int(delay * (100 / animation_speed))
-            
-            # 타이머 간격 범위 제한 (최소 10ms, 최대 200ms)
-            timer_interval = max(10, min(timer_interval, 200))
-        except Exception as e:
-            print(f"GIF 프레임 레이트 계산 오류: {e}")
-            timer_interval = 50  # 오류 발생 시 기본값 (50ms)
-        
-        # 타이머 생성 및 설정
-        self.animation_timer = QTimer(self.parent)
-        self.animation_timer.timeout.connect(update_slider)
-        self.animation_timer.start(timer_interval)
-        
-        # 타이머 관리 리스트에 추가
-        self.timers.append(self.animation_timer)
-        
-        # 부모 객체의 타이머 관리 리스트에도 추가
-        if hasattr(self.parent, 'timers'):
-            self.parent.timers.append(self.animation_timer)
-            
-        # 슬라이더 시그널 연결
-        if hasattr(self.parent, 'playback_slider'):
-            self.parent.playback_slider.valueChanged.connect(self.seek_to_frame)
-            self.parent.playback_slider.sliderPressed.connect(self._slider_pressed)
-            self.parent.playback_slider.sliderReleased.connect(self._slider_released)
-    
     def load_webp(self, file_path):
         """
         WEBP 파일을 로드하고 표시합니다.
@@ -290,10 +206,14 @@ class AnimationHandler:
                         self.parent.play_button.setText("❚❚")  # 일시정지 아이콘 표시 (재생 중)
             else:
                 # 단일 프레임 WEBP 처리 (애니메이션 아님)
+                print("단일 프레임 WEBP 이미지 처리 시작")
                 self._handle_static_image(file_path)
+                return 'webp_image'
         else:
             # 애니메이션을 지원하지 않는 경우 정적 이미지로 처리
+            print("정적 WEBP 이미지 처리 시작")
             self._handle_static_image(file_path)
+            return 'webp_image'
         
         return media_type
     
@@ -416,3 +336,156 @@ class AnimationHandler:
             except:
                 pass
             self.current_movie = None 
+    
+    def rotate_static_image(self, file_path=None):
+        """
+        현재 표시된 정적 이미지를 회전시킵니다.
+        
+        Args:
+            file_path (str, optional): 이미지 파일 경로. None이면 현재 로드된 이미지 사용
+            
+        Returns:
+            bool: 성공 여부
+        """
+        # 파일 경로가 제공되지 않았다면 현재 로드된 경로 사용
+        if not file_path and hasattr(self.parent, 'current_image_path'):
+            file_path = self.parent.current_image_path
+            
+        if not file_path or not os.path.exists(file_path):
+            print("회전할 이미지 파일이 없습니다.")
+            return False
+            
+        print(f"정적 이미지 회전 시작: {file_path}, 회전 각도: {self.current_rotation}°")
+        
+        # 이미지 로드
+        image = QImage(file_path)
+        if image.isNull():
+            print("이미지 로드 실패")
+            return False
+            
+        # 이미지를 QPixmap으로 변환
+        pixmap = QPixmap.fromImage(image)
+        
+        # 회전 적용
+        transform = QTransform().rotate(self.current_rotation)
+        rotated_pixmap = pixmap.transformed(transform, Qt.SmoothTransformation)
+        
+        # 화면 크기에 맞게 이미지 조정
+        if self.image_label:
+            label_size = self.image_label.size()
+            scaled_pixmap = rotated_pixmap.scaled(
+                label_size.width(),
+                label_size.height(),
+                Qt.KeepAspectRatio,
+                Qt.SmoothTransformation
+            )
+            # 이미지 라벨에 표시
+            self.image_label.setPixmap(scaled_pixmap)
+            print(f"회전된 이미지 표시 완료: {scaled_pixmap.width()}x{scaled_pixmap.height()}")
+            
+            # 이미지 정보 업데이트
+            if self.parent and hasattr(self.parent, 'update_image_info'):
+                self.parent.update_image_info()
+                
+            return True
+        return False
+    
+    def _handle_static_image(self, file_path):
+        """정적 이미지 (애니메이션이 아닌 GIF/WEBP) 처리"""
+        # 이미지 파일 로드
+        print(f"정적 이미지 로드 시작: {file_path}")
+        image = QImage(file_path)
+        if not image.isNull():
+            print(f"이미지 로드 성공: {image.width()}x{image.height()}")
+            pixmap = QPixmap.fromImage(image)
+            
+            # 회전 적용
+            if self.current_rotation != 0:
+                transform = QTransform().rotate(self.current_rotation)
+                pixmap = pixmap.transformed(transform, Qt.SmoothTransformation)
+                print(f"회전 적용: {self.current_rotation}°")
+            
+            # 화면 크기에 맞게 이미지 조정 (비율 유지, 고품질 보간)
+            if self.image_label:
+                label_size = self.image_label.size()
+                print(f"라벨 크기: {label_size.width()}x{label_size.height()}")
+                scaled_pixmap = pixmap.scaled(
+                    label_size.width(),
+                    label_size.height(),
+                    Qt.KeepAspectRatio,
+                    Qt.SmoothTransformation
+                )
+                print(f"이미지 크기 조정 완료: {scaled_pixmap.width()}x{scaled_pixmap.height()}")
+                self.image_label.setPixmap(scaled_pixmap)
+                print("이미지 표시 완료")
+                
+                # 이미지 정보 업데이트 (부모 클래스에 update_image_info 메서드가 있는 경우)
+                if self.parent and hasattr(self.parent, 'update_image_info'):
+                    self.parent.update_image_info()
+                    print("이미지 정보 업데이트 완료")
+        else:
+            print(f"이미지 로드 실패: {file_path}")
+        
+        # 슬라이더 초기화 (정적 이미지인 경우)
+        if self.parent:
+            self.parent.playback_slider.setRange(0, 0)
+            self.parent.playback_slider.setValue(0)
+            self.parent.time_label.setText("00:00 / 00:00")
+            self.parent.time_label.show()
+    
+    def _setup_animation_timer(self, file_path):
+        """애니메이션 타이머 설정"""
+        if not self.parent or not self.current_movie:
+            return
+            
+        # 슬라이더 업데이트 함수
+        def update_slider():
+            if hasattr(self, 'current_movie') and self.current_movie:
+                current_frame = self.current_movie.currentFrameNumber()
+                if self.current_movie.state() == QMovie.Running:
+                    self.parent.playback_slider.setValue(current_frame)
+                    # 현재 프레임 / 총 프레임 표시 업데이트
+                    self.parent.time_label.setText(f"{current_frame + 1} / {self.current_movie.frameCount()}")
+        
+        try:
+            # 총 프레임 수와 애니메이션 속도 가져오기
+            frame_count = self.current_movie.frameCount()
+            animation_speed = self.current_movie.speed()  # 기본 속도는 100%
+            
+            # 프레임 지연 시간 계산 (근사값)
+            reader = QImageReader(file_path)
+            if reader.supportsAnimation() and frame_count > 0:
+                # 첫 프레임 지연 시간 (밀리초)
+                delay = reader.nextImageDelay()
+                if delay <= 0:  # 유효하지 않은 경우 기본값 사용
+                    delay = 100  # 기본값 100ms (약 10fps)
+            else:
+                delay = 100  # 정보를 얻을 수 없는 경우 기본값
+            
+            # 애니메이션 속도를 고려하여 지연 시간 조정
+            timer_interval = int(delay * (100 / animation_speed))
+            
+            # 타이머 간격 범위 제한 (최소 10ms, 최대 200ms)
+            timer_interval = max(10, min(timer_interval, 200))
+        except Exception as e:
+            print(f"GIF 프레임 레이트 계산 오류: {e}")
+            timer_interval = 50  # 오류 발생 시 기본값 (50ms)
+        
+        # 타이머 생성 및 설정
+        self.animation_timer = QTimer(self.parent)
+        self.animation_timer.timeout.connect(update_slider)
+        self.animation_timer.start(timer_interval)
+        
+        # 타이머 관리 리스트에 추가
+        self.timers.append(self.animation_timer)
+        
+        # 부모 객체의 타이머 관리 리스트에도 추가
+        if hasattr(self.parent, 'timers'):
+            self.parent.timers.append(self.animation_timer)
+            
+        # 슬라이더 시그널 연결
+        if hasattr(self.parent, 'playback_slider'):
+            self.parent.playback_slider.valueChanged.connect(self.seek_to_frame)
+            self.parent.playback_slider.sliderPressed.connect(self._slider_pressed)
+            self.parent.playback_slider.sliderReleased.connect(self._slider_released)
+    

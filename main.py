@@ -1131,6 +1131,8 @@ class ImageViewer(QWidget):
 
     def show_image(self, image_path):
         """이미지/미디어 파일 표시 및 관련 UI 업데이트"""
+        print(f"\n========= 이미지 로드 시작: {os.path.basename(image_path)} =========")
+        
         # AnimationHandler 리소스 정리 (이미지 전환 전에 꼭 필요)
         if hasattr(self, 'animation_handler'):
             self.animation_handler.cleanup()
@@ -1218,6 +1220,7 @@ class ImageViewer(QWidget):
         
         # FormatDetector를 사용하여 파일 형식 감지
         file_format = FormatDetector.detect_format(image_path)
+        print(f"FormatDetector 감지 결과: {file_format}")
 
         # 파일 형식 감지 결과에 따라 적절한 핸들러 호출
         if file_format == 'gif_image' or file_format == 'gif_animation':
@@ -1233,6 +1236,7 @@ class ImageViewer(QWidget):
             if hasattr(self, 'animation_handler'):
                 detected_type = self.animation_handler.load_webp(image_path)
                 self.current_media_type = detected_type
+                print(f"WEBP 미디어 타입 감지: {detected_type}")
             else:
                 # AnimationHandler가 없는 경우 기존 방식으로 처리
                 self.show_webp(image_path)
@@ -2769,7 +2773,7 @@ class ImageViewer(QWidget):
             self.animation_handler.current_rotation = self.current_rotation
         
         # 현재 미디어 타입에 따라 다르게 처리
-        if self.current_media_type == 'image':
+        if self.current_media_type == 'image' or self.current_media_type == 'webp_image':
             # 일반 이미지 회전 - 현재 회전 각도에 따라 새로 이미지를 로드하여 처리
             file_ext = os.path.splitext(self.current_image_path)[1].lower()
             if file_ext == '.psd':
@@ -2780,22 +2784,27 @@ class ImageViewer(QWidget):
                 self.image_handler.load(self.current_image_path)
                 print(f"일반 이미지 회전 적용: {self.current_rotation}°")
             elif file_ext == '.webp':
-                # WEBP 일반 이미지 
-                image = QImage(self.current_image_path)
-                if not image.isNull():
-                    pixmap = QPixmap.fromImage(image)
-                    transform = QTransform().rotate(self.current_rotation)
-                    rotated_pixmap = pixmap.transformed(transform, Qt.SmoothTransformation)
-                    
-                    # 회전된 이미지를 화면에 맞게 크기 조절
-                    label_size = self.image_label.size()
-                    scaled_pixmap = rotated_pixmap.scaled(
-                        label_size,
-                        Qt.KeepAspectRatio,
-                        Qt.SmoothTransformation
-                    )
-                    self.image_label.setPixmap(scaled_pixmap)
-                print(f"WEBP 일반 이미지 회전 즉시 적용: {self.current_rotation}°")
+                # WEBP 일반 이미지 (AnimationHandler를 통해 처리)
+                if hasattr(self, 'animation_handler'):
+                    self.animation_handler.rotate_static_image(self.current_image_path)
+                    print(f"WEBP 이미지 회전 AnimationHandler로 적용: {self.current_rotation}°")
+                else:
+                    # 예전 방식 (직접 처리)
+                    image = QImage(self.current_image_path)
+                    if not image.isNull():
+                        pixmap = QPixmap.fromImage(image)
+                        transform = QTransform().rotate(self.current_rotation)
+                        rotated_pixmap = pixmap.transformed(transform, Qt.SmoothTransformation)
+                        
+                        # 회전된 이미지를 화면에 맞게 크기 조절
+                        label_size = self.image_label.size()
+                        scaled_pixmap = rotated_pixmap.scaled(
+                            label_size,
+                            Qt.KeepAspectRatio,
+                            Qt.SmoothTransformation
+                        )
+                        self.image_label.setPixmap(scaled_pixmap)
+                    print(f"WEBP 일반 이미지 회전 직접 적용: {self.current_rotation}°")
         elif self.current_media_type in ['gif_animation', 'webp_animation']:
             # AnimationHandler가 있으면 사용, 없으면 기존 방식으로 처리
             if hasattr(self, 'animation_handler'):
