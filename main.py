@@ -960,19 +960,26 @@ class ImageViewer(QWidget):
                 elif file_ext == '.psd':
                     # PSDHandler를 사용하여 PSD 파일 크기 조정
                     self.psd_handler.resize()
-                elif file_ext == '.gif' and hasattr(self, 'current_movie'):
-                    # 애니메이션 크기 조정 처리
-                    print("GIF 애니메이션 리사이징")  # 디버깅용 메시지
-                    self.scale_gif()
-                    # UI 처리 완료 후 애니메이션이 제대로 보이도록 강제 프레임 업데이트
-                    QApplication.processEvents()
-                elif file_ext == '.webp':
-                    if hasattr(self, 'current_movie') and self.current_movie:
-                        # WEBP 애니메이션 처리
-                        print("WEBP 애니메이션 리사이징")  # 디버깅용 메시지
-                        self.scale_webp()
+                elif (file_ext == '.gif' or file_ext == '.webp') and self.current_media_type in ['gif_animation', 'webp_animation']:
+                    # 애니메이션 핸들러를 통해 애니메이션 크기 조정
+                    if hasattr(self, 'animation_handler'):
+                        print(f"{file_ext.upper()} 애니메이션 핸들러를 통한 리사이징")
+                        self.animation_handler.scale_animation()
+                    else:
+                        # 기존 방식으로 처리 (호환성 유지)
+                        if file_ext == '.gif':
+                            print("GIF 애니메이션 직접 리사이징")
+                            self.scale_gif()
+                        elif file_ext == '.webp':
+                            print("WEBP 애니메이션 직접 리사이징")
+                            self.scale_webp()
                         # UI 처리 완료 후 애니메이션이 제대로 보이도록 강제 프레임 업데이트
                         QApplication.processEvents()
+                elif file_ext == '.webp' and self.current_media_type == 'webp_image':
+                    # 정적 WEBP 이미지 처리
+                    if hasattr(self, 'animation_handler'):
+                        print("정적 WEBP 이미지 핸들러를 통한 리사이징")
+                        self.animation_handler.rotate_static_image(self.current_image_path)
                     else:
                         # 일반 WEBP 이미지 처리 (애니메이션이 아닌 경우)
                         pixmap = QPixmap(self.current_image_path)
@@ -1142,6 +1149,29 @@ class ImageViewer(QWidget):
                 del self.loader_threads[path]
                 print(f"이미지 로딩 취소: {os.path.basename(path)}")
 
+    def update_ui_for_media(self, image_path):
+        """미디어 표시에 필요한 UI 요소들을 업데이트합니다."""
+        # 파일 이름을 제목표시줄에 표시
+        file_name = os.path.basename(image_path) if image_path else "Image Viewer"
+        title_text = f"Image Viewer - {file_name}" if image_path else "Image Viewer"
+        # 제목표시줄 라벨 찾아서 텍스트 업데이트
+        for child in self.title_bar.children():
+            if isinstance(child, QLabel):
+                child.setText(title_text)
+                break
+        
+        # 책갈피 버튼 상태 업데이트
+        self.update_bookmark_button_state()
+        
+        # 북마크 메뉴 업데이트 추가 - 이미지 변경 시 메뉴 상태도 함께 업데이트
+        self.bookmark_manager.update_bookmark_menu()
+        
+        # 제목표시줄과 이미지 정보 레이블을 앞으로 가져옴
+        if hasattr(self, 'title_bar'):
+            self.title_bar.raise_()
+        if hasattr(self, 'image_info_label'):
+            self.image_info_label.raise_()
+
     def show_image(self, image_path):
         """이미지/미디어 파일 표시 및 관련 UI 업데이트"""
         print(f"\n========= 이미지 로드 시작: {os.path.basename(image_path)} =========")
@@ -1168,20 +1198,8 @@ class ImageViewer(QWidget):
         # 기존 진행 중인 로딩 스레드 취소
         self.cancel_pending_loaders(image_path)
 
-        # 파일 이름을 제목표시줄에 표시
-        file_name = os.path.basename(image_path) if image_path else "Image Viewer"
-        title_text = f"Image Viewer - {file_name}" if image_path else "Image Viewer"
-        # 제목표시줄 라벨 찾아서 텍스트 업데이트
-        for child in self.title_bar.children():
-            if isinstance(child, QLabel):
-                child.setText(title_text)
-                break
-        
-        # 책갈피 버튼 상태 업데이트
-        self.update_bookmark_button_state()
-        
-        # 북마크 메뉴 업데이트 추가 - 이미지 변경 시 메뉴 상태도 함께 업데이트
-        self.bookmark_manager.update_bookmark_menu()
+        # UI 요소 업데이트
+        self.update_ui_for_media(image_path)
         
         # 파일 확장자 확인 (소문자로 변환)
         file_ext = os.path.splitext(image_path)[1].lower()
@@ -1232,12 +1250,6 @@ class ImageViewer(QWidget):
             self.update_image_info()
         else:
             self.current_media_type = 'unknown'  # 미디어 타입 업데이트
-
-        # 제목표시줄과 이미지 정보 레이블을 앞으로 가져옴
-        if hasattr(self, 'title_bar'):
-            self.title_bar.raise_()
-        if hasattr(self, 'image_info_label'):
-            self.image_info_label.raise_()
         
         # 추가: 전체화면 모드에서 지연된 리사이징 적용
         if self.isFullScreen():
@@ -1275,6 +1287,9 @@ class ImageViewer(QWidget):
             return
             
         try:
+            # 현재 재생 상태 저장
+            was_running = (self.current_movie.state() == QMovie.Running)
+            
             # 현재 프레임 번호 저장
             current_frame = self.current_movie.currentFrameNumber()
             
@@ -1299,6 +1314,11 @@ class ImageViewer(QWidget):
             # 애니메이션 크기 조정 및 원래 프레임으로 복원
             self.current_movie.setScaledSize(QSize(new_width, new_height))
             self.current_movie.jumpToFrame(current_frame)
+            
+            # 원래 재생 상태로 복원
+            if was_running and self.current_movie.state() != QMovie.Running:
+                self.current_movie.start()
+                print("WEBP 애니메이션 리사이징 후 재생 재개")
         except Exception as e:
             print(f"WEBP 크기 조정 중 오류 발생: {e}")
 
@@ -1309,6 +1329,9 @@ class ImageViewer(QWidget):
             return
             
         try:
+            # 현재 재생 상태 저장
+            was_running = (self.current_movie.state() == QMovie.Running)
+            
             # 현재 프레임 번호 저장
             current_frame = self.current_movie.currentFrameNumber()
             
@@ -1333,6 +1356,11 @@ class ImageViewer(QWidget):
             # 애니메이션 크기 조정 및 원래 프레임으로 복원
             self.current_movie.setScaledSize(QSize(new_width, new_height))
             self.current_movie.jumpToFrame(current_frame)
+            
+            # 원래 재생 상태로 복원
+            if was_running and self.current_movie.state() != QMovie.Running:
+                self.current_movie.start()
+                print("GIF 애니메이션 리사이징 후 재생 재개")
         except Exception as e:
             print(f"GIF 크기 조정 중 오류 발생: {e}")
 
