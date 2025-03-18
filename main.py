@@ -41,6 +41,9 @@ from ui.dialogs.preferences_dialog import PreferencesDialog
 from events.handlers.keyboard_handler import KeyInputEdit
 # 북마크 관리
 from features.bookmark import BookmarkManager  # 북마크 관리 클래스
+# 회전 기능
+from features.rotation.rotation_manager import RotationManager
+from features.rotation.rotation_ui import RotationUI
 
 
 # MPV DLL 경로를 환경 변수 PATH에 추가 (mpv 모듈 import 전에 필수)
@@ -720,6 +723,13 @@ class ImageViewer(QWidget):
         
         # 연결 추가 (이벤트와 함수 연결)
         self.volume_slider.valueChanged.connect(self.adjust_volume)  # 슬라이더 값 변경 시 음량 조절 메서드 연결 (볼륨 실시간 조절)
+
+        # 회전 관리자 생성
+        self.rotation_manager = RotationManager(self)
+        # 회전 관리자 시그널 연결
+        self.rotation_manager.rotation_changed.connect(self.on_rotation_changed)
+        # 회전 UI 관리자 생성
+        self.rotation_ui = RotationUI(self, self.rotation_manager)
 
         # 회전 관련 변수 추가
         self.current_rotation = 0  # 현재 회전 각도 (0, 90, 180, 270)
@@ -2710,14 +2720,27 @@ class ImageViewer(QWidget):
             if not timer.isActive():
                 timer.start()
 
+    def on_rotation_changed(self, angle):
+        """회전 변경 신호를 처리합니다."""
+        # 호환성을 위해 current_rotation 업데이트
+        self.current_rotation = angle
+        
+        # 필요한 경우 여기에 추가 작업 구현
+        print(f"회전 각도 변경됨: {angle}°")
+
     def rotate_image(self, clockwise=True):
         """이미지를 90도 회전합니다."""
         if not self.current_image_path:
             return
             
-        # 회전 각도 계산 (시계/반시계 방향)
-        rotation_delta = 90 if clockwise else -90
-        self.current_rotation = (self.current_rotation + rotation_delta) % 360
+        # RotationManager를 사용하여 회전 각도 변경
+        if clockwise:
+            self.rotation_manager.rotate_clockwise()
+        else:
+            self.rotation_manager.rotate_counterclockwise()
+            
+        # 이전 코드와의 호환성을 위해 current_rotation 업데이트
+        self.current_rotation = self.rotation_manager.rotation_angle
         
         # AnimationHandler에 회전 각도 전달
         if hasattr(self, 'animation_handler'):
