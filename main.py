@@ -44,6 +44,9 @@ from features.bookmark import BookmarkManager  # 북마크 관리 클래스
 # 회전 기능
 from features.rotation.rotation_manager import RotationManager
 from features.rotation.rotation_ui import RotationUI
+# UI 잠금 기능
+from features.ui_lock.ui_lock_manager import UILockManager
+from features.ui_lock.ui_lock_ui import UILockUI
 
 
 # MPV DLL 경로를 환경 변수 PATH에 추가 (mpv 모듈 import 전에 필수)
@@ -84,10 +87,6 @@ class ImageViewer(QWidget):
         
         # 북마크 관리자 초기화
         self.bookmark_manager = BookmarkManager(self)
-
-        # UI 잠금 상태 변수 분리
-        self.is_bottom_ui_locked = True  # 하단 UI 고정 상태 (True: 항상 표시, False: 마우스 위치에 따라 표시/숨김)
-        self.is_title_ui_locked = True  # 상단 타이틀바 고정 상태
 
         # 이전 호환성을 위한 변수 유지
         self.is_ui_locked = True
@@ -723,6 +722,11 @@ class ImageViewer(QWidget):
         
         # 연결 추가 (이벤트와 함수 연결)
         self.volume_slider.valueChanged.connect(self.adjust_volume)  # 슬라이더 값 변경 시 음량 조절 메서드 연결 (볼륨 실시간 조절)
+
+        # UI 잠금 관리자 생성
+        self.ui_lock_manager = UILockManager(self)
+        # UI 잠금 UI 관리자 생성
+        self.ui_lock_ui = UILockUI(self, self.ui_lock_manager)
 
         # 회전 관리자 생성
         self.rotation_manager = RotationManager(self)
@@ -1815,9 +1819,15 @@ class ImageViewer(QWidget):
             slider_changed = False
             buttons_changed = False
 
-            # UI가 고정된 상태인지 확인
-            title_ui_locked = hasattr(self, 'is_title_ui_locked') and self.is_title_ui_locked
-            bottom_ui_locked = hasattr(self, 'is_bottom_ui_locked') and self.is_bottom_ui_locked
+            # UI 잠금 관리자를 사용하여 UI가 고정된 상태인지 확인
+            title_ui_locked = hasattr(self, 'ui_lock_manager') and self.ui_lock_manager.title_locked
+            bottom_ui_locked = hasattr(self, 'ui_lock_manager') and self.ui_lock_manager.ui_locked
+            
+            # 이전 코드와의 호환성을 위해 is_title_ui_locked와 is_bottom_ui_locked도 확인
+            if not title_ui_locked and hasattr(self, 'is_title_ui_locked'):
+                title_ui_locked = self.is_title_ui_locked
+            if not bottom_ui_locked and hasattr(self, 'is_bottom_ui_locked'):
+                bottom_ui_locked = self.is_bottom_ui_locked
 
             # 상단 영역에 있을 때 타이틀바 표시 (타이틀바 UI가 잠겨있지 않은 경우만)
             if not title_ui_locked:
@@ -2383,96 +2393,24 @@ class ImageViewer(QWidget):
         self.dropdown_menu.popup(QPoint(x_pos, y_pos))
 
     def toggle_ui_lock(self):
-        """하단 UI 요소 표시 상태를 고정/해제합니다."""
-        self.is_bottom_ui_locked = not self.is_bottom_ui_locked
-        # 이전 호환성을 위한 변수 업데이트
-        self.is_ui_locked = self.is_bottom_ui_locked and self.is_title_ui_locked
-        
-        # UI 고정 버튼 상태 업데이트
-        self.update_ui_lock_button_state()
-        
-        # UI 요소 표시/숨김 처리
-        if self.is_bottom_ui_locked:
-            # 하단 UI 요소 항상 표시
-            if hasattr(self, 'slider_widget'):
-                self.slider_widget.show()
-            
-            for row in self.buttons:
-                for button in row:
-                    button.show()
-        
-        # UI 변경 후 지연된 리사이징 적용
-        QTimer.singleShot(150, self.delayed_resize)
-        
-        # 고정 상태 상태 메시지 표시
-        if self.is_bottom_ui_locked:
-            self.show_message("하단 UI가 고정되었습니다")
-        else:
-            self.show_message("하단 UI 고정이 해제되었습니다")
+        """UI 잠금을 토글합니다."""
+        # UILockManager를 사용하여 토글
+        self.ui_lock_manager.toggle_ui_lock()
 
     def toggle_title_ui_lock(self):
-        """상단 제목표시줄 표시 상태를 고정/해제합니다."""
-        self.is_title_ui_locked = not self.is_title_ui_locked
-        # 이전 호환성을 위한 변수 업데이트
-        self.is_ui_locked = self.is_bottom_ui_locked and self.is_title_ui_locked
-        
-        # 제목표시줄 UI 고정 버튼 상태 업데이트
-        self.update_title_lock_button_state()
-        
-        # UI 요소 표시/숨김 처리
-        if self.is_title_ui_locked:
-            # 상단 UI 항상 표시
-            if hasattr(self, 'title_bar'):
-                self.title_bar.show()
-        
-        # UI 변경 후 지연된 리사이징 적용
-        QTimer.singleShot(150, self.delayed_resize)
-        
-        # 고정 상태 상태 메시지 표시
-        if self.is_title_ui_locked:
-            self.show_message("상단 UI가 고정되었습니다")
-        else:
-            self.show_message("상단 UI 고정이 해제되었습니다")
-
-    def update_title_lock_button_state(self):
-        """상단 제목표시줄 잠금 버튼의 상태를 현재 is_title_ui_locked 값에 맞게 업데이트"""
-        if self.is_title_ui_locked:
-            self.title_lock_btn.setText('🔒')  # 잠금 아이콘
-        else:
-            self.title_lock_btn.setText('🔓')  # 잠금 해제 아이콘
+        """타이틀바 잠금을 토글합니다."""
+        # UILockManager를 사용하여 토글
+        self.ui_lock_manager.toggle_title_lock()
 
     def update_ui_lock_button_state(self):
-        """UI 고정 버튼의 상태를 현재 is_bottom_ui_locked 값에 맞게 업데이트"""
-        if self.is_bottom_ui_locked:
-            self.ui_lock_btn.setText('🔒')  # 잠금 아이콘
-            self.ui_lock_btn.setStyleSheet("""
-                QPushButton {
-                    background-color: rgba(231, 76, 60, 0.9);  /* 빨간색 배경 */
-                    color: white;
-                    border: none;
-                    padding: 8px;
-                    border-radius: 3px;
-                    font-size: 12px;
-                }
-                QPushButton:hover {
-                    background-color: rgba(231, 76, 60, 1.0);  /* 호버 시 더 진한 빨간색 */
-                }
-            """)
-        else:
-            self.ui_lock_btn.setText('🔓')  # 잠금 해제 아이콘
-            self.ui_lock_btn.setStyleSheet("""
-                QPushButton {
-                    background-color: rgba(52, 73, 94, 0.6);  /* 파란색 배경 */
-                    color: white;
-                    border: none;
-                    padding: 8px;
-                    border-radius: 3px;
-                    font-size: 12px;
-                }
-                QPushButton:hover {
-                    background-color: rgba(52, 73, 94, 1.0);  /* 호버 시 더 진한 파란색 */
-                }
-            """)
+        """UI 잠금 버튼 상태 업데이트 - 이제 UILockUI 클래스에서 관리합니다."""
+        if hasattr(self, 'ui_lock_ui'):
+            self.ui_lock_ui.update_ui_lock_button_state()
+
+    def update_title_lock_button_state(self):
+        """타이틀 잠금 버튼 상태 업데이트 - 이제 UILockUI 클래스에서 관리합니다."""
+        if hasattr(self, 'ui_lock_ui'):
+            self.ui_lock_ui.update_title_lock_button_state()
 
     # 초기 및 resizeEvent에서 동적으로 호출되는 커스텀 UI 설정 메서드
     def setup_custom_ui(self):
