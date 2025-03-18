@@ -2273,81 +2273,40 @@ class ImageViewer(QWidget):
                 pass  # 예외 발생 시 무시
 
     def toggle_bookmark(self):
-        """현재 이미지의 북마크 상태를 토글합니다 (북마크 추가 또는 제거)"""
-        # 북마크 매니저를 통해 토글 처리
+        """북마크 토글: 북마크 관리자에 위임"""
         self.bookmark_manager.toggle_bookmark()
-
+        
     def update_bookmark_menu(self):
-        """북마크 메뉴를 업데이트합니다."""
-        # 메서드 내용 전체 삭제
-        # 함수 정의부터 다음 메서드가 시작되기 전까지 모두 삭제
-
+        """북마크 메뉴 업데이트: 북마크 관리자에 위임"""
+        self.bookmark_manager.update_bookmark_menu()
+        
     def load_bookmarked_image(self, path):
-        """북마크된 이미지를 불러옵니다."""
-        # 북마크 매니저를 통해 북마크된 이미지를 불러옵니다.
+        """북마크된 이미지 로드: 북마크 관리자에 위임"""
         self.bookmark_manager.load_bookmarked_image(path)
-
+        
     def clear_bookmarks(self):
-        """모든 북마크를 지웁니다."""
-        # 북마크 매니저를 통해 모든 북마크를 지웁니다.
+        """모든 북마크 삭제: 북마크 관리자에 위임"""
         self.bookmark_manager.clear_bookmarks()
-
+        
     def update_bookmark_button_state(self):
-        """북마크 버튼 상태 업데이트"""
-        # 북마크 매니저의 메서드를 호출하여 북마크 버튼 상태를 업데이트
+        """북마크 버튼 상태 업데이트: 북마크 관리자에 위임"""
         self.bookmark_manager.update_bookmark_button_state()
-
-        # 아래 직접 스타일을 설정하는 코드는 제거
-        # if hasattr(self, 'current_image_path') and self.current_image_path and self.current_image_path in self.bookmark_manager.bookmarks:
-        #     # 북마크된 상태
-        #     self.slider_bookmark_btn.setStyleSheet("""
-        #         QPushButton {
-        #             background-color: rgba(241, 196, 15, 0.9);  /* 노란색 배경 */
-        #             color: white;
-        #             border: none;
-        #             padding: 8px;
-        #             border-radius: 3px;
-        #             font-size: 12px;
-        #         }
-        #         QPushButton:hover {
-        #             background-color: rgba(241, 196, 15, 1.0);  /* 호버 시 더 진한 노란색 */
-        #         }
-        #     """)
-        # else:
-        #     # 북마크되지 않은 상태 또는 이미지가 로드되지 않은 상태
-        #     self.slider_bookmark_btn.setStyleSheet("""
-        #         QPushButton {
-        #             background-color: rgba(52, 73, 94, 0.6);  /* 일반 버튼과 동일한 색상 */
-        #             color: white;
-        #             border: none;
-        #             padding: 8px;
-        #             border-radius: 3px;
-        #             font-size: 12px;
-        #         }
-        #         QPushButton:hover {
-        #             background-color: rgba(52, 73, 94, 1.0);
-        #         }
-        #     """)
-
-    def add_bookmark(self):
-        """현재 이미지를 북마크에 추가합니다."""
-        # 메서드 내용 전체 삭제
-
-    def remove_bookmark(self):
-      """현재 이미지를 북마크에서 제거합니다."""
-       # 메서드 내용 전체 삭제
-
-    def save_bookmarks(self):
-       """북마크 정보를 JSON 파일로 저장합니다."""
-       # 메서드 내용 전체 삭제
     
+    # 삭제할 메서드들 (이미 북마크 관리자로 기능이 이전됨)
+    def add_bookmark(self):
+        pass
+        
+    def remove_bookmark(self):
+        pass
+        
+    def save_bookmarks(self):
+        pass
+        
     def load_bookmarks(self):
-       """JSON 파일에서 북마크 정보를 불러옵니다."""
-       # 메서드 내용 전체 삭제
-
+        pass
+        
     def show_bookmark_menu_above(self):
-        """북마크 메뉴를 버튼 위에 표시"""
-        # BookmarkManager를 통해 북마크 메뉴를 버튼 위에 표시
+        """북마크 메뉴 표시: 북마크 관리자에 위임"""
         self.bookmark_manager.show_menu_above_button()
 
     def show_menu_above(self):
