@@ -41,6 +41,20 @@ class AnimationHandler:
         Returns:
             str: 미디어 타입 ('gif_animation' 또는 'gif_image')
         """
+        # 파일 크기 계산 (MB 단위)
+        size_mb = 0
+        try:
+            if os.path.exists(file_path):
+                size_mb = os.path.getsize(file_path) / (1024 * 1024)  # 바이트 -> 메가바이트
+        except Exception as e:
+            print(f"파일 크기 계산 오류: {e}")
+        
+        # 로딩 인디케이터 표시
+        if self.parent and hasattr(self.parent, 'show_loading_indicator'):
+            self.parent.show_loading_indicator()
+            filename = os.path.basename(file_path)
+            self.parent.show_message(f"GIF 로딩 시작: {filename}")
+        
         # GIF 파일 확인
         reader = QImageReader(file_path)
         media_type = 'gif_image'  # 기본값은 정적 이미지
@@ -120,6 +134,16 @@ class AnimationHandler:
             # 애니메이션을 지원하지 않는 경우 정적 이미지로 처리
             self._handle_static_image(file_path)
         
+        # 로딩 인디케이터 숨김
+        if self.parent and hasattr(self.parent, 'hide_loading_indicator'):
+            self.parent.hide_loading_indicator()
+            filename = os.path.basename(file_path)
+            # 애니메이션인 경우에도 프레임 수 정보 제거
+            if media_type == 'gif_animation':
+                self.parent.show_message(f"GIF 이미지 로드 완료: {filename}, 크기: {size_mb:.2f}MB")
+            else:
+                self.parent.show_message(f"GIF 이미지 로드 완료: {filename}, 크기: {size_mb:.2f}MB")
+        
         return media_type
     
     def load_webp(self, file_path):
@@ -132,6 +156,20 @@ class AnimationHandler:
         Returns:
             str: 미디어 타입 ('webp_animation' 또는 'webp_image')
         """
+        # 파일 크기 계산 (MB 단위)
+        size_mb = 0
+        try:
+            if os.path.exists(file_path):
+                size_mb = os.path.getsize(file_path) / (1024 * 1024)  # 바이트 -> 메가바이트
+        except Exception as e:
+            print(f"파일 크기 계산 오류: {e}")
+        
+        # 로딩 인디케이터 표시
+        if self.parent and hasattr(self.parent, 'show_loading_indicator'):
+            self.parent.show_loading_indicator()
+            filename = os.path.basename(file_path)
+            self.parent.show_message(f"WEBP 로딩 시작: {filename}")
+        
         # WEBP 파일 확인
         reader = QImageReader(file_path)
         media_type = 'webp_image'  # 기본값은 정적 이미지
@@ -208,12 +246,22 @@ class AnimationHandler:
                 # 단일 프레임 WEBP 처리 (애니메이션 아님)
                 print("단일 프레임 WEBP 이미지 처리 시작")
                 self._handle_static_image(file_path)
-                return 'webp_image'
+                media_type = 'webp_image'
         else:
             # 애니메이션을 지원하지 않는 경우 정적 이미지로 처리
             print("정적 WEBP 이미지 처리 시작")
             self._handle_static_image(file_path)
-            return 'webp_image'
+            media_type = 'webp_image'
+        
+        # 로딩 인디케이터 숨김
+        if self.parent and hasattr(self.parent, 'hide_loading_indicator'):
+            self.parent.hide_loading_indicator()
+            filename = os.path.basename(file_path)
+            # 애니메이션인 경우에도 프레임 수 정보 제거
+            if media_type == 'webp_animation':
+                self.parent.show_message(f"WEBP 이미지 로드 완료: {filename}, 크기: {size_mb:.2f}MB")
+            else:
+                self.parent.show_message(f"WEBP 이미지 로드 완료: {filename}, 크기: {size_mb:.2f}MB")
         
         return media_type
     
@@ -391,47 +439,62 @@ class AnimationHandler:
         return False
     
     def _handle_static_image(self, file_path):
-        """정적 이미지 (애니메이션이 아닌 GIF/WEBP) 처리"""
-        # 이미지 파일 로드
-        print(f"정적 이미지 로드 시작: {file_path}")
+        """
+        정적 이미지를 처리합니다.
+        
+        Args:
+            file_path (str): 이미지 파일 경로
+        """
+        # 파일 크기 계산 (MB 단위)
+        size_mb = 0
+        try:
+            if os.path.exists(file_path):
+                size_mb = os.path.getsize(file_path) / (1024 * 1024)  # 바이트 -> 메가바이트
+        except Exception as e:
+            print(f"파일 크기 계산 오류: {e}")
+        
+        # 로딩 시작 메시지 표시
+        filename = os.path.basename(file_path)
+        print(f"정적 이미지 로딩 시작: {filename}")
+        
+        # 이미지 로드
         image = QImage(file_path)
         if not image.isNull():
-            print(f"이미지 로드 성공: {image.width()}x{image.height()}")
+            # 회전 처리
             pixmap = QPixmap.fromImage(image)
-            
-            # 회전 적용
             if self.current_rotation != 0:
                 transform = QTransform().rotate(self.current_rotation)
                 pixmap = pixmap.transformed(transform, Qt.SmoothTransformation)
-                print(f"회전 적용: {self.current_rotation}°")
             
-            # 화면 크기에 맞게 이미지 조정 (비율 유지, 고품질 보간)
+            # 라벨 크기에 맞게 이미지 스케일링
             if self.image_label:
                 label_size = self.image_label.size()
-                print(f"라벨 크기: {label_size.width()}x{label_size.height()}")
                 scaled_pixmap = pixmap.scaled(
-                    label_size.width(),
-                    label_size.height(),
+                    label_size,
                     Qt.KeepAspectRatio,
                     Qt.SmoothTransformation
                 )
-                print(f"이미지 크기 조정 완료: {scaled_pixmap.width()}x{scaled_pixmap.height()}")
                 self.image_label.setPixmap(scaled_pixmap)
-                print("이미지 표시 완료")
-                
-                # 이미지 정보 업데이트 (부모 클래스에 update_image_info 메서드가 있는 경우)
-                if self.parent and hasattr(self.parent, 'update_image_info'):
-                    self.parent.update_image_info()
-                    print("이미지 정보 업데이트 완료")
+            
+            # 이미지 정보 업데이트 (너비, 높이 등)
+            if self.parent and hasattr(self.parent, 'update_image_info'):
+                self.parent.update_image_info()
+            
+            # 로딩 완료 메시지
+            file_type = "GIF" if file_path.lower().endswith('.gif') else "WEBP"
+            self.parent.show_message(f"{file_type} 이미지 로드 완료: {filename}, 크기: {size_mb:.2f}MB")
         else:
             print(f"이미지 로드 실패: {file_path}")
+            if self.parent:
+                self.parent.show_message(f"이미지 로드 실패: {filename}")
         
-        # 슬라이더 초기화 (정적 이미지인 경우)
-        if self.parent:
-            self.parent.playback_slider.setRange(0, 0)
+        # 재생 슬라이더 초기화
+        if self.parent and hasattr(self.parent, 'playback_slider'):
             self.parent.playback_slider.setValue(0)
-            self.parent.time_label.setText("00:00 / 00:00")
-            self.parent.time_label.show()
+        
+        # 로딩 인디케이터 숨김
+        if self.parent and hasattr(self.parent, 'hide_loading_indicator'):
+            self.parent.hide_loading_indicator()
     
     def _setup_animation_timer(self, file_path):
         """애니메이션 타이머 설정"""

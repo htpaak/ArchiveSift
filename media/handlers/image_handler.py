@@ -51,9 +51,12 @@ class ImageHandler(MediaHandler):
             self.parent.show_message(f"파일을 찾을 수 없습니다: {image_path}")
             return False
         
-        # 이미지 로딩 시작 메시지
+        # 파일 확장자 추출
         filename = os.path.basename(image_path)
-        self.parent.show_message(f"일반 이미지 로딩 시작: {image_path}")
+        extension = os.path.splitext(filename)[1].upper().lstrip('.')
+        
+        # 이미지 로딩 시작 메시지
+        self.parent.show_message(f"{extension} 이미지 로딩 시작: {filename}")
         
         # 로딩 인디케이터 표시
         self.parent.show_loading_indicator()
@@ -88,7 +91,7 @@ class ImageHandler(MediaHandler):
             
             # 이미지 정보 업데이트
             file_size_mb = os.path.getsize(image_path) / (1024 * 1024)
-            self.parent.show_message(f"이미지 로드 완료: {filename}, 크기: {file_size_mb:.2f}MB")
+            self.parent.show_message(f"{extension} 이미지 로드 완료: {filename}, 크기: {file_size_mb:.2f}MB")
             
             # 현재 미디어 타입 설정
             self.parent.current_media_type = 'image'

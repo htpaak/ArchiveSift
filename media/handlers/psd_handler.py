@@ -60,6 +60,9 @@ class PSDHandler(MediaHandler):
         if not os.path.exists(psd_path):
             self.parent.show_message(f"파일을 찾을 수 없습니다: {psd_path}")
             return False
+            
+        # 파일 이름과 확장자 추출
+        filename = os.path.basename(psd_path)
         
         # 이미 로딩 중인지 확인
         loading_in_progress = False
@@ -91,22 +94,30 @@ class PSDHandler(MediaHandler):
                 print(f"PSD에 회전 적용됨: {self.parent.current_rotation}°")
             
             # 이미지 크기 조정 후 표시
+            self.original_pixmap = pixmap
             self._apply_pixmap(pixmap)
             
             # 로딩 인디케이터 숨기기
             self.parent.hide_loading_indicator()
             
-            # 현재 미디어 경로 및 픽스맵 설정
+            # 현재 경로 설정
             self.current_media_path = psd_path
-            self.original_pixmap = pixmap
-            self.current_pixmap = pixmap
+            
+            # 로딩 완료 메시지
+            size_mb = os.path.getsize(psd_path) / (1024 * 1024)  # 파일 크기 계산
+            self.parent.show_message(f"PSD 이미지 로드 완료: {filename}, 크기: {size_mb:.2f}MB")
+            
+            # 현재 미디어 타입 설정
+            if hasattr(self.parent, 'current_media_type'):
+                self.parent.current_media_type = 'psd'
             
             return True
         else:
-            # 진행 중인 모든 PSD 로더를 안전하게 처리
+            # 캐시에 없는 경우 로더 스레드로 로드
+            
+            # 진행 중인 모든 로더 스레드 정리 (새 작업 시작 전)
             for path, loader in list(self.loader_threads.items()):
                 if loader.isRunning():
-                    # 실행 중인 다른 PSD 로더의 연결을 해제하여 신호가 처리되지 않도록 함
                     try:
                         loader.loaded.disconnect()
                         loader.error.disconnect()
@@ -116,24 +127,20 @@ class PSDHandler(MediaHandler):
             # 로더 스레드 목록 비우기 (새 시작 전에)
             self.loader_threads.clear()
             
+            # 현재 미디어 경로 설정
+            self.current_media_path = psd_path
+            
             # 비동기 로딩 시작
-            print(f"새 PSD 로더 시작: {os.path.basename(psd_path)}")
-            loader = ImageLoaderThread(psd_path, 'psd')
+            self.parent.show_message(f"PSD 이미지 로딩 시작: {filename}")
+            
+            # 로더 스레드 생성 및 시작
+            loader = ImageLoaderThread(psd_path, file_type='psd')
             loader.loaded.connect(self._on_psd_loaded)
             loader.error.connect(self._on_psd_error)
-            
-            # 스레드 추적
-            self.loader_threads[psd_path] = loader
             loader.start()
             
-            # 로딩 시작 메시지 (파일 경로 포함)
-            print(f"PSD 파일 로딩 시작: {psd_path}")
-            
-            # 로딩 메시지 표시
-            self.parent.show_message(f"PSD 파일 로딩 중... ({os.path.basename(psd_path)})")
-            
-            # 미디어 경로 설정
-            self.current_media_path = psd_path
+            # 로더 스레드 추적
+            self.loader_threads[psd_path] = loader
             
             return True
     
@@ -144,7 +151,7 @@ class PSDHandler(MediaHandler):
         Args:
             path: 로드된 PSD 파일 경로
             image: 로드된 QPixmap 객체
-            size_mb: 이미지 크기 (MB)
+            size_mb: 이미지 크기(MB)
         """
         # 로딩 인디케이터 숨기기
         self.parent.hide_loading_indicator()
@@ -175,7 +182,8 @@ class PSDHandler(MediaHandler):
             self._apply_pixmap(image)
             
             # 로딩 완료 메시지
-            self.parent.show_message(f"PSD 파일 로드 완료: {os.path.basename(path)} ({size_mb:.2f}MB)")
+            filename = os.path.basename(path)
+            self.parent.show_message(f"PSD 이미지 로드 완료: {filename}, 크기: {size_mb:.2f}MB")
     
     def _on_psd_error(self, path, error_msg):
         """

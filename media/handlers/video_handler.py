@@ -74,9 +74,12 @@ class VideoHandler(MediaHandler):
             self.parent.show_message(f"파일을 찾을 수 없습니다: {video_path}")
             return False
         
-        # 비디오 로딩 메시지 표시
+        # 파일 확장자 추출
         filename = os.path.basename(video_path)
-        self.parent.show_message(f"비디오 로딩 시작: {filename}")
+        extension = os.path.splitext(filename)[1].upper().lstrip('.')
+        
+        # 비디오 로딩 메시지 표시
+        self.parent.show_message(f"{extension} 영상 로딩 시작: {filename}")
         
         # 로딩 인디케이터 표시
         self.parent.show_loading_indicator()
@@ -129,7 +132,7 @@ class VideoHandler(MediaHandler):
             
             # 로드 완료 메시지
             file_size_mb = os.path.getsize(video_path) / (1024 * 1024)
-            self.parent.show_message(f"비디오 로드 완료: {filename}, 크기: {file_size_mb:.2f}MB")
+            self.parent.show_message(f"{extension} 영상 로드 완료: {filename}, 크기: {file_size_mb:.2f}MB")
             
             # 재생 버튼 업데이트 (parent에 update_play_button 메서드가 있다면)
             if hasattr(self.parent, 'update_play_button'):

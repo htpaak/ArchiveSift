@@ -1598,8 +1598,12 @@ class ImageViewer(QWidget):
         margin = max(10, min(30, int(window_width * 0.02)))
 
         # 이미지 파일이 있을 때만 정보 표시
-        if self.image_files:
+        if self.image_files and hasattr(self, 'current_image_path'):
+            # 기본 이미지 인덱스 정보
             image_info = f"{self.current_index + 1} / {len(self.image_files)}"
+            
+            # 파일 크기 정보는 표시하지 않음
+            
             self.image_info_label.setText(image_info)
             
             self.image_info_label.setStyleSheet(f"""
