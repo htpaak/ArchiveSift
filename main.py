@@ -49,7 +49,7 @@ from features.ui_lock.ui_lock_manager import UILockManager
 from features.ui_lock.ui_lock_ui import UILockUI
 
 # 파일 브라우저 추가
-from file import FileBrowser
+from file import FileBrowser, FileNavigator
 
 # MPV DLL 경로를 환경 변수 PATH에 추가 (mpv 모듈 import 전에 필수)
 mpv_path = os.path.join(get_app_directory(), 'mpv')
@@ -99,6 +99,9 @@ class ImageViewer(QWidget):
         
         # 파일 브라우저 초기화
         self.file_browser = FileBrowser(self)
+        
+        # 파일 내비게이터 초기화
+        self.file_navigator = FileNavigator(self)
 
         self.installEventFilter(self)
         
@@ -762,7 +765,8 @@ class ImageViewer(QWidget):
 
     def delete_current_image(self):
         """현재 이미지를 삭제합니다 (크로스 플랫폼)."""
-        if not self.current_image_path or not self.image_files:
+        current_file = self.file_navigator.get_current_file()
+        if not current_file:
             self.show_message("삭제할 이미지가 없습니다")
             return
             
@@ -771,14 +775,17 @@ class ImageViewer(QWidget):
             from pathlib import Path
             
             # Path 객체 사용 (크로스 플랫폼 호환성 향상)
-            file_path = Path(self.current_image_path).resolve()
+            file_path = Path(current_file).resolve()
             
             # 파일이 존재하는지 확인
             if not file_path.is_file():
                 self.show_message(f"파일이 존재하지 않습니다: {file_path.name}")
-                # 이미지 파일 리스트에서 제거
-                if self.current_image_path in self.image_files:
-                    self.image_files.remove(self.current_image_path)
+                # 내비게이터에서 현재 파일 제거
+                success, next_file = self.file_navigator.delete_current_file()
+                if success and next_file:
+                    self.current_index = self.file_navigator.get_current_index()  # 인덱스 동기화
+                    self.image_files = self.file_navigator.get_files()  # 이미지 파일 목록 동기화
+                    self.show_image(next_file)
                 return
                 
             # 삭제 전 확인 메시지
@@ -808,25 +815,23 @@ class ImageViewer(QWidget):
                     send2trash(str(file_path))
                     
                     # 북마크에서 제거 (BookmarkManager를 통해 처리)
-                    if self.current_image_path in self.bookmark_manager.bookmarks:
+                    if current_file in self.bookmark_manager.bookmarks:
                         self.bookmark_manager.remove_bookmark()
                     
-                    # 이미지 파일 리스트에서 제거
-                    self.image_files.remove(self.current_image_path)
-                    
-                    # 현재 인덱스 조정
-                    if not self.image_files:  # 남은 파일이 없는 경우
-                        self.current_index = 0
-                        self.image_label.clear()
-                        self.current_image_path = ""
-                        self.show_message("모든 이미지가 삭제되었습니다")
-                    else:
-                        # 인덱스 범위 조정
-                        if self.current_index >= len(self.image_files):
-                            self.current_index = len(self.image_files) - 1
-                        # 다음 이미지 표시
-                        self.show_image(self.image_files[self.current_index])
-                        self.show_message("이미지가 휴지통으로 이동되었습니다")
+                    # 내비게이터에서 현재 파일 제거
+                    success, next_file = self.file_navigator.delete_current_file()
+                    if success:
+                        self.current_index = self.file_navigator.get_current_index()  # 인덱스 동기화
+                        self.image_files = self.file_navigator.get_files()  # 이미지 파일 목록 동기화
+                        
+                        if not self.image_files:  # 남은 파일이 없는 경우
+                            self.image_label.clear()
+                            self.current_image_path = ""
+                            self.show_message("모든 이미지가 삭제되었습니다")
+                        else:
+                            # 다음 이미지 표시
+                            self.show_image(next_file)
+                            self.show_message("이미지가 휴지통으로 이동되었습니다")
                 except Exception as e:
                     # 오류 시 상세 로그 출력
                     import traceback
@@ -1088,6 +1093,9 @@ class ImageViewer(QWidget):
         
         if folder_path:
             self.image_files, self.current_index = self.file_browser.process_folder(folder_path)
+            
+            # 파일 내비게이터에도 파일 목록 설정
+            self.file_navigator.set_files(self.image_files, self.current_index)
             
             if self.image_files:
                 self.show_image(self.image_files[0])  # 첫 번째 이미지 표시
@@ -1619,23 +1627,17 @@ class ImageViewer(QWidget):
 
     # 다음 이미지를 보여주는 메서드입니다.
     def show_next_image(self):
-        if self.image_files:
-            if self.current_index == len(self.image_files) - 1:  # 마지막 이미지인 경우
-                # 메시지 표시
-                self.show_message("마지막 이미지입니다.")
-                return
-            self.current_index += 1  # 다음 이미지로 이동
-            self.show_image(self.image_files[self.current_index])
+        success, next_image = self.file_navigator.next_file()
+        if success and next_image:
+            self.current_index = self.file_navigator.get_current_index()  # 인덱스 동기화
+            self.show_image(next_image)
 
     # 이전 이미지를 보여주는 메서드입니다.
     def show_previous_image(self):
-        if self.image_files:
-            if self.current_index == 0:  # 첫 번째 이미지인 경우
-                # 메시지 표시
-                self.show_message("첫 번째 이미지입니다.")
-                return
-            self.current_index -= 1  # 이전 이미지로 이동
-            self.show_image(self.image_files[self.current_index])
+        success, prev_image = self.file_navigator.previous_file()
+        if success and prev_image:
+            self.current_index = self.file_navigator.get_current_index()  # 인덱스 동기화
+            self.show_image(prev_image)
 
     def show_message(self, message):
         if hasattr(self, 'message_label') and self.message_label.isVisible():

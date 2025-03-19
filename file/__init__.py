@@ -7,5 +7,6 @@
 """
 
 from file.browser import FileBrowser
+from file.navigator import FileNavigator
 
-__all__ = ['FileBrowser'] 
+__all__ = ['FileBrowser', 'FileNavigator'] 

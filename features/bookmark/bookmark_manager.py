@@ -123,14 +123,20 @@ class BookmarkManager:
         if os.path.exists(path):
             # 이미지가 있는 폴더의 모든 이미지 불러오기
             folder = os.path.dirname(path)
-            self.viewer.image_files = self.viewer.get_image_files(folder)
+            files = self.viewer.get_image_files(folder)
             
-            if self.viewer.image_files:
-                self.viewer.image_files.sort()
-                # 현재 인덱스 설정
-                try:
-                    self.viewer.current_index = self.viewer.image_files.index(path)
-                except ValueError:
+            if files:
+                files.sort()
+                # 파일 내비게이터에 파일 목록 설정 및 현재 파일로 이동
+                self.viewer.file_navigator.set_files(files)
+                success, _ = self.viewer.file_navigator.go_to_file(path, False)
+                
+                if success:
+                    # 메인 클래스의 변수들 동기화
+                    self.viewer.image_files = self.viewer.file_navigator.get_files()
+                    self.viewer.current_index = self.viewer.file_navigator.get_current_index()
+                else:
+                    # 파일을 찾을 수 없는 경우 첫 번째 이미지로 설정
                     self.viewer.current_index = 0
             
             # AnimationHandler 정리 (중요!)
