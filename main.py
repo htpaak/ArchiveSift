@@ -183,6 +183,7 @@ class ImageViewer(QWidget):
         
         # 리소스 관리를 위한 객체 추적
         self.timers = []  # 모든 타이머 추적 - 먼저 초기화
+        self.singleshot_timers = []  # 싱글샷 타이머 추적을 위한 리스트 추가
 
         # 책갈피 관련 변수 - BookmarkManager에서 관리함
         # self.bookmark_menu = None  # 책갈피 드롭다운 메뉴 객체 - 더 이상 사용하지 않음
@@ -713,6 +714,7 @@ class ImageViewer(QWidget):
 
         # 리소스 관리를 위한 객체 추적
         self.timers = []  # 모든 타이머 추적 - 먼저 초기화
+        self.singleshot_timers = []  # 싱글샷 타이머 추적을 위한 리스트 추가
 
         # 메뉴 관련 변수 초기화
         self.dropdown_menu = None  # 드롭다운 메뉴 객체
@@ -766,7 +768,7 @@ class ImageViewer(QWidget):
         self.ui_update_timer.timeout.connect(self.delayed_resize)
 
         # __init__ 메서드 끝에 타이머 추가
-        QTimer.singleShot(0, self.update_ui_lock_button_state)
+        self.create_single_shot_timer(0, self.update_ui_lock_button_state)
 
         # 미디어 핸들러 초기화
         self.image_handler = ImageHandler(self, self.image_label)
@@ -1129,7 +1131,7 @@ class ImageViewer(QWidget):
         self.copy_image_to_folder(folder_path)
         
         # 버튼 클릭 후 약간의 지연을 두고 창에 포커스를 돌려줌
-        QTimer.singleShot(50, self.setFocus)
+        self.create_single_shot_timer(50, self.setFocus)
 
     def open_folder(self):
         """이미지 폴더 열기 대화상자 표시 및 처리"""
@@ -1625,7 +1627,7 @@ class ImageViewer(QWidget):
         self.message_label.move(margin, toolbar_height + margin)
         self.message_label.raise_()  # 항상 위에 표시되도록 함
         
-        QTimer.singleShot(2000, self.message_label.close)
+        self.create_single_shot_timer(2000, self.message_label.close)
 
     # 현재 이미지를 다른 폴더로 복사하는 메서드입니다.
     def copy_image_to_folder(self, folder_path):
@@ -2110,23 +2112,44 @@ class ImageViewer(QWidget):
         
         # 캐시 정리
         if hasattr(self, 'image_cache'):
+            print("이미지 캐시 정리 시작...")
             self.image_cache.clear()
+            print("이미지 캐시 정리 완료")
         if hasattr(self, 'psd_cache'):
+            print("PSD 캐시 정리 시작...")
             self.psd_cache.clear()
+            print("PSD 캐시 정리 완료")
         if hasattr(self, 'gif_cache'):
+            print("GIF 캐시 정리 시작...")
             self.gif_cache.clear()
+            print("GIF 캐시 정리 완료")
         
-        # 타이머 정리
+        # 일반 타이머 정리
         for timer in list(self.timers):
             try:
                 if timer.isActive():
                     timer.stop()
+                timer.deleteLater()
             except Exception as e:
                 print(f"타이머 정리 오류: {e}")
         self.timers.clear()  # 타이머 목록 비우기
+        
+        # 싱글샷 타이머 정리 추가
+        for timer in list(self.singleshot_timers):
+            try:
+                if timer.isActive():
+                    timer.stop()
+                timer.deleteLater()
+            except Exception as e:
+                print(f"싱글샷 타이머 정리 오류: {e}")
+        self.singleshot_timers.clear()
                 
         # 책갈피 저장
         self.save_bookmarks()
+        
+        # 마지막 정리 작업 후 이벤트 처리를 강제로 수행하여 모든 정리 작업이 완료되도록 함
+        from PyQt5.QtWidgets import QApplication
+        QApplication.processEvents()
         
         # 이벤트 처리 계속 (창 닫기)
         event.accept()
@@ -2830,13 +2853,26 @@ class ImageViewer(QWidget):
         # 비디오 재생 중지
         self.stop_video()  
 
+        # 애니메이션 핸들러 존재 여부 확인
+        animation_handler_exists = hasattr(self, 'animation_handler')
+
         # 애니메이션 핸들러 리소스 정리 (current_movie 포함)
-        if hasattr(self, 'animation_handler'):
+        if animation_handler_exists:
+            print("애니메이션 핸들러 정리 시작...")
             self.animation_handler.cleanup()
+            
+            # 이벤트 처리 루프 실행으로 UI 갱신 및 정리 작업 완료 유도
+            from PyQt5.QtWidgets import QApplication
+            QApplication.processEvents()
         
-        # 이미지 라벨 초기화 - 명시적 메서드 호출
-        if hasattr(self, 'image_label'):
+        # 이미지 라벨 초기화 - 애니메이션 핸들러가 없는 경우에만 수행
+        if hasattr(self, 'image_label') and not animation_handler_exists:
+            print("이미지 라벨 별도 초기화 (애니메이션 핸들러 없음)...")
+            # 중요: 먼저 setMovie(None)을 호출한 후 clear() 호출
+            self.image_label.setMovie(None)
             self.image_label.clear()
+            # 이벤트 프로세싱
+            QApplication.processEvents()
         
         # 슬라이더 신호 연결 해제 및 초기화
         self.disconnect_all_slider_signals()
@@ -2853,7 +2889,52 @@ class ImageViewer(QWidget):
             self.time_label.setText("00:00 / 00:00")
             self.time_label.show()
             
+        # 가비지 컬렉션 명시적 호출
+        try:
+            import gc
+            gc.collect()
+            print("가비지 컬렉션 실행 완료")
+        except Exception as e:
+            print(f"가비지 컬렉션 호출 중 오류: {e}")
+            
         print("미디어 리소스 정리 완료")
+
+    def create_single_shot_timer(self, timeout, callback):
+        """
+        싱글샷 타이머를 생성하고 추적합니다.
+        
+        Args:
+            timeout (int): 타이머 실행 지연 시간 (밀리초)
+            callback (callable): 타이머 만료 시 실행할 콜백 함수
+            
+        Returns:
+            QTimer: 생성된 타이머 객체
+        """
+        timer = QTimer(self)
+        timer.setSingleShot(True)
+        timer.timeout.connect(lambda: self._handle_single_shot_timeout(timer, callback))
+        timer.start(timeout)
+        
+        # 타이머 추적 리스트에 추가
+        self.singleshot_timers.append(timer)
+        return timer
+    
+    def _handle_single_shot_timeout(self, timer, callback):
+        """
+        싱글샷 타이머의 타임아웃을 처리합니다.
+        
+        Args:
+            timer (QTimer): 만료된 타이머
+            callback (callable): 실행할 콜백 함수
+        """
+        try:
+            # 콜백 실행
+            callback()
+        finally:
+            # 타이머 정리
+            if timer in self.singleshot_timers:
+                self.singleshot_timers.remove(timer)
+            timer.deleteLater()
 
 class ScrollableMenu(QMenu):
     """스크롤을 지원하는 메뉴 클래스"""

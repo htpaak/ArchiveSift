@@ -65,6 +65,10 @@ class LRUCache:
             old_item = self.cache[key]
             if hasattr(old_item, 'cached_size'):
                 self.memory_usage -= old_item.cached_size
+            
+            # QMovie 객체인 경우 리소스 정리
+            self._cleanup_item(old_item)
+            
             self.cache.move_to_end(key)
         
         # 메모리 사용량 업데이트
@@ -80,9 +84,48 @@ class LRUCache:
         # 메모리 제한 또는 용량 제한 초과 시 오래된 항목 제거
         while (len(self.cache) > self.capacity or 
                self.memory_usage > self.max_memory) and len(self.cache) > 0:
-            _, oldest_item = self.cache.popitem(last=False)
+            oldest_key, oldest_item = self.cache.popitem(last=False)
+            
+            # QMovie 객체인 경우 리소스 정리
+            self._cleanup_item(oldest_item)
+            
             if hasattr(oldest_item, 'cached_size'):
                 self.memory_usage -= oldest_item.cached_size
+    
+    def _cleanup_item(self, item):
+        """
+        캐시 항목을 정리합니다. 특히 QMovie 객체의 경우 특별한 정리 작업을 수행합니다.
+        
+        매개변수:
+            item: 정리할 캐시 항목
+        """
+        try:
+            # QMovie 객체 확인
+            from PyQt5.QtGui import QMovie
+            from PyQt5.QtWidgets import QApplication
+            
+            if isinstance(item, QMovie):
+                # 애니메이션 중지
+                item.stop()
+                
+                # 모든 시그널 연결 해제
+                try:
+                    item.frameChanged.disconnect()
+                    item.stateChanged.disconnect()
+                    item.error.disconnect()
+                    item.finished.disconnect()
+                    item.started.disconnect()
+                except:
+                    pass  # 연결된 시그널이 없거나 이미 해제된 경우
+                
+                # 삭제 요청
+                item.deleteLater()
+                
+                # 이벤트 처리를 강제로 수행하여 삭제 요청 처리
+                QApplication.processEvents()
+                print(f"캐시 항목(QMovie) 정리 완료")
+        except Exception as e:
+            print(f"캐시 항목 정리 중 오류: {e}")
     
     def __len__(self):
         """
@@ -93,6 +136,51 @@ class LRUCache:
     def clear(self):
         """
         캐시의 모든 항목을 제거하고 메모리 사용량을 0으로 초기화해요.
+        특별히 QMovie 객체를 포함하는 항목의 경우 리소스를 확실히 정리합니다.
         """
+        # 항목을 제거하기 전에 QMovie 객체가 있는지 확인하고 정리
+        try:
+            from PyQt5.QtGui import QMovie
+            from PyQt5.QtWidgets import QApplication
+            
+            # 캐시에 있는 모든 항목을 순회하며 QMovie 객체 확인
+            for key, item in list(self.cache.items()):
+                # QMovie 객체인 경우 리소스 정리
+                if isinstance(item, QMovie):
+                    try:
+                        # 애니메이션 중지
+                        item.stop()
+                        
+                        # 모든 시그널 연결 해제
+                        try:
+                            item.frameChanged.disconnect()
+                            item.stateChanged.disconnect()
+                            item.error.disconnect()
+                            item.finished.disconnect()
+                            item.started.disconnect()
+                        except:
+                            pass  # 연결된 시그널이 없거나 이미 해제된 경우
+                        
+                        # 삭제 요청
+                        item.deleteLater()
+                        
+                        # 이벤트 처리를 강제로 수행하여 삭제 요청 처리
+                        QApplication.processEvents()
+                        print(f"캐시에서 QMovie 객체 정리 완료: {key}")
+                    except Exception as e:
+                        print(f"캐시의 QMovie 객체 정리 중 오류: {e}")
+        except Exception as e:
+            print(f"캐시 항목 정리 중 일반 오류: {e}")
+        
+        # 메모리 정리를 위한 가비지 컬렉션 호출
+        try:
+            import gc
+            gc.collect()
+            # 이벤트 처리
+            QApplication.processEvents()
+        except:
+            pass
+            
+        # 모든 항목 제거
         self.cache.clear()
         self.memory_usage = 0
