@@ -130,6 +130,10 @@ class VideoHandler(MediaHandler):
             # 로딩 인디케이터 숨김
             self.parent.hide_loading_indicator()
             
+            # 이미지 정보 업데이트 (현재 미디어 인덱스/총 갯수 등)
+            if hasattr(self.parent, 'update_image_info'):
+                self.parent.update_image_info()
+            
             # 로드 완료 메시지
             file_size_mb = os.path.getsize(video_path) / (1024 * 1024)
             self.parent.show_message(f"{extension} 영상 로드 완료: {filename}, 크기: {file_size_mb:.2f}MB")

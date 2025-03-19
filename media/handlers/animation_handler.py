@@ -144,6 +144,10 @@ class AnimationHandler:
             else:
                 self.parent.show_message(f"GIF 이미지 로드 완료: {filename}, 크기: {size_mb:.2f}MB")
         
+        # 이미지 정보 업데이트 (현재 미디어 인덱스/총 갯수 등)
+        if self.parent and hasattr(self.parent, 'update_image_info'):
+            self.parent.update_image_info()
+        
         return media_type
     
     def load_webp(self, file_path):
@@ -262,6 +266,10 @@ class AnimationHandler:
                 self.parent.show_message(f"WEBP 이미지 로드 완료: {filename}, 크기: {size_mb:.2f}MB")
             else:
                 self.parent.show_message(f"WEBP 이미지 로드 완료: {filename}, 크기: {size_mb:.2f}MB")
+        
+        # 이미지 정보 업데이트 (현재 미디어 인덱스/총 갯수 등)
+        if self.parent and hasattr(self.parent, 'update_image_info'):
+            self.parent.update_image_info()
         
         return media_type
     
