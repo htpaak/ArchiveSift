@@ -147,13 +147,8 @@ class BookmarkManager:
             # 기존 미디어 중지
             self.viewer.stop_video()
             
-            # 애니메이션 정지 (GIF/WEBP)
-            if hasattr(self.viewer, 'current_movie') and self.viewer.current_movie:
-                try:
-                    self.viewer.current_movie.stop()
-                    self.viewer.current_movie = None
-                except Exception as e:
-                    print(f"애니메이션 정지 오류: {e}")
+            # 애니메이션 정지 (GIF/WEBP) - AnimationHandler를 통해 처리
+            # animation_handler가 이미 cleanup을 호출했으므로 이 부분은 삭제
             
             # 이미지 레이블 초기화 (중요!)
             if hasattr(self.viewer, 'image_label'):

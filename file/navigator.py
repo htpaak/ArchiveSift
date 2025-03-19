@@ -229,4 +229,42 @@ class FileNavigator:
                 self.parent.show_message("파일을 찾을 수 없습니다.")
             return False, None
             
-        return self.go_to_index(index, show_message) 
+        return self.go_to_index(index, show_message)
+    
+    def peek_next_file(self):
+        """다음 파일 정보를 조회합니다 (실제로 이동하지 않음).
+        
+        반환값:
+            (성공 여부, 다음 파일 경로)
+        """
+        if not self.files:  # 파일 목록이 비어 있는 경우
+            return False, None
+            
+        if self.current_index >= len(self.files) - 1:  # 이미 마지막 파일인 경우
+            # 순환 옵션이 켜져 있으면 첫 번째 파일 반환
+            if self.loop_navigation:
+                return True, self.files[0]
+            # 그렇지 않으면 실패
+            return False, None
+            
+        # 다음 파일 경로 반환
+        return True, self.files[self.current_index + 1]
+    
+    def peek_previous_file(self):
+        """이전 파일 정보를 조회합니다 (실제로 이동하지 않음).
+        
+        반환값:
+            (성공 여부, 이전 파일 경로)
+        """
+        if not self.files:  # 파일 목록이 비어 있는 경우
+            return False, None
+            
+        if self.current_index <= 0:  # 이미 첫 번째 파일인 경우
+            # 순환 옵션이 켜져 있으면 마지막 파일 반환
+            if self.loop_navigation:
+                return True, self.files[-1]
+            # 그렇지 않으면 실패
+            return False, None
+            
+        # 이전 파일 경로 반환
+        return True, self.files[self.current_index - 1] 

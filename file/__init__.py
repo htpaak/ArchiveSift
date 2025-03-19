@@ -8,5 +8,6 @@
 
 from file.browser import FileBrowser
 from file.navigator import FileNavigator
+from file.operations import FileOperations
 
-__all__ = ['FileBrowser', 'FileNavigator'] 
+__all__ = ['FileBrowser', 'FileNavigator', 'FileOperations'] 

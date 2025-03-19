@@ -50,6 +50,7 @@ from features.ui_lock.ui_lock_ui import UILockUI
 
 # 파일 브라우저 추가
 from file import FileBrowser, FileNavigator
+from file.operations import FileOperations
 
 # MPV DLL 경로를 환경 변수 PATH에 추가 (mpv 모듈 import 전에 필수)
 mpv_path = os.path.join(get_app_directory(), 'mpv')
@@ -102,6 +103,15 @@ class ImageViewer(QWidget):
         
         # 파일 내비게이터 초기화
         self.file_navigator = FileNavigator(self)
+        
+        # 파일 작업 관리자 초기화
+        self.file_operations = FileOperations(self)
+        
+        # 북마크 관리자 초기화
+        self.bookmark_manager = BookmarkManager(self)
+        
+        # 회전 관리자 초기화
+        self.rotation_manager = RotationManager(self)
 
         self.installEventFilter(self)
         
@@ -764,7 +774,7 @@ class ImageViewer(QWidget):
         self.video_handler = VideoHandler(self, self.image_label)
 
     def delete_current_image(self):
-        """현재 이미지를 삭제합니다 (크로스 플랫폼)."""
+        """현재 이미지를 삭제합니다 (휴지통으로 이동)."""
         current_file = self.file_navigator.get_current_file()
         if not current_file:
             self.show_message("삭제할 이미지가 없습니다")
@@ -772,72 +782,106 @@ class ImageViewer(QWidget):
             
         try:
             import os
+            import gc
             from pathlib import Path
+            import shutil
             
-            # Path 객체 사용 (크로스 플랫폼 호환성 향상)
+            # Path 객체 사용
             file_path = Path(current_file).resolve()
+            file_name = file_path.name
             
             # 파일이 존재하는지 확인
             if not file_path.is_file():
-                self.show_message(f"파일이 존재하지 않습니다: {file_path.name}")
+                self.show_message(f"파일이 존재하지 않습니다: {file_name}")
                 # 내비게이터에서 현재 파일 제거
                 success, next_file = self.file_navigator.delete_current_file()
                 if success and next_file:
-                    self.current_index = self.file_navigator.get_current_index()  # 인덱스 동기화
-                    self.image_files = self.file_navigator.get_files()  # 이미지 파일 목록 동기화
+                    self.current_index = self.file_navigator.get_current_index()
+                    self.image_files = self.file_navigator.get_files()
                     self.show_image(next_file)
                 return
-                
+            
             # 삭제 전 확인 메시지
             from PyQt5.QtWidgets import QMessageBox
             msg_box = QMessageBox(self)
             msg_box.setWindowTitle('이미지 삭제')
-            msg_box.setText(f"정말로 이미지를 삭제하시겠습니까?\n{file_path.name}")
+            msg_box.setText(f"정말로 이미지를 휴지통으로 이동하시겠습니까?\n{file_name}")
             msg_box.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
             msg_box.setDefaultButton(QMessageBox.No)
-
-            reply = msg_box.exec_()
             
-            if reply == QMessageBox.Yes:
-                # send2trash 모듈 사용해서 휴지통으로 이동
+            if msg_box.exec_() != QMessageBox.Yes:
+                return
+            
+            # 애니메이션 파일(GIF/WebP)인 경우의 특별 처리
+            file_ext = os.path.splitext(current_file)[1].lower()
+            is_animation = file_ext in ['.gif', '.webp'] and self.current_media_type in ['gif_animation', 'webp_animation']
+            
+            # 1. 현재 이미지의 다음 이미지로 미리 이동하여 리소스 해제
+            next_file_index = (self.current_index + 1) % len(self.image_files) if self.image_files else -1
+            if next_file_index >= 0 and len(self.image_files) > 1:
+                next_file = self.image_files[next_file_index]
+                # 다음 이미지로 이동하기 전에 정리
+                self.cleanup_current_media()
+                # 다음 이미지 표시
+                self.show_image(next_file)
+                
+                # 추가 이벤트 처리 및 메모리 정리
+                for i in range(5):  # 몇 번의 이벤트 루프를 더 돌림
+                    QApplication.processEvents()
+            else:
+                # 다음 이미지가 없는 경우 리소스만 정리
+                self.cleanup_current_media()
+                self.image_label.clear()
+            
+            # 추가 메모리 정리
+            gc.collect()
+            
+            # 2. 휴지통으로 이동 시도
+            try:
+                from send2trash import send2trash
+                send2trash(str(file_path))
+                file_deleted = True
+            except ImportError:
+                # send2trash 모듈이 없으면 설치
+                self.show_message("send2trash 모듈 설치 중...")
+                import subprocess
                 try:
-                    # 먼저 send2trash 모듈이 있는지 확인
-                    try:
-                        from send2trash import send2trash
-                    except ImportError:
-                        # 자동으로 설치 시도
-                        self.show_message("send2trash 모듈 설치 중...")
-                        import subprocess
-                        subprocess.check_call([sys.executable, "-m", "pip", "install", "send2trash"])
-                        from send2trash import send2trash
-                    
-                    # 휴지통으로 파일 이동
+                    subprocess.check_call([sys.executable, "-m", "pip", "install", "send2trash"])
+                    from send2trash import send2trash
                     send2trash(str(file_path))
-                    
-                    # 북마크에서 제거 (BookmarkManager를 통해 처리)
-                    if current_file in self.bookmark_manager.bookmarks:
-                        self.bookmark_manager.remove_bookmark()
-                    
-                    # 내비게이터에서 현재 파일 제거
-                    success, next_file = self.file_navigator.delete_current_file()
-                    if success:
-                        self.current_index = self.file_navigator.get_current_index()  # 인덱스 동기화
-                        self.image_files = self.file_navigator.get_files()  # 이미지 파일 목록 동기화
-                        
-                        if not self.image_files:  # 남은 파일이 없는 경우
-                            self.image_label.clear()
-                            self.current_image_path = ""
-                            self.show_message("모든 이미지가 삭제되었습니다")
-                        else:
-                            # 다음 이미지 표시
-                            self.show_image(next_file)
-                            self.show_message("이미지가 휴지통으로 이동되었습니다")
+                    file_deleted = True
                 except Exception as e:
-                    # 오류 시 상세 로그 출력
-                    import traceback
-                    error_details = traceback.format_exc()
-                    print(f"휴지통 이동 중 오류: {e}\n{error_details}")
-                    self.show_message(f"휴지통 이동 실패: {str(e)}")
+                    print(f"send2trash 설치 또는 사용 실패: {e}")
+                    file_deleted = False
+            except Exception as e:
+                print(f"휴지통 이동 실패: {e}")
+                file_deleted = False
+            
+            # 3. 파일이 성공적으로 삭제되었는지 확인
+            if file_deleted or not os.path.exists(str(file_path)):
+                # 북마크에서 제거
+                if hasattr(self, 'bookmark_manager') and current_file in self.bookmark_manager.bookmarks:
+                    self.bookmark_manager.remove_bookmark()
+                
+                # 내비게이터에서 파일 제거
+                success, _ = self.file_navigator.delete_current_file()
+                if success:
+                    self.current_index = self.file_navigator.get_current_index()
+                    self.image_files = self.file_navigator.get_files()
+                    
+                    if not self.image_files:
+                        self.image_label.clear()
+                        self.current_image_path = ""
+                        self.show_message("모든 이미지가 삭제되었습니다")
+                    else:
+                        # 여기서는 이미 이미지를 바꿨으므로 메시지만 표시
+                        self.show_message("파일이 휴지통으로 이동되었습니다")
+            else:
+                self.show_message("파일 삭제에 실패했습니다. 다른 프로그램에서 사용 중일 수 있습니다.")
+                
+                # 원래 이미지로 돌아가기
+                if current_file and os.path.exists(current_file):
+                    self.show_image(current_file)
         except Exception as e:
             import traceback
             error_details = traceback.format_exc()
@@ -1288,87 +1332,21 @@ class ImageViewer(QWidget):
 
     def scale_webp(self):
         """WEBP 애니메이션 크기 조정"""
-        # current_movie 속성이 있는지 확인
-        if not hasattr(self, 'current_movie') or self.current_movie is None:
-            return
-            
-        try:
-            # 현재 재생 상태 저장
-            was_running = (self.current_movie.state() == QMovie.Running)
-            
-            # 현재 프레임 번호 저장
-            current_frame = self.current_movie.currentFrameNumber()
-            
-            # 원본 크기와 표시 영역 크기 정보
-            original_size = QSize(self.current_movie.currentImage().width(), self.current_movie.currentImage().height())
-            label_size = self.image_label.size()
-            
-            # 높이가 0인 경우 예외 처리 (0으로 나누기 방지)
-            if original_size.height() == 0:
-                original_size.setHeight(1)
-                
-            # 화면 비율에 맞게 새 크기 계산
-            if label_size.width() / label_size.height() > original_size.width() / original_size.height():
-                # 세로 맞춤 (세로 기준으로 가로 계산)
-                new_height = label_size.height()
-                new_width = int(new_height * (original_size.width() / original_size.height()))
+        if self.current_media_type == 'webp_animation' and hasattr(self, 'animation_handler'):
+            success = self.animation_handler.scale_animation()
+            if success:
+                print("WEBP 애니메이션 크기 조정 완료")
             else:
-                # 가로 맞춤 (가로 기준으로 세로 계산)
-                new_width = label_size.width()
-                new_height = int(new_width * (original_size.height() / original_size.width()))
-            
-            # 애니메이션 크기 조정 및 원래 프레임으로 복원
-            self.current_movie.setScaledSize(QSize(new_width, new_height))
-            self.current_movie.jumpToFrame(current_frame)
-            
-            # 원래 재생 상태로 복원
-            if was_running and self.current_movie.state() != QMovie.Running:
-                self.current_movie.start()
-                print("WEBP 애니메이션 리사이징 후 재생 재개")
-        except Exception as e:
-            print(f"WEBP 크기 조정 중 오류 발생: {e}")
+                print("WEBP 애니메이션 크기 조정 실패")
 
     def scale_gif(self):
         """GIF 애니메이션 크기 조정"""
-        # current_movie 속성이 있는지 확인
-        if not hasattr(self, 'current_movie') or self.current_movie is None:
-            return
-            
-        try:
-            # 현재 재생 상태 저장
-            was_running = (self.current_movie.state() == QMovie.Running)
-            
-            # 현재 프레임 번호 저장
-            current_frame = self.current_movie.currentFrameNumber()
-            
-            # 원본 크기와 표시 영역 크기 정보
-            original_size = QSize(self.current_movie.currentImage().width(), self.current_movie.currentImage().height())
-            label_size = self.image_label.size()
-            
-            # 높이가 0인 경우 예외 처리 (0으로 나누기 방지)
-            if original_size.height() == 0:
-                original_size.setHeight(1)
-                
-            # 화면 비율에 맞게 새 크기 계산
-            if label_size.width() / label_size.height() > original_size.width() / original_size.height():
-                # 세로 맞춤 (세로 기준으로 가로 계산)
-                new_height = label_size.height()
-                new_width = int(new_height * (original_size.width() / original_size.height()))
+        if self.current_media_type == 'gif_animation' and hasattr(self, 'animation_handler'):
+            success = self.animation_handler.scale_animation()
+            if success:
+                print("GIF 애니메이션 크기 조정 완료")
             else:
-                # 가로 맞춤 (가로 기준으로 세로 계산)
-                new_width = label_size.width()
-                new_height = int(new_width * (original_size.height() / original_size.width()))
-            
-            # 애니메이션 크기 조정 및 원래 프레임으로 복원
-            self.current_movie.setScaledSize(QSize(new_width, new_height))
-            self.current_movie.jumpToFrame(current_frame)
-            
-            # 원래 재생 상태로 복원
-            if was_running and self.current_movie.state() != QMovie.Running:
-                self.current_movie.start()
-                print("GIF 애니메이션 리사이징 후 재생 재개")
-        except Exception as e:
-            print(f"GIF 크기 조정 중 오류 발생: {e}")
+                print("GIF 애니메이션 크기 조정 실패")
 
     def play_video(self, video_path):
         """MPV를 사용하여 비디오 재생"""
@@ -1413,30 +1391,18 @@ class ImageViewer(QWidget):
                 self.timers.remove(self.video_timer)
 
     def slider_clicked(self, value):
-        """슬라이더를 클릭했을 때 호출됩니다."""
-        # 애니메이션 처리
-        if hasattr(self, 'current_movie') and self.current_movie:
-            try:
-                # 유효한 프레임 번호인지 확인
-                max_frame = self.current_movie.frameCount() - 1
-                frame = min(max(0, value), max_frame)  # 범위 내로 제한
-                self.current_movie.jumpToFrame(frame)
-                return
-            except Exception as e:
-                pass  # 예외 발생 시 무시
-        
+        """슬라이더를 클릭하면 해당 위치로 이동"""
         # 비디오 처리
         if self.current_media_type == 'video':
-            try:
-                # 클릭한 위치의 값을 초 단위로 변환
-                seconds = value / 1000.0  # 밀리초를 초 단위로 변환
-                # VideoHandler의 seek 함수를 사용하여 정확한 위치로 이동
-                self.video_handler.seek(seconds)
-            except Exception as e:
-                print(f"비디오 Seek 오류: {e}")  # 오류 내용 출력
-                pass  # 예외 발생 시 무시
-                
-        # 슬라이더 클릭 후 약간의 지연을 두고 창에 포커스를 돌려줌
+            # 슬라이더 값을 초 단위로 변환 (value는 밀리초 단위)
+            seconds = value / 1000.0  # 밀리초를 초 단위로 변환
+            self.video_handler.seek(seconds)
+        # 애니메이션 처리
+        elif self.current_media_type in ['gif_animation', 'webp_animation'] and hasattr(self, 'animation_handler'):
+            # AnimationHandler를 통해 프레임 이동
+            self.animation_handler.seek_to_frame(value)
+        
+        # 슬라이더 클릭 후 포커스를 다시 메인 창으로 설정
         QTimer.singleShot(50, self.setFocus)
 
     def slider_pressed(self):
@@ -1444,32 +1410,25 @@ class ImageViewer(QWidget):
         self.is_slider_dragging = True
 
     def slider_released(self):
-        """슬라이더 드래그가 끝날 때 호출됩니다."""
+        """슬라이더 드래그 종료 처리"""
         self.is_slider_dragging = False
         
-        # 애니메이션 처리
-        if hasattr(self, 'current_movie') and self.current_movie:
+        # 비디오 처리
+        if self.current_media_type == 'video':
             try:
                 value = self.playback_slider.value()
-                # 유효한 프레임 번호인지 확인
-                max_frame = self.current_movie.frameCount() - 1
-                frame = min(max(0, value), max_frame)  # 범위 내로 제한
-                self.current_movie.jumpToFrame(frame)
+                seconds = value / 1000.0  # 밀리초를 초 단위로 변환
+                self.video_handler.seek(seconds)
             except Exception as e:
-                print(f"애니메이션 Seek 오류: {e}")  # 오류 내용 출력
-                pass  # 예외 발생 시 무시
-                
-        # 비디오 처리
-        elif self.current_media_type == 'video':
+                print(f"비디오 Seek 오류: {e}")
+        
+        # 애니메이션 처리
+        elif self.current_media_type in ['gif_animation', 'webp_animation'] and hasattr(self, 'animation_handler'):
             try:
-                seconds = self.playback_slider.value() / 1000.0  # 밀리초를 초 단위로 변환
-                self.video_handler.seek(seconds)  # VideoHandler의 seek 함수 사용
+                value = self.playback_slider.value()
+                self.animation_handler.seek_to_frame(value)
             except Exception as e:
-                print(f"비디오 Seek 오류: {e}")  # 오류 내용 출력
-                pass  # 예외 발생 시 무시
-                
-        # 슬라이더 조작 후 약간의 지연을 두고 창에 포커스를 돌려줌
-        QTimer.singleShot(50, self.setFocus)
+                print(f"애니메이션 Seek 오류: {e}")
 
     def seek_video(self, value):
         """슬라이더 값에 따라 비디오 재생 위치를 변경합니다."""
@@ -1481,15 +1440,10 @@ class ImageViewer(QWidget):
 
     def seek_animation(self, value):
         """슬라이더 값에 따라 애니메이션 재생 위치를 변경합니다."""
-        # AnimationHandler 사용
+        # AnimationHandler만 사용
         if self.current_media_type in ['gif_animation', 'webp_animation'] and hasattr(self, 'animation_handler'):
             self.animation_handler.seek_to_frame(value)
-        # 기존 방식 (AnimationHandler가 없는 경우)
-        elif hasattr(self, 'current_movie') and self.current_movie:
-            # 슬라이더 값을 프레임 번호로 변환
-            frame = value
-            # 애니메이션이 재생 중일 경우 해당 프레임으로 점프
-            self.current_movie.jumpToFrame(frame)
+        # else 부분 완전 제거
 
     def update_video_playback(self):
         """VideoHandler를 사용하여 비디오의 재생 위치에 따라 슬라이더 값을 업데이트합니다."""
@@ -1531,12 +1485,10 @@ class ImageViewer(QWidget):
     def update_play_button(self):
         """재생 상태에 따라 버튼 텍스트 업데이트"""
         # 미디어 타입에 따른 버튼 텍스트 업데이트
-        if hasattr(self, 'current_movie') and self.current_movie:
-            # 애니메이션(GIF, WEBP) 재생 상태 확인
-            if self.current_movie.state() == QMovie.Running:
-                self.play_button.setText("❚❚")  # 일시정지 아이콘
-            else:
-                self.play_button.setText("▶")  # 재생 아이콘
+        if self.current_media_type in ['gif_animation', 'webp_animation'] and hasattr(self, 'animation_handler'):
+            # 애니메이션 핸들러를 통해 재생 상태 확인
+            is_playing = self.animation_handler.is_playing()
+            self.play_button.setText("❚❚" if is_playing else "▶")
         elif self.current_media_type == 'video':
             # 비디오 재생 상태 확인
             try:
@@ -1679,51 +1631,12 @@ class ImageViewer(QWidget):
     def copy_image_to_folder(self, folder_path):
         # 현재 이미지 경로가 존재하고, 폴더 경로도 제공되었으면 복사를 시작합니다.
         if self.current_image_path and folder_path:
-            try:
-                # 이미지 복사할 대상 경로를 생성합니다.
-                target_path = self.get_unique_file_path(folder_path, self.current_image_path)  # 고유한 파일 경로 생성
-
-                # 이미지 파일을 복사합니다.
-                shutil.copy2(self.current_image_path, target_path)  # 파일 복사 (메타데이터도 함께 복사)
-                print(f"Copied: {self.current_image_path} -> {target_path}")  # 복사된 경로 출력
-
-                # 전체 경로가 너무 길 경우 축약
-                path_display = target_path
-                if len(path_display) > 60:  # 경로가 60자 이상인 경우
-                    # 드라이브와 마지막 2개 폴더만 표시
-                    drive, tail = os.path.splitdrive(path_display)
-                    parts = tail.split(os.sep)
-                    if len(parts) > 2:
-                        # 드라이브 + '...' + 마지막 2개 폴더
-                        path_display = f"{drive}{os.sep}...{os.sep}{os.sep.join(parts[-2:])}"
-                
-                # 새로운 메시지 형식으로 표시
-                self.show_message(f"{path_display} 으로 이미지 복사")
-
-                # 이미지 복사 후 자동으로 다음 이미지로 이동합니다.
-                self.show_next_image()  # 복사 후 다음 이미지 표시
-            except Exception as e:
-                pass  # 에러 발생 시 출력
-
-    # 고유한 파일 경로를 생성하는 메서드입니다.
-    def get_unique_file_path(self, folder_path, image_path):
-        # 파일 이름이 중복되지 않도록 새로운 파일 이름을 생성합니다.
-        base_name = os.path.basename(image_path)  # 이미지 파일의 기본 이름을 추출
-        name, ext = os.path.splitext(base_name)  # 파일 이름과 확장자를 분리
-
-        # 파일 이름에 '(숫자)' 형식이 있으면 이를 제거합니다.
-        name = re.sub(r'\s?\(\d+\)', '', name)  # '(숫자)' 패턴을 제거하여 중복을 방지
-
-        # 폴더 경로와 새 파일 경로를 결합하여 대상 경로 생성
-        target_path = os.path.join(folder_path, f"{name}{ext}")
-
-        # 파일 이름이 이미 존재하면 숫자를 추가하여 새로운 이름을 만듭니다.
-        counter = 1
-        while os.path.exists(target_path):  # 경로가 존재하면
-            target_path = os.path.join(folder_path, f"{name} ({counter}){ext}")  # 파일 이름 뒤에 숫자를 추가하여 경로 생성
-            counter += 1  # 숫자 증가
-
-        return target_path  # 고유한 파일 경로 반환
+            # FileOperations 클래스를 사용하여 파일 복사
+            success, _ = self.file_operations.copy_file_to_folder(self.current_image_path, folder_path)
+            
+            # 복사 성공 시 다음 이미지로 이동
+            if success:
+                self.show_next_image()
 
     def keyPressEvent(self, event):
             # ESC 키로 전체화면 모드 종료
@@ -2168,8 +2081,8 @@ class ImageViewer(QWidget):
 
     def closeEvent(self, event):
         """창이 닫힐 때 호출되는 이벤트, 리소스 정리를 수행합니다."""
-        # 비디오 정지 및 플레이어 종료
-        self.stop_video()
+        # 전체 미디어 리소스 정리
+        self.cleanup_current_media()
         
         # 로더 스레드 종료
         for path, loader in list(self.loader_threads.items()):
@@ -2202,15 +2115,6 @@ class ImageViewer(QWidget):
             self.psd_cache.clear()
         if hasattr(self, 'gif_cache'):
             self.gif_cache.clear()
-            
-        # QMovie 정리
-        if hasattr(self, 'current_movie') and self.current_movie:
-            try:
-                self.current_movie.stop()
-                self.current_movie.deleteLater()
-                self.current_movie = None
-            except Exception as e:
-                print(f"QMovie 정리 오류: {e}")
         
         # 타이머 정리
         for timer in list(self.timers):
@@ -2708,19 +2612,15 @@ class ImageViewer(QWidget):
                         self.image_label.setPixmap(scaled_pixmap)
                     print(f"WEBP 일반 이미지 회전 직접 적용: {self.current_rotation}°")
         elif self.current_media_type in ['gif_animation', 'webp_animation']:
-            # AnimationHandler가 있으면 사용, 없으면 기존 방식으로 처리
+            # AnimationHandler 사용
             if hasattr(self, 'animation_handler'):
-                # 현재 재생 상태 기억
-                was_playing = False
+                # 현재 재생 상태 및 프레임 기억 (AnimationHandler 통해 접근)
+                was_playing = self.animation_handler.is_playing()
                 current_frame = 0
                 
-                if hasattr(self, 'current_movie') and self.current_movie:
-                    was_playing = self.current_movie.state() == QMovie.Running
-                    current_frame = self.current_movie.currentFrameNumber()
-                    
-                    # 기존 애니메이션 정지 및 정리
-                    self.current_movie.stop()
-                    
+                if self.animation_handler.current_movie:
+                    current_frame = self.animation_handler.current_movie.currentFrameNumber()
+                
                 # 이미지 레이블 초기화 (중요: 깜빡임 방지)
                 self.image_label.clear()
                 
@@ -2736,50 +2636,24 @@ class ImageViewer(QWidget):
                 elif self.current_media_type == 'webp_animation':
                     self.animation_handler.load_webp(self.current_image_path)
                     
-                # 프레임 및 재생 상태 복원
-                if hasattr(self, 'current_movie') and self.current_movie:
-                    if current_frame < self.current_movie.frameCount():
-                        self.current_movie.jumpToFrame(current_frame)
+                # 프레임 및 재생 상태 복원 (AnimationHandler로 복원)
+                if self.animation_handler.current_movie:
+                    if current_frame < self.animation_handler.current_movie.frameCount():
+                        self.animation_handler.seek_to_frame(current_frame)
+                    
+                    # 재생 상태 복원
                     if not was_playing:
-                        self.current_movie.setPaused(True)
+                        self.animation_handler.current_movie.setPaused(True)
                         self.play_button.setText("▶")  # 재생 아이콘
             else:
-                # 기존 방식 (AnimationHandler 없는 경우)
-                try:
-                    if hasattr(self, 'current_movie') and self.current_movie:
-                        # 현재 재생 상태 및 프레임 기억
-                        was_playing = self.current_movie.state() == QMovie.Running
-                        current_frame = self.current_movie.currentFrameNumber()
-                        
-                        # 이미지 레이블 초기화
-                        self.image_label.clear()
-                        
-                        # 이벤트 처리로 UI 갱신 시간 확보
-                        QApplication.processEvents()
-                        
-                        # 재로드 방식으로 처리
-                        if self.current_media_type == 'gif_animation':
-                            self.show_gif(self.current_image_path)
-                        else:  # webp 또는 webp_animation
-                            self.show_webp(self.current_image_path)
-                            
-                        # 프레임 복원 시도
-                        if self.current_movie and current_frame < self.current_movie.frameCount():
-                            self.current_movie.jumpToFrame(current_frame)
-                            
-                        # 정지 상태였다면 유지
-                        if not was_playing and self.current_movie:
-                            self.current_movie.setPaused(True)
-                            
-                except Exception as e:
-                    self.show_message(f"애니메이션 회전 중 오류 발생: {str(e)}")
-                    # 오류 발생 시 원본 이미지 다시 로드
-                    if self.current_media_type == 'gif_animation':
-                        self.show_gif(self.current_image_path)
-                    else:
-                        self.show_webp(self.current_image_path)
-                    return
-        
+                # AnimationHandler 없는 경우 생성하고 로드
+                self.animation_handler = AnimationHandler(self.image_label, self)
+                
+                # AnimationHandler를 통해 다시 로드
+                if self.current_media_type == 'gif_animation':
+                    self.animation_handler.load_gif(self.current_image_path)
+                elif self.current_media_type == 'webp_animation':
+                    self.animation_handler.load_webp(self.current_image_path)
         elif self.current_media_type == 'video':
             # 비디오 회전 처리
             try:
@@ -2789,8 +2663,7 @@ class ImageViewer(QWidget):
                     self.video_handler.rotate(self.current_rotation)
             except Exception as e:
                 self.show_message(f"비디오 회전 중 오류 발생: {str(e)}")
-                return
-        
+                
         # 회전 상태 메시지 표시
         if self.current_media_type == 'video':
             self.show_message(f"비디오 회전: {self.current_rotation}°")
@@ -2952,45 +2825,35 @@ class ImageViewer(QWidget):
 
     def cleanup_current_media(self):
         """현재 미디어 리소스를 정리합니다."""
-        # AnimationHandler 리소스 정리
-        if hasattr(self, 'animation_handler'):
-            self.animation_handler.cleanup()
-            
+        print("미디어 리소스 정리 시작...")
+        
         # 비디오 재생 중지
         self.stop_video()  
 
-        # 이미지 레이블 초기화
-        self.image_label.clear()  # 레이블 내용 지우기 (애니메이션 정지)
+        # 애니메이션 핸들러 리소스 정리 (current_movie 포함)
+        if hasattr(self, 'animation_handler'):
+            self.animation_handler.cleanup()
         
-        # 기존 QMovie 정리
-        try:
-            if hasattr(self, 'current_movie') and self.current_movie is not None:
-                try:
-                    self.current_movie.stop()
-                except RuntimeError:
-                    # 이미 삭제된 객체인 경우 무시
-                    pass
-                try:
-                    self.current_movie.deleteLater()  # Qt 객체 명시적 삭제 요청
-                except RuntimeError:
-                    # 이미 삭제된 객체인 경우 무시
-                    pass
-                self.current_movie = None
-        except Exception as e:
-            print(f"QMovie 객체 정리 중 오류: {e}")
-            self.current_movie = None
+        # 이미지 라벨 초기화 - 명시적 메서드 호출
+        if hasattr(self, 'image_label'):
+            self.image_label.clear()
         
         # 슬라이더 신호 연결 해제 및 초기화
         self.disconnect_all_slider_signals()
-        self.playback_slider.setRange(0, 0)  # 슬라이더 범위를 0으로 설정
-        self.playback_slider.setValue(0)  # 슬라이더 초기값을 0으로 설정
+        if hasattr(self, 'playback_slider'):
+            self.playback_slider.setRange(0, 0)
+            self.playback_slider.setValue(0)
 
-        # 재생 버튼을 재생 상태로 초기화
-        self.play_button.setText("❚❚")  # 일시정지 아이콘으로 변경 (재생 중 상태)
+        # 재생 버튼 상태 초기화
+        if hasattr(self, 'play_button'):
+            self.play_button.setText("❚❚")
         
         # 시간 레이블 초기화
-        self.time_label.setText("00:00 / 00:00")
-        self.time_label.show()
+        if hasattr(self, 'time_label'):
+            self.time_label.setText("00:00 / 00:00")
+            self.time_label.show()
+            
+        print("미디어 리소스 정리 완료")
 
 class ScrollableMenu(QMenu):
     """스크롤을 지원하는 메뉴 클래스"""

@@ -9,6 +9,7 @@ from PyQt5.QtWidgets import QLabel
 from PyQt5.QtGui import QMovie, QImageReader, QPixmap, QImage, QTransform
 from PyQt5.QtCore import Qt, QTimer, QSize
 import os
+import weakref
 
 class AnimationHandler:
     """
@@ -275,21 +276,24 @@ class AnimationHandler:
     
     def scale_animation(self):
         """
-        현재 로드된 애니메이션의 크기를 이미지 레이블에 맞게 조절합니다.
-        
-        Returns:
-            bool: 성공 여부
+        애니메이션 크기를 조정합니다. QMovie 객체가 이미지 라벨 크기에 맞게 스케일링됩니다.
+        현재 프레임과 재생 상태를 유지합니다.
         """
-        # current_movie 속성이 있는지 확인
-        if not hasattr(self, 'current_movie') or self.current_movie is None:
+        if not self.current_movie:
             return False
             
         try:
+            # 현재 재생 상태 저장
+            was_running = (self.current_movie.state() == QMovie.Running)
+            
             # 현재 프레임 번호 저장
             current_frame = self.current_movie.currentFrameNumber()
             
             # 원본 크기와 표시 영역 크기 정보
             original_size = QSize(self.current_movie.currentImage().width(), self.current_movie.currentImage().height())
+            if not self.image_label:
+                return False
+                
             label_size = self.image_label.size()
             
             # 높이가 0인 경우 예외 처리 (0으로 나누기 방지)
@@ -309,6 +313,12 @@ class AnimationHandler:
             # 애니메이션 크기 조정 및 원래 프레임으로 복원
             self.current_movie.setScaledSize(QSize(new_width, new_height))
             self.current_movie.jumpToFrame(current_frame)
+            
+            # 원래 재생 상태로 복원
+            if was_running and self.current_movie.state() != QMovie.Running:
+                self.current_movie.start()
+                print("애니메이션 리사이징 후 재생 재개")
+                
             return True
         except Exception as e:
             print(f"애니메이션 크기 조정 중 오류 발생: {e}")
@@ -378,20 +388,87 @@ class AnimationHandler:
         """
         리소스를 정리합니다. 애니메이션을 정지하고 메모리를 해제합니다.
         """
-        # 타이머 정리
+        print("애니메이션 핸들러 리소스 정리 시작...")
+        
+        # 애니메이션 타이머 별도 정리 (첫번째로 정리해야 함)
+        if hasattr(self, 'animation_timer') and self.animation_timer:
+            try:
+                if self.animation_timer.isActive():
+                    self.animation_timer.stop()
+                
+                # 연결된 모든 슬롯 해제
+                try:
+                    self.animation_timer.timeout.disconnect()
+                except TypeError:
+                    # 연결된 슬롯이 없을 경우 발생하는 예외 무시
+                    pass
+                    
+                # 부모의 타이머 목록에서 제거
+                if hasattr(self.parent, 'timers') and self.animation_timer in self.parent.timers:
+                    self.parent.timers.remove(self.animation_timer)
+                
+                # 삭제 예약
+                self.animation_timer.deleteLater()
+                self.animation_timer = None
+            except Exception as e:
+                print(f"애니메이션 타이머 정리 중 오류: {e}")
+        
+        # 다른 모든 타이머 정리
         for timer in self.timers:
-            if timer and timer.isActive():
-                timer.stop()
+            if timer and timer is not self.animation_timer:  # animation_timer는 이미 처리했으므로 건너뜀
+                try:
+                    if timer.isActive():
+                        timer.stop()
+                    
+                    # 부모의 타이머 목록에서도 제거
+                    if hasattr(self.parent, 'timers') and timer in self.parent.timers:
+                        self.parent.timers.remove(timer)
+                    
+                    timer.deleteLater()
+                except Exception as e:
+                    print(f"타이머 정리 중 오류: {e}")
+        
+        # 타이머 리스트 초기화
         self.timers.clear()
         
         # 현재 애니메이션 정리
         if self.current_movie:
             try:
+                # 애니메이션 정지
                 self.current_movie.stop()
+                
+                # 이미지 라벨과의 연결 해제
+                if self.image_label:
+                    # 이미지 라벨이 현재 QMovie를 사용하고 있는지 확인
+                    if self.image_label.movie() == self.current_movie:
+                        # 빈 QLabel로 설정하여 연결 해제
+                        self.image_label.clear()
+                        # 명시적 연결 해제
+                        self.image_label.setMovie(None)
+                
+                # QMovie에 연결된 모든 시그널 해제
+                try:
+                    self.current_movie.frameChanged.disconnect()
+                    self.current_movie.stateChanged.disconnect()
+                    self.current_movie.error.disconnect()
+                    self.current_movie.finished.disconnect()
+                except (TypeError, RuntimeError):
+                    # 연결된 시그널이 없거나 이미 삭제된 경우
+                    pass
+                
+                # 메모리 해제 요청
                 self.current_movie.deleteLater()
-            except:
-                pass
-            self.current_movie = None 
+                
+                # 부모 클래스에도 current_movie가 있을 수 있으므로 정리 요청
+                if self.parent and hasattr(self.parent, 'current_movie') and self.parent.current_movie == self.current_movie:
+                    self.parent.current_movie = None
+                    
+                print("애니메이션 리소스 정리 완료")
+            except Exception as e:
+                print(f"애니메이션 정리 중 오류 발생: {e}")
+            
+            # 참조 해제
+            self.current_movie = None
     
     def rotate_static_image(self, file_path=None):
         """
@@ -509,14 +586,27 @@ class AnimationHandler:
         if not self.parent or not self.current_movie:
             return
             
-        # 슬라이더 업데이트 함수
+        # weak reference 생성 (약한 참조로 순환 참조 방지)
+        weak_self = weakref.proxy(self)
+        
+        # 슬라이더 업데이트 함수 - 약한 참조 사용하여 self에 접근
         def update_slider():
-            if hasattr(self, 'current_movie') and self.current_movie:
-                current_frame = self.current_movie.currentFrameNumber()
-                if self.current_movie.state() == QMovie.Running:
-                    self.parent.playback_slider.setValue(current_frame)
+            try:
+                # 약한 참조를 통해 객체가 아직 살아있는지 확인
+                current_movie = weak_self.current_movie
+                if current_movie and current_movie.state() == QMovie.Running:
+                    current_frame = current_movie.currentFrameNumber()
+                    weak_self.parent.playback_slider.setValue(current_frame)
                     # 현재 프레임 / 총 프레임 표시 업데이트
-                    self.parent.time_label.setText(f"{current_frame + 1} / {self.current_movie.frameCount()}")
+                    weak_self.parent.time_label.setText(f"{current_frame + 1} / {current_movie.frameCount()}")
+            except (ReferenceError, RuntimeError, Exception) as e:
+                # 객체가 이미 삭제되었거나 오류 발생 시 타이머 중지
+                print(f"타이머 업데이트 중 오류, 타이머를 중지합니다: {e}")
+                try:
+                    if hasattr(weak_self, 'animation_timer') and weak_self.animation_timer and weak_self.animation_timer.isActive():
+                        weak_self.animation_timer.stop()
+                except Exception:
+                    pass
         
         try:
             # 총 프레임 수와 애니메이션 속도 가져오기
@@ -542,6 +632,21 @@ class AnimationHandler:
             print(f"GIF 프레임 레이트 계산 오류: {e}")
             timer_interval = 50  # 오류 발생 시 기본값 (50ms)
         
+        # 이전 타이머가 있으면 정리
+        if hasattr(self, 'animation_timer') and self.animation_timer:
+            try:
+                if self.animation_timer.isActive():
+                    self.animation_timer.stop()
+                self.animation_timer.deleteLater()
+                # 타이머 목록에서 제거
+                if self.animation_timer in self.timers:
+                    self.timers.remove(self.animation_timer)
+                # 부모의 타이머 목록에서도 제거
+                if hasattr(self.parent, 'timers') and self.animation_timer in self.parent.timers:
+                    self.parent.timers.remove(self.animation_timer)
+            except Exception as e:
+                print(f"타이머 정리 중 오류: {e}")
+        
         # 타이머 생성 및 설정
         self.animation_timer = QTimer(self.parent)
         self.animation_timer.timeout.connect(update_slider)
@@ -559,4 +664,21 @@ class AnimationHandler:
             self.parent.playback_slider.valueChanged.connect(self.seek_to_frame)
             self.parent.playback_slider.sliderPressed.connect(self._slider_pressed)
             self.parent.playback_slider.sliderReleased.connect(self._slider_released)
+    
+    def is_playing(self):
+        """
+        현재 애니메이션이 재생 중인지 확인합니다.
+        
+        Returns:
+            bool: 재생 중이면 True, 일시정지 또는 정지 상태면 False
+        """
+        if not self.current_movie:
+            return False
+            
+        try:
+            # QMovie.Running 상태이면 재생 중
+            return self.current_movie.state() == QMovie.Running
+        except Exception as e:
+            print(f"재생 상태 확인 오류: {e}")
+            return False
     
