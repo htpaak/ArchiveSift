@@ -8,7 +8,7 @@
 import os
 import json
 from PyQt5.QtWidgets import QAction, QApplication, QPushButton, QSizePolicy, QMenu, QWidget, QLabel
-from PyQt5.QtCore import QPoint, Qt
+from PyQt5.QtCore import QPoint, Qt, QTimer
 
 from core.utils.path_utils import get_user_data_directory
 from ui.components.scrollable_menu import ScrollableMenu
@@ -138,6 +138,7 @@ class BookmarkManager:
                 else:
                     # 파일을 찾을 수 없는 경우 첫 번째 이미지로 설정
                     self.viewer.current_index = 0
+                    self.viewer.image_files = files  # 명시적으로 이미지 파일 목록 설정
             
             # AnimationHandler 정리 (중요!)
             if hasattr(self.viewer, 'animation_handler'):
@@ -200,8 +201,12 @@ class BookmarkManager:
                 if file_ext in ['.mp4', '.avi', '.mkv', '.mov', '.flv', '.wmv']:
                     self.viewer.play_video(path)
             
-            # 이미지 정보 업데이트 (인덱스 표시 등)
-            self.viewer.update_image_info()
+            # 이미지 파일 목록이 제대로 설정되었는지 확인
+            if self.viewer.file_navigator and self.viewer.image_files != self.viewer.file_navigator.get_files():
+                self.viewer.image_files = self.viewer.file_navigator.get_files()
+            
+            # 이미지 정보를 다시 한번 업데이트 (타이머로 지연시켜 확실하게 업데이트)
+            QTimer.singleShot(150, self.viewer.update_image_info)
         else:
             # 파일이 없으면 북마크에서 제거
             self.bookmarks.discard(path)
