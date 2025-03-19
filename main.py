@@ -48,6 +48,8 @@ from features.rotation.rotation_ui import RotationUI
 from features.ui_lock.ui_lock_manager import UILockManager
 from features.ui_lock.ui_lock_ui import UILockUI
 
+# 파일 브라우저 추가
+from file import FileBrowser
 
 # MPV DLL 경로를 환경 변수 PATH에 추가 (mpv 모듈 import 전에 필수)
 mpv_path = os.path.join(get_app_directory(), 'mpv')
@@ -85,31 +87,20 @@ class ImageViewer(QWidget):
         self.base_folder = ""  # 기준 폴더 경로
         self.folder_buttons = []  # 폴더 버튼 목록
         
-        # 북마크 관리자 초기화
-        self.bookmark_manager = BookmarkManager(self)
-
-        # 이전 호환성을 위한 변수 유지
-        self.is_ui_locked = True
-
-        self.installEventFilter(self)
-        
-        # 키 설정 초기화
-        self.key_settings = {
-            "next_image": Qt.Key_Right,
-            "prev_image": Qt.Key_Left,
-            "rotate_clockwise": Qt.Key_R,
-            "rotate_counterclockwise": Qt.Key_L, 
-            "play_pause": Qt.Key_Space,
-            "volume_up": Qt.Key_Up,
-            "volume_down": Qt.Key_Down,
-            "toggle_mute": Qt.Key_M,
-            "delete_image": Qt.Key_Delete,
-            "toggle_fullscreen": Qt.ControlModifier | Qt.Key_Return,  # Ctrl+Enter로 변경
-            "toggle_maximize_state": Qt.Key_Return  # Enter 키 추가
-        }
-        
         # 키 설정 로드
         self.load_key_settings()
+        
+        # 북마크 관리자, 회전 관리자 및 UI 잠금 관리자 초기화
+        self.bookmark_manager = BookmarkManager(self)
+        self.rotation_manager = RotationManager()
+        self.rotation_ui = RotationUI(self, self.rotation_manager)
+        self.ui_lock_manager = UILockManager()
+        self.ui_lock_ui = UILockUI(self, self.ui_lock_manager)
+        
+        # 파일 브라우저 초기화
+        self.file_browser = FileBrowser(self)
+
+        self.installEventFilter(self)
         
         # 북마크 데이터 불러오기
         self.load_bookmarks()
@@ -1093,25 +1084,18 @@ class ImageViewer(QWidget):
 
     def open_folder(self):
         """이미지 폴더 열기 대화상자 표시 및 처리"""
-        folder_path = QFileDialog.getExistingDirectory(self, "Open Image Folder")  # 폴더 선택 대화상자
-
-        if folder_path:  # 폴더가 선택된 경우
-            self.image_files = self.get_image_files(folder_path)  # 지원되는 미디어 파일 목록 가져오기
-
-            if self.image_files:  # 유효한 파일이 있는 경우
-                self.image_files.sort()  # 파일 목록 정렬
-                self.current_index = 0  # 현재 이미지 인덱스 초기화
+        folder_path = self.file_browser.open_folder_dialog()
+        
+        if folder_path:
+            self.image_files, self.current_index = self.file_browser.process_folder(folder_path)
+            
+            if self.image_files:
                 self.show_image(self.image_files[0])  # 첫 번째 이미지 표시
                 self.update_image_info()  # 이미지 정보 업데이트 (인덱스 표시 업데이트)
-            else:
-                print("No valid image files found in the folder.")  # 유효한 파일이 없는 경우 메시지 출력
 
     def get_image_files(self, folder_path):
         """지원하는 모든 미디어 파일 목록 가져오기"""
-        # 지원하는 파일 확장자 목록 (이미지, 비디오, 오디오 파일)
-        valid_extensions = ['.jpg', '.jpeg', '.png', '.webp', '.psd', '.gif', '.bmp', '.tiff', '.tif', '.ico', '.heic', '.heif', '.mp4', '.avi', '.wav', '.ts', '.m2ts', '.mov', '.qt', '.mkv', '.flv', '.webm', '.3gp', '.m4v', '.mpg', '.mpeg', '.vob', '.wmv', '.mp3', '.flac', '.aac', '.m4a', '.ogg']
-        # 폴더 내에서 지원하는 확장자를 가진 모든 파일 경로 목록 반환
-        return [os.path.join(folder_path, f) for f in os.listdir(folder_path) if any(f.lower().endswith(ext) for ext in valid_extensions)]
+        return self.file_browser.get_media_files(folder_path)
 
     def stop_video(self):
         """비디오 재생 중지 및 관련 리소스 정리"""
@@ -1882,7 +1866,7 @@ class ImageViewer(QWidget):
                     
                     # 하단 UI 변경이면 지연 시간 더 길게 설정
                     if slider_changed or buttons_changed:
-                        delay = 150  # 하단 UI 변경 시 150ms 지연
+                        delay = 50  # 하단 UI 변경 시 150ms 지연
                     else:
                         delay = 50   # 상단 UI만 변경 시 50ms 지연
                     
