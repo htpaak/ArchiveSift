@@ -775,214 +775,53 @@ class ImageViewer(QWidget):
         self.psd_handler = PSDHandler(self, self.image_label)
         self.video_handler = VideoHandler(self, self.image_label)
 
-    def process_pending_deletions(self):
-        """이전에 삭제하지 못한 파일들을 삭제 시도합니다."""
-        if not os.path.exists(self.pending_deletion_file):
-            return
-            
-        try:
-            with open(self.pending_deletion_file, 'r') as f:
-                pending_files = [line.strip() for line in f.readlines() if line.strip()]
-                
-            if not pending_files:
-                return
-                
-            print(f"지연 삭제 목록에서 {len(pending_files)}개 파일 발견")
-            
-            # 파일 목록 비우기 (성공 여부와 관계없이)
-            with open(self.pending_deletion_file, 'w') as f:
-                pass
-                
-            # 각 파일 삭제 시도
-            for file_path in pending_files:
-                try:
-                    if os.path.exists(file_path):
-                        os.remove(file_path)
-                        print(f"지연 삭제 성공: {file_path}")
-                    else:
-                        print(f"지연 삭제 파일이 이미 없음: {file_path}")
-                except Exception as e:
-                    print(f"지연 삭제 실패: {file_path} - {e}")
-        except Exception as e:
-            print(f"지연 삭제 처리 중 오류: {e}")
-            
-    def add_to_pending_deletions(self, file_path):
-        """파일을 지연 삭제 목록에 추가합니다."""
-        try:
-            with open(self.pending_deletion_file, 'a') as f:
-                f.write(file_path + '\n')
-            return True
-        except Exception as e:
-            print(f"지연 삭제 목록에 추가 실패: {e}")
-            return False
-
     def delete_current_image(self):
-        """현재 이미지를 삭제합니다 (휴지통으로 이동)."""
+        """
+        현재 이미지를 삭제합니다 (휴지통으로 이동).
+        
+        FileOperations 클래스를 사용하여 안전하게 파일을 휴지통으로 이동합니다.
+        파일이 성공적으로 삭제되면 내비게이터에서 파일을 제거하고 다음 이미지로 이동합니다.
+        """
         current_file = self.file_navigator.get_current_file()
         if not current_file:
             self.show_message("삭제할 이미지가 없습니다")
             return
-            
+        
         try:
-            import os
-            import time
-            import gc
-            from pathlib import Path
-            from PyQt5.QtWidgets import QMessageBox, QApplication
-            from PyQt5.QtGui import QMovie
-            
-            # Path 객체 사용
-            file_path = Path(current_file).resolve()
-            file_name = file_path.name
-            file_path_str = str(file_path)
-            
-            # 파일이 존재하는지 확인
-            if not file_path.is_file():
-                self.show_message(f"파일이 존재하지 않습니다: {file_name}")
-                # 내비게이터에서 현재 파일 제거
-                success, next_file = self.file_navigator.delete_current_file()
-                if success and next_file:
-                    self.current_index = self.file_navigator.get_current_index()
-                    self.image_files = self.file_navigator.get_files()
-                    self.show_image(next_file)
-                return
-            
-            # 삭제 전 확인 메시지
-            msg_box = QMessageBox(self)
-            msg_box.setWindowTitle('이미지 삭제')
-            msg_box.setText(f"정말로 이미지를 휴지통으로 이동하시겠습니까?\n{file_name}")
-            msg_box.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
-            msg_box.setDefaultButton(QMessageBox.No)
-            
-            if msg_box.exec_() != QMessageBox.Yes:
-                return
-            
-            # 삭제 전에 미리 다음 파일 정보 가져오기
+            # 삭제 전에 미리 다음 파일 정보 가져오기 (필요한 경우)
             next_file = None
             if len(self.image_files) > 1:
                 _, next_file = self.file_navigator.peek_next_file()
-            
-            print(f"파일 삭제 시작: {file_path_str}")
-            
-            # 이미지 정리 최소화 - 타이머만 중지하고 메모리 리소스는 정리하지 않음
-            self.pause_all_timers()
-            
-            # GIF/애니메이션 관련 명시적 정리를 위한 특별 처리
-            file_ext = os.path.splitext(file_path_str)[1].lower()
-            if file_ext in ['.gif', '.webp']:
-                print(f"GIF/애니메이션 파일 특별 정리 시작: {file_ext}")
                 
-                # 1. 애니메이션 핸들러의 QMovie 중지 및 해제
-                if hasattr(self, 'animation_handler'):
-                    print("애니메이션 핸들러 특별 정리...")
-                    if hasattr(self.animation_handler, 'stop_animation'):
-                        self.animation_handler.stop_animation()
-                    
-                    # 애니메이션 핸들러의 QMovie 객체 정리
-                    if hasattr(self.animation_handler, 'current_movie') and self.animation_handler.current_movie:
-                        print("현재 QMovie 객체 정리...")
-                        try:
-                            movie = self.animation_handler.current_movie
-                            movie.stop()
-                            # 시그널 연결 해제
-                            try:
-                                movie.frameChanged.disconnect()
-                                movie.stateChanged.disconnect()
-                                movie.finished.disconnect()
-                            except:
-                                pass
-                            movie.setDevice(None)  # 파일에서 연결 해제
-                            movie.deleteLater()
-                            self.animation_handler.current_movie = None
-                        except Exception as e:
-                            print(f"QMovie 객체 정리 오류: {e}")
-                            
-                # 2. 이미지 레이블에서 QMovie 객체 제거
-                if hasattr(self, 'image_label'):
-                    print("이미지 레이블에서 QMovie 연결 해제...")
-                    self.image_label.setMovie(None)
-                    self.image_label.clear()
-                
-                # 3. GIF 캐시에서 해당 파일 항목 제거
-                if hasattr(self, 'gif_cache') and self.gif_cache:
-                    from PyQt5.QtGui import QMovie
-                    print("GIF 캐시에서 항목 제거...")
-                    for key in list(self.gif_cache.cache.keys()):
-                        if isinstance(key, str) and file_path_str in key:
-                            try:
-                                item = self.gif_cache.cache[key]
-                                if isinstance(item, QMovie):
-                                    item.stop()
-                                    item.setDevice(None)
-                                    try:
-                                        item.finished.disconnect()
-                                        item.frameChanged.disconnect()
-                                    except:
-                                        pass
-                                    item.deleteLater()
-                                print(f"GIF 캐시에서 항목 제거 완료: {key}")
-                                del self.gif_cache.cache[key]
-                            except Exception as e:
-                                print(f"GIF 캐시 항목 제거 오류: {key} - {e}")
+            # FileOperations를 통해 파일 삭제 시도
+            # 확인 대화상자는 FileOperations에서 표시
+            success, _ = self.file_operations.delete_file(current_file, confirm=True)
             
-            # 완전한 정리를 위한 이벤트 처리와 가비지 컬렉션
-            for _ in range(3):
-                QApplication.processEvents()
-                gc.collect()
-                time.sleep(0.1)
-            
-            # 바로 삭제 시도 - 정리 로직 없이 직접 삭제
-            deleted = False
-            
-            try:
-                # 휴지통으로 이동 시도 (안전)
-                from send2trash import send2trash
-                print(f"send2trash로 휴지통 이동 시도: {file_path_str}")
-                send2trash(file_path_str)
-                deleted = not os.path.exists(file_path_str)
-                print(f"휴지통 이동 결과: {'성공' if deleted else '실패'}")
-            except Exception as e:
-                print(f"휴지통 이동 실패: {e}")
-                # 그냥 실패 처리
-                deleted = False
-                self.show_message("파일을 휴지통으로 이동할 수 없습니다")
-                # 이벤트 처리
-                QApplication.processEvents()
-                time.sleep(0.1)
-            
-            # 삭제 성공 시에만 다음 이미지로 이동
-            if deleted:
-                print("파일이 성공적으로 삭제되었습니다")
-                # 북마크에서 제거
-                if hasattr(self, 'bookmark_manager') and current_file in self.bookmark_manager.bookmarks:
-                    self.bookmark_manager.remove_bookmark()
-                
+            if success:
                 # 내비게이터에서 파일 제거
                 success, next_file_after_deletion = self.file_navigator.delete_current_file()
                 
                 if success:
+                    # 현재 인덱스와 파일 목록 업데이트
                     self.current_index = self.file_navigator.get_current_index()
                     self.image_files = self.file_navigator.get_files()
                     
                     # 이미지가 남아있는지 확인
                     if self.image_files:
-                        # 새로운 다음 파일 있으면 표시 (delete_current_file에서 반환된 값 사용)
+                        # 새로운 다음 파일 있으면 표시
                         if next_file_after_deletion:
                             print(f"삭제 후 다음 이미지로 이동: {next_file_after_deletion}")
                             self.show_image(next_file_after_deletion)
-                            self.show_message("파일이 휴지통으로 이동되었습니다")
                         else:
-                            # 다음 파일이 없으면 현재 인덱스의 파일 표시 
+                            # 다음 파일이 없으면 현재 인덱스의 파일 표시
                             current_file = self.file_navigator.get_current_file()
                             if current_file:
                                 print(f"현재 인덱스의 파일 표시: {current_file}")
                                 self.show_image(current_file)
-                                self.show_message("파일이 휴지통으로 이동되었습니다")
                             else:
                                 # 파일이 없으면 메시지만 표시
                                 self.image_label.clear()
                                 self.current_image_path = ""
-                                self.show_message("파일이 휴지통으로 이동되었습니다")
                     else:
                         # 더 이상 표시할 이미지가 없음
                         self.image_label.clear()
@@ -990,11 +829,6 @@ class ImageViewer(QWidget):
                         self.show_message("모든 이미지가 삭제되었습니다")
                 else:
                     self.show_message("파일 목록 업데이트 실패")
-                    
-                # cleanup_current_media 호출 제거 - show_image에서 이미 처리됨
-            else:
-                self.show_message("파일 삭제에 실패했습니다. 다른 프로그램에서 사용 중일 수 있습니다.")
-                
         except Exception as e:
             import traceback
             error_details = traceback.format_exc()
