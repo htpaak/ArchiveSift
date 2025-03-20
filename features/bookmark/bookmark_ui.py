@@ -20,38 +20,16 @@ class BookmarkUI:
         if not self.bookmark_button:
             return
             
-        if (hasattr(self.viewer, 'current_image_path') and 
-            self.viewer.current_image_path and 
-            self.viewer.current_image_path in self.bookmark_manager.bookmarks):
-            # 북마크된 상태
-            self.bookmark_button.setStyleSheet("""
-                QPushButton {
-                    background-color: rgba(241, 196, 15, 0.9);  /* 노란색 배경 */
-                    color: white;
-                    border: none;
-                    padding: 8px;
-                    border-radius: 3px;
-                    font-size: 12px;
-                }
-                QPushButton:hover {
-                    background-color: rgba(241, 196, 15, 1.0);  /* 호버 시 더 진한 노란색 */
-                }
-            """)
+        is_bookmarked = (hasattr(self.viewer, 'current_image_path') and 
+                         self.viewer.current_image_path and 
+                         self.viewer.current_image_path in self.bookmark_manager.bookmarks)
+            
+        # 북마크 버튼이 set_bookmark_state 메서드를 가지고 있으면 사용
+        if hasattr(self.bookmark_button, 'set_bookmark_state'):
+            self.bookmark_button.set_bookmark_state(is_bookmarked)
         else:
-            # 북마크되지 않은 상태
-            self.bookmark_button.setStyleSheet("""
-                QPushButton {
-                    background-color: rgba(52, 73, 94, 0.6);
-                    color: white;
-                    border: none;
-                    padding: 8px;
-                    border-radius: 3px;
-                    font-size: 12px;
-                }
-                QPushButton:hover {
-                    background-color: rgba(52, 73, 94, 1.0);
-                }
-            """)
+            # 이전 방식 (레거시 코드 지원용, 필요시 제거 가능)
+            print("경고: 북마크 버튼에 set_bookmark_state 메서드가 없습니다.")
 
     def create_bookmark_menu(self):
         """북마크 메뉴 생성"""
@@ -117,12 +95,20 @@ class BookmarkUI:
         
         # 버튼 위치 계산
         pos = self.bookmark_button.mapToGlobal(QPoint(0, 0))
-        menu_x = pos.x()
-        menu_y = pos.y() - menu.sizeHint().height()
+        button_width = self.bookmark_button.width()
+        menu_width = menu.sizeHint().width()
+        
+        # 메뉴 위치 계산 (오른쪽 모서리 기준)
+        menu_x = pos.x() + button_width - menu_width  # 버튼의 오른쪽 모서리에 메뉴의 오른쪽 모서리 맞춤
+        menu_y = pos.y() - menu.sizeHint().height()  # 버튼 위에 메뉴 표시
+        
+        # 메뉴가 화면 왼쪽으로 넘어가지 않도록 조정
+        if menu_x < 0:
+            menu_x = 0
         
         # 메뉴가 화면 위로 넘어가지 않도록 조정
         if menu_y < 0:
-            menu_y = pos.y() + self.bookmark_button.height()
+            menu_y = pos.y() + self.bookmark_button.height()  # 버튼 아래에 표시
         
         # 메뉴 표시
         menu.popup(QPoint(menu_x, menu_y)) 

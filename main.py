@@ -35,6 +35,11 @@ from media.handlers.animation_handler import AnimationHandler  # 애니메이션
 # 사용자 정의 UI 위젯
 from ui.components.slider import ClickableSlider
 from ui.components.scrollable_menu import ScrollableMenu
+from ui.components.control_buttons import (
+    OpenFolderButton, SetBaseFolderButton, PlayButton, RotateButton, 
+    MuteButton, MenuButton, BookmarkButton, UILockButton,
+    MinimizeButton, MaximizeButton, FullscreenButton, CloseButton, TitleLockButton
+)  # 수정된 import
 # 대화상자
 from ui.dialogs.about_dialog import AboutDialog
 from ui.dialogs.preferences_dialog import PreferencesDialog
@@ -289,30 +294,25 @@ class ImageViewer(QWidget):
         title_layout.addStretch()  # 가운데 빈 공간 추가 (창 컨트롤 버튼을 오른쪽으로 밀기 위함)
 
         # 상단 UI 잠금 버튼 추가
-        title_lock_btn = QPushButton("🔒")  # 잠금 아이콘으로 초기화
-        title_lock_btn.setStyleSheet("color: white; background: none; border: none; padding: 10px;")
-        title_lock_btn.clicked.connect(self.toggle_title_ui_lock)  # 제목표시줄 UI 잠금 토글 기능 연결
+        title_lock_btn = TitleLockButton(self)  # 타이틀 잠금 버튼 클래스 사용
+        title_lock_btn.connect_action(self.toggle_title_ui_lock)  # 제목표시줄 UI 잠금 토글 기능 연결
         self.title_lock_btn = title_lock_btn  # 버튼 객체 저장
         
         # 창 컨트롤 버튼들 (최소화, 최대화, 닫기 - 윈도우 기본 버튼 대체)
-        min_btn = QPushButton("_")  # 최소화 버튼
-        min_btn.setStyleSheet("color: white; background: none; border: none; padding: 10px;")
-        min_btn.clicked.connect(self.showMinimized)  # 최소화 기능 연결
+        min_btn = MinimizeButton(self)  # 최소화 버튼
+        min_btn.connect_action(self.showMinimized)  # 최소화 기능 연결
         
-        max_btn = QPushButton("□")  # 최대화 버튼
-        max_btn.setStyleSheet("color: white; background: none; border: none; padding: 10px;")
-        max_btn.clicked.connect(self.toggle_maximize_state)  # 최대화/복원 기능 연결
+        max_btn = MaximizeButton(self)  # 최대화 버튼
+        max_btn.connect_action(self.toggle_maximize_state)  # 최대화/복원 기능 연결
         self.max_btn = max_btn  # 버튼 객체 저장 (최대화 상태에 따라 아이콘 변경 위함)
 
         # 여기에 전체화면 버튼 추가
-        fullscreen_btn = QPushButton("🗖")  # 전체화면 버튼 (적절한 아이콘 사용)
-        fullscreen_btn.setStyleSheet("color: white; background: none; border: none; padding: 10px;")
-        fullscreen_btn.clicked.connect(self.toggle_fullscreen)  # 전체화면 토글 기능 연결
+        fullscreen_btn = FullscreenButton(self)  # 전체화면 버튼
+        fullscreen_btn.connect_action(self.toggle_fullscreen)  # 전체화면 토글 기능 연결
         self.fullscreen_btn = fullscreen_btn  # 버튼 객체 저장
         
-        close_btn = QPushButton("×")  # 닫기 버튼
-        close_btn.setStyleSheet("color: white; background: none; border: none; padding: 10px;")
-        close_btn.clicked.connect(self.close)  # 닫기 기능 연결
+        close_btn = CloseButton(self)  # 닫기 버튼
+        close_btn.connect_action(self.close)  # 닫기 기능 연결
         
         # 창 컨트롤 버튼들 레이아웃에 추가
         title_layout.addWidget(title_lock_btn)
@@ -373,92 +373,28 @@ class ImageViewer(QWidget):
         # new_slider_layout.addItem(self.left_spacer)
         
         # 폴더 열기 버튼 (첫 번째 위치)
-        self.open_button = QPushButton('Open Folder', self)
-        self.open_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)  # 고정 크기 사용
-        self.open_button.setStyleSheet("""
-            QPushButton {
-                background-color: rgba(52, 73, 94, 0.6);  /* 평상시 더 연하게 */
-                color: white;
-                border: none;
-                padding: 8px;  /* 패딩을 10px에서 8px로 줄임 */
-                border-radius: 3px;
-                font-size: 12px;  /* 폰트 크기 지정 */
-            }
-            QPushButton:hover {
-                background-color: rgba(52, 73, 94, 1.0);  /* 마우스 오버 시 진하게 */
-            }
-        """)
-        self.open_button.clicked.connect(self.open_folder)  # 폴더 열기 기능 연결 (이미지 폴더 선택)
+        self.open_button = OpenFolderButton(self)
+        self.open_button.connect_action(self.open_folder)  # 폴더 열기 기능 연결 (이미지 폴더 선택)
         new_slider_layout.addWidget(self.open_button)
 
         # Set Base Folder 버튼 (두 번째 위치)
-        self.set_base_folder_button = QPushButton('Set Folder', self)
-        self.set_base_folder_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)  # 고정 크기 사용
-        self.set_base_folder_button.setStyleSheet("""
-            QPushButton {
-                background-color: rgba(52, 73, 94, 0.6);  /* 평상시 더 연하게 */
-                color: white;
-                border: none;
-                padding: 8px;  /* 패딩을 10px에서 8px로 줄임 */
-                border-radius: 3px;
-                font-size: 12px;  /* 폰트 크기 지정 */
-            }
-            QPushButton:hover {
-                background-color: rgba(52, 73, 94, 1.0);  /* 마우스 오버 시 진하게 */
-            }
-        """)
-        self.set_base_folder_button.clicked.connect(self.set_base_folder)  # 기준 폴더 설정 기능 연결 (복사 대상 폴더)
+        self.set_base_folder_button = SetBaseFolderButton(self)
+        self.set_base_folder_button.connect_action(self.set_base_folder)  # 기준 폴더 설정 기능 연결 (복사 대상 폴더)
         new_slider_layout.addWidget(self.set_base_folder_button)
 
         # 재생 버튼 (세 번째 위치)
-        self.play_button = QPushButton("▶", self)  # 재생 아이콘 버튼
-        self.play_button.setStyleSheet("""
-            QPushButton {
-                background-color: rgba(52, 73, 94, 0.6);  /* 평상시 더 연하게 */
-                color: white;
-                border: none;
-                padding: 10px;
-                border-radius: 3px;
-            }
-            QPushButton:hover {
-                background-color: rgba(52, 73, 94, 1.0);  /* 마우스 오버 시 진하게 */
-            }
-        """)
-        self.play_button.clicked.connect(self.toggle_animation_playback)  # 재생 버튼 클릭 이벤트 연결 (재생/일시정지 전환)
+        self.play_button = PlayButton(self)  # 재생 아이콘 버튼
+        self.play_button.connect_action(self.toggle_animation_playback)  # 재생 버튼 클릭 이벤트 연결 (재생/일시정지 전환)
         new_slider_layout.addWidget(self.play_button)
 
         # 회전 버튼 추가 (반시계 방향)
-        self.rotate_ccw_button = QPushButton("↺", self)
-        self.rotate_ccw_button.setStyleSheet("""
-            QPushButton {
-                background-color: rgba(52, 73, 94, 0.6);
-                color: white;
-                border: none;
-                padding: 10px;
-                border-radius: 3px;
-            }
-            QPushButton:hover {
-                background-color: rgba(52, 73, 94, 1.0);
-            }
-        """)
-        self.rotate_ccw_button.clicked.connect(lambda: self.rotate_image(False))
+        self.rotate_ccw_button = RotateButton(clockwise=False, parent=self)
+        self.rotate_ccw_button.connect_action(self.rotate_image)
         new_slider_layout.addWidget(self.rotate_ccw_button)
 
         # 회전 버튼 추가 (시계 방향)
-        self.rotate_cw_button = QPushButton("↻", self)
-        self.rotate_cw_button.setStyleSheet("""
-            QPushButton {
-                background-color: rgba(52, 73, 94, 0.6);
-                color: white;
-                border: none;
-                padding: 10px;
-                border-radius: 3px;
-            }
-            QPushButton:hover {
-                background-color: rgba(52, 73, 94, 1.0);
-            }
-        """)
-        self.rotate_cw_button.clicked.connect(lambda: self.rotate_image(True))
+        self.rotate_cw_button = RotateButton(clockwise=True, parent=self)
+        self.rotate_cw_button.connect_action(self.rotate_image)
         new_slider_layout.addWidget(self.rotate_cw_button)
 
 
@@ -503,22 +439,8 @@ class ImageViewer(QWidget):
         new_slider_layout.addWidget(self.time_label)  # 레이블을 재생 바 오른쪽에 추가
 
         # 음소거 버튼 추가 (오디오 켜기/끄기)
-        self.mute_button = QPushButton("🔈", self)  # 음소거 해제 아이콘으로 초기화
-        self.mute_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)  # 고정 크기 사용
-        self.mute_button.setStyleSheet("""
-            QPushButton {
-                background-color: rgba(52, 73, 94, 0.6);  /* 평상시 더 연하게 */
-                color: white;
-                border: none;
-                padding: 8px;  /* 패딩을 10px에서 8px로 줄임 */
-                border-radius: 3px;
-                font-size: 12px;  /* 폰트 크기 지정 */
-            }
-            QPushButton:hover {
-                background-color: rgba(52, 73, 94, 1.0);  /* 마우스 오버 시 진하게 */
-            }
-        """)
-        self.mute_button.clicked.connect(self.toggle_mute)  # 음소거 토글 기능 연결
+        self.mute_button = MuteButton(self)
+        self.mute_button.connect_action(self.toggle_mute)  # 음소거 토글 기능 연결
         new_slider_layout.addWidget(self.mute_button)
 
         # 볼륨 슬라이더 추가 (음량 조절)
@@ -535,65 +457,21 @@ class ImageViewer(QWidget):
         new_slider_layout.addWidget(self.volume_slider)  # 음량 조절 슬라이더를 레이아웃에 추가
         
         # 메뉴 버튼 추가 
-        self.menu_button = QPushButton('☰', self)  # 메뉴 아이콘 (햄버거 스타일)
-        self.menu_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)  # 고정 크기 사용
-        self.menu_button.setStyleSheet("""
-            QPushButton {
-                background-color: rgba(52, 73, 94, 0.6);
-                color: white;
-                border: none;
-                padding: 8px;  /* 패딩을 10px에서 8px로 줄임 */
-                border-radius: 3px;
-                font-size: 12px;  /* 폰트 크기를 14px에서 12px로 줄임 */
-            }
-            QPushButton:hover {
-                background-color: rgba(52, 73, 94, 1.0);
-            }
-        """)
-        self.menu_button.clicked.connect(self.show_menu_above)  # 메뉴 표시 함수 연결
+        self.menu_button = MenuButton(self)
+        self.menu_button.connect_action(self.show_menu_above)  # 메뉴 표시 함수 연결
         new_slider_layout.addWidget(self.menu_button)
         
         # 북마크 버튼 추가 (가장 오른쪽에 위치)
-        self.slider_bookmark_btn = QPushButton('★', self)
-        self.slider_bookmark_btn.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)  # 고정 크기 사용
-        self.slider_bookmark_btn.setStyleSheet("""
-            QPushButton {
-                background-color: rgba(241, 196, 15, 0.9);  /* 노란색 배경 */
-                color: white;
-                border: none;
-                padding: 8px;
-                border-radius: 3px;
-                font-size: 12px;
-            }
-            QPushButton:hover {
-                background-color: rgba(241, 196, 15, 1.0);  /* 호버 시 더 진한 노란색 */
-            }
-        """)
-        # 북마크 토글 기능 대신 위로 펼쳐지는 메뉴 표시 기능으로 변경
-        self.slider_bookmark_btn.clicked.connect(self.show_bookmark_menu_above)
+        self.slider_bookmark_btn = BookmarkButton(self)
+        self.slider_bookmark_btn.connect_action(self.show_bookmark_menu_above)  # 메뉴 표시 함수 연결로 변경
         new_slider_layout.addWidget(self.slider_bookmark_btn)
         
-        # 북마크 버튼을 북마크 매니저에 등록
+        # 북마크 매니저 설정
         self.bookmark_manager.set_bookmark_button(self.slider_bookmark_btn)
 
         # 여기에 UI 고정 버튼 추가 (완전히 새로운 코드로 교체)
-        self.ui_lock_btn = QPushButton('🔒', self)  # 잠금 아이콘으로 초기화
-        self.ui_lock_btn.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)  # 고정 크기 사용
-        # 고정 상태의 빨간색 스타일을 직접 지정 (초기값)
-        self.ui_lock_btn.setStyleSheet("""
-            QPushButton {
-                background-color: rgba(231, 76, 60, 0.9);  /* 빨간색 배경 */
-                color: white;
-                border: none;
-                padding: 8px;
-                border-radius: 3px;
-                font-size: 12px;
-            }
-            QPushButton:hover {
-                background-color: rgba(231, 76, 60, 1.0);  /* 호버 시 더 진한 빨간색 */
-            }
-        """)
-        self.ui_lock_btn.clicked.connect(self.toggle_ui_lock)  # 토글 함수 연결
+        self.ui_lock_btn = UILockButton(self)  # UILockButton 클래스 사용
+        self.ui_lock_btn.connect_action(self.toggle_ui_lock)  # 토글 함수 연결
         new_slider_layout.addWidget(self.ui_lock_btn)
 
         # 슬라이더바 컨트롤 리스트 생성 (버튼과 레이블을 함께 관리)
@@ -1318,7 +1196,7 @@ class ImageViewer(QWidget):
             self.playback_slider.clicked.connect(self.slider_clicked)
             
             # 재생 버튼 상태 업데이트
-            self.play_button.setText("❚❚")  # 재생 중이므로 일시정지 아이콘 표시
+            self.play_button.set_play_state(True)  # 일시정지 아이콘으로 설정
             
             # 비디오 재생 시작
             self.video_handler.play()
@@ -1435,12 +1313,12 @@ class ImageViewer(QWidget):
         if self.current_media_type in ['gif_animation', 'webp_animation'] and hasattr(self, 'animation_handler'):
             # 애니메이션 핸들러를 통해 재생 상태 확인
             is_playing = self.animation_handler.is_playing()
-            self.play_button.setText("❚❚" if is_playing else "▶")
+            self.play_button.set_play_state(is_playing)
         elif self.current_media_type == 'video':
             # 비디오 재생 상태 확인
             try:
                 is_playing = self.video_handler.is_video_playing()
-                self.play_button.setText("❚❚" if is_playing else "▶")
+                self.play_button.set_play_state(is_playing)
                 self.update_video_playback()  # 슬라이더 업데이트 호출
             except Exception as e:
                 print(f"재생 버튼 업데이트 오류: {e}")
@@ -1526,10 +1404,31 @@ class ImageViewer(QWidget):
 
     # 다음 이미지를 보여주는 메서드입니다.
     def show_next_image(self):
+        print("\n=== 다음 이미지 로드 시작 ===")
+        print(f"현재 인덱스(이동 전): {self.current_index}")
+        print(f"현재 이미지: {self.current_image_path}")
+        print(f"파일 내비게이터 파일 수: {len(self.file_navigator.get_files())}")
+        print(f"메인 이미지 목록 수: {len(self.image_files)}")
+        
+        if self.file_navigator.get_files() != self.image_files:
+            print("경고: 파일 내비게이터와 메인 이미지 목록이 불일치합니다.")
+            # 필요한 경우 동기화
+            self.image_files = self.file_navigator.get_files()
+            print(f"이미지 목록 동기화됨: {len(self.image_files)} 파일")
+        
         success, next_image = self.file_navigator.next_file()
+        
+        print(f"다음 이미지 로드 성공 여부: {success}")
+        print(f"다음 이미지 경로: {next_image}")
+        
         if success and next_image:
             self.current_index = self.file_navigator.get_current_index()  # 인덱스 동기화
+            print(f"새 인덱스: {self.current_index}")
             self.show_image(next_image)
+        else:
+            print("다음 이미지 로드 실패")
+        
+        print("=== 다음 이미지 로드 종료 ===\n")
 
     # 이전 이미지를 보여주는 메서드입니다.
     def show_previous_image(self):
@@ -2131,10 +2030,7 @@ class ImageViewer(QWidget):
             is_muted = self.video_handler.toggle_mute()
             
             # 버튼 아이콘 변경 (음소거 상태에 따라)
-            if is_muted:  # 토글 후 상태
-                self.mute_button.setText("🔇")  # 음소거 상태 아이콘 (소리 없음)
-            else:
-                self.mute_button.setText("🔈")  # 음소거 해제 상태 아이콘 (소리 있음)
+            self.mute_button.set_mute_state(is_muted)
         except Exception as e:
             print(f"음소거 토글 오류: {e}")
             pass
@@ -2862,7 +2758,7 @@ class ImageViewer(QWidget):
 
         # 재생 버튼 상태 초기화
         if hasattr(self, 'play_button'):
-            self.play_button.setText("❚❚")
+            self.play_button.set_play_state(True)  # 일시정지 아이콘으로 설정
         
         # 시간 레이블 초기화
         if hasattr(self, 'time_label'):

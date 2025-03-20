@@ -199,6 +199,18 @@ class BookmarkManager:
             # 이미지 파일 목록이 제대로 설정되었는지 확인
             if self.viewer.file_navigator and self.viewer.image_files != self.viewer.file_navigator.get_files():
                 self.viewer.image_files = self.viewer.file_navigator.get_files()
+                print(f"파일 목록 동기화: {len(self.viewer.image_files)} 파일")
+            
+            # 이미지 인덱스가 제대로 설정되었는지 확인
+            nav_index = self.viewer.file_navigator.get_current_index()
+            if self.viewer.current_index != nav_index:
+                self.viewer.current_index = nav_index
+                print(f"파일 인덱스 동기화: {self.viewer.current_index}")
+            
+            # 현재 경로를 명시적으로 표시
+            print(f"현재 이미지 경로: {self.viewer.current_image_path}")
+            print(f"파일 내비게이터 인덱스: {self.viewer.file_navigator.get_current_index()}")
+            print(f"메인 클래스 인덱스: {self.viewer.current_index}")
             
             # 이미지 정보를 다시 한번 업데이트 (타이머로 지연시켜 확실하게 업데이트)
             QTimer.singleShot(150, self.viewer.update_image_info)

@@ -60,26 +60,12 @@ class UILockUI:
         
         is_locked = self.manager.ui_locked
         
-        # 버튼 텍스트 및 스타일 설정
-        self.ui_lock_btn.setText('🔒' if is_locked else '🔓')
-        
-        # 버튼 스타일 설정
-        color = "rgba(231, 76, 60, 0.9)" if is_locked else "rgba(52, 73, 94, 0.6)"
-        hover_color = "rgba(231, 76, 60, 1.0)" if is_locked else "rgba(52, 73, 94, 1.0)"
-        
-        self.ui_lock_btn.setStyleSheet(f"""
-            QPushButton {{
-                background-color: {color};
-                color: white;
-                border: none;
-                padding: 8px;
-                border-radius: 3px;
-                font-size: 12px;
-            }}
-            QPushButton:hover {{
-                background-color: {hover_color};
-            }}
-        """)
+        # set_lock_state 메서드가 있으면 호출
+        if hasattr(self.ui_lock_btn, 'set_lock_state'):
+            self.ui_lock_btn.set_lock_state(is_locked)
+        else:
+            # 기존 방식 (레거시 코드 지원용)
+            self.ui_lock_btn.setText('🔒' if is_locked else '🔓')
     
     def update_title_lock_button_state(self):
         """타이틀 잠금 버튼 상태 업데이트"""
@@ -88,23 +74,9 @@ class UILockUI:
         
         is_locked = self.manager.title_locked
         
-        # 버튼 텍스트 및 스타일 설정
-        self.title_lock_btn.setText('🔒' if is_locked else '🔓')
-        
-        # 버튼 스타일 설정
-        color = "rgba(231, 76, 60, 0.9)" if is_locked else "rgba(52, 73, 94, 0.6)"
-        hover_color = "rgba(231, 76, 60, 1.0)" if is_locked else "rgba(52, 73, 94, 1.0)"
-        
-        self.title_lock_btn.setStyleSheet(f"""
-            QPushButton {{
-                background-color: {color};
-                color: white;
-                border: none;
-                padding: 5px;
-                border-radius: 3px;
-                font-size: 12px;
-            }}
-            QPushButton:hover {{
-                background-color: {hover_color};
-            }}
-        """) 
+        # 모듈화된 버튼 클래스 메서드 사용 확인
+        if hasattr(self.title_lock_btn, 'set_lock_state'):
+            self.title_lock_btn.set_lock_state(is_locked)
+        else:
+            # 이전 코드와의 호환성을 위한 레거시 코드
+            self.title_lock_btn.setText('🔒' if is_locked else '🔓') 
