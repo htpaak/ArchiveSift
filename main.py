@@ -41,6 +41,8 @@ from ui.components.control_buttons import (
     MinimizeButton, MaximizeButton, FullscreenButton, CloseButton, TitleLockButton
 )  # 수정된 import
 from ui.components.media_display import MediaDisplay  # 추가된 import
+# 레이아웃
+from ui.layouts.main_layout import MainLayout  # 추가된 import - 메인 레이아웃
 # 대화상자
 from ui.dialogs.about_dialog import AboutDialog
 from ui.dialogs.preferences_dialog import PreferencesDialog
@@ -276,10 +278,11 @@ class ImageViewer(QWidget):
         # 배경색을 흰색으로 설정 (기본 배경)
         self.setStyleSheet("background-color: white;")
 
-        # 전체 레이아웃 설정
-        main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(0, 0, 0, 0)  # 여백 완전히 제거
-        main_layout.setSpacing(0)  # 레이아웃 간 간격 완전히 제거
+        # 메인 레이아웃 설정
+        self.main_layout = MainLayout(self)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
         
         # 제목 표시줄 생성 (커스텀 - 기본 윈도우 타이틀바 대체)
         self.title_bar = QWidget(self)
@@ -323,24 +326,16 @@ class ImageViewer(QWidget):
         title_layout.addWidget(close_btn)
 
         # 제목 표시줄을 메인 레이아웃에 추가 (1% 비율 - 전체 UI 중 작은 부분)
-        main_layout.addWidget(self.title_bar, 1)
+        layout.addWidget(self.title_bar, 1)
         
-        # 상단 툴바 컨테이너 생성 코드를 제거합니다.
-        # 이미지 표시 컨테이너 위젯
-        self.image_container = QWidget()
-        self.image_container.setStyleSheet("background-color: white;")  # 흰색 배경
+        # 메인 레이아웃을 레이아웃에 추가 (90% 비율)
+        layout.addWidget(self.main_layout, 90)
         
-        # 책갈피 메뉴 초기화
+        # 북마크 메뉴 초기화
         self.bookmark_manager.update_bookmark_menu()
-        
-        # 컨테이너 레이아웃 설정
-        container_layout = QVBoxLayout(self.image_container)
-        container_layout.setContentsMargins(0, 0, 0, 0)  # 여백 없음
-        container_layout.setSpacing(0)  # 간격 없음
         
         # 이미지 표시 레이블 (QLabel → MediaDisplay로 변경)
         self.image_label = MediaDisplay()
-        container_layout.addWidget(self.image_label)
         
         # 이미지 정보 표시 레이블 (파일 이름, 크기 등 표시)
         self.image_info_label = QLabel(self)
@@ -365,11 +360,6 @@ class ImageViewer(QWidget):
         new_slider_layout.setContentsMargins(0, 0, 0, 0)  # 여백을 완전히 제거
         new_slider_layout.setSpacing(0)  # 위젯 간 간격도 0으로 설정
 
-        # 왼쪽 공백 추가 (창 너비에 비례하게 resizeEvent에서 동적 조정)
-        # 왼쪽 spacer 제거
-        # self.left_spacer = QSpacerItem(10, 10, QSizePolicy.Fixed, QSizePolicy.Minimum)
-        # new_slider_layout.addItem(self.left_spacer)
-        
         # 폴더 열기 버튼 (첫 번째 위치)
         self.open_button = OpenFolderButton(self)
         self.open_button.connect_action(self.open_folder)  # 폴더 열기 기능 연결 (이미지 폴더 선택)
@@ -395,13 +385,6 @@ class ImageViewer(QWidget):
         self.rotate_cw_button.connect_action(self.rotate_image)
         new_slider_layout.addWidget(self.rotate_cw_button)
 
-
-        # MPV 상태 확인을 위한 타이머 설정 (주기적으로 재생 상태 업데이트)
-        self.play_button_timer = QTimer(self)
-        self.play_button_timer.timeout.connect(self.update_play_button)  # 타이머가 작동할 때마다 update_play_button 메소드 호출
-        self.play_button_timer.start(200)  # 200ms마다 상태 확인 (초당 5번 업데이트로 최적화)
-        self.timers.append(self.play_button_timer)  # 타이머 추적에 추가
-
         # 기존 슬라이더 (재생 바) 추가
         self.playback_slider = ClickableSlider(Qt.Horizontal, self)  # ClickableSlider로 변경 (클릭 시 해당 위치로 이동)
         self.playback_slider.setRange(0, 100)  # 슬라이더 범위 설정 (0-100%)
@@ -409,10 +392,6 @@ class ImageViewer(QWidget):
         self.playback_slider.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)  # 가로 방향으로 확장 가능하도록 설정
         self.playback_slider.setFixedHeight(50)  # 슬라이더 높이를 50px로 고정
         
-        # 슬라이더에 추가 스타일 설정
-        # additional_style = "QSlider { background: transparent; padding: 0px; margin: 0px; }"
-        # self.playback_slider.setStyleSheet(additional_style)
-
         self.playback_slider.clicked.connect(self.slider_clicked)  # 클릭 이벤트 연결 (클릭 위치로 미디어 이동)
         new_slider_layout.addWidget(self.playback_slider, 10)  # 재생 바 슬라이더를 레이아웃에 추가, stretch factor 10 적용
 
@@ -448,8 +427,6 @@ class ImageViewer(QWidget):
         self.volume_slider.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)  # 고정 크기 사용
         self.volume_slider.setFixedHeight(50)  # 슬라이더 높이를 50px로 고정
         
-        # 볼륨 슬라이더에 추가 스타일 설정
-        # self.volume_slider.setStyleSheet(additional_style)
         self.volume_slider.valueChanged.connect(self.adjust_volume)  # 슬라이더 값 변경 시 음량 조절 함수 연결
         self.volume_slider.clicked.connect(self.adjust_volume)  # 클릭 이벤트 연결 (클릭 위치로 음량 즉시 변경)
         new_slider_layout.addWidget(self.volume_slider)  # 음량 조절 슬라이더를 레이아웃에 추가
@@ -486,7 +463,6 @@ class ImageViewer(QWidget):
         self.slider_controls.append(self.menu_button)
         self.slider_controls.append(self.slider_bookmark_btn)
         self.slider_controls.append(self.ui_lock_btn)
-        # 볼륨 슬라이더는 별도 처리가 필요하므로 여기 포함하지 않음
 
         # 새로운 슬라이더 위젯을 하단 레이아웃에 추가
         bottom_layout.addWidget(self.slider_widget, 0)  # 정렬 플래그 제거
@@ -534,11 +510,26 @@ class ImageViewer(QWidget):
         # 버튼 컨테이너를 bottom_layout에 추가
         bottom_layout.addWidget(button_container)
 
-        # 메인 레이아웃에 위젯 추가
-        main_layout.addWidget(self.image_container, 90)  # 90% (이미지가 화면의 대부분 차지)
+        # 하단 버튼 영역을 메인 레이아웃에 추가 (9% 비율)
+        layout.addLayout(bottom_layout, 9)
 
-        # 하단 버튼 영역을 메인 레이아웃에 추가
-        main_layout.addLayout(bottom_layout, 9)  # 9% (하단 컨트롤 영역)
+        # 메인 레이아웃에 이미지 컨테이너 추가
+        self.main_layout.set_media_display(self.image_label)
+        
+        # 메인 레이아웃에 컨트롤 레이아웃 추가
+        self.main_layout.set_controls_layout(self.slider_widget)
+        
+        # MPV 상태 확인을 위한 타이머 설정 (주기적으로 재생 상태 업데이트)
+        self.play_button_timer = QTimer(self)
+        self.play_button_timer.timeout.connect(self.update_play_button)  # 타이머가 작동할 때마다 update_play_button 메소드 호출
+        self.play_button_timer.start(200)  # 200ms마다 상태 확인 (초당 5번 업데이트로 최적화)
+        self.timers.append(self.play_button_timer)  # 타이머 추적에 추가
+        
+        # 슬라이더 시그널 연결
+        self.playback_slider.sliderPressed.connect(self.slider_pressed)
+        self.playback_slider.sliderReleased.connect(self.slider_released)
+        self.playback_slider.valueChanged.connect(self.seek_video)
+        self.playback_slider.clicked.connect(self.slider_clicked)
 
         self.setFocusPolicy(Qt.StrongFocus)  # 강한 포커스를 설정 (위젯이 포커스를 받을 수 있도록 설정 - 키보드 이벤트 처리용)
 
@@ -548,7 +539,6 @@ class ImageViewer(QWidget):
 
         # 마우스 트래킹 활성화 (마우스 움직임 감지를 위한 설정)
         self.setMouseTracking(True)
-        self.image_container.setMouseTracking(True)
         self.image_label.setMouseTracking(True)
         
         # 전역 이벤트 필터 설치 (모든 위젯의 이벤트 캡처)
@@ -840,6 +830,13 @@ class ImageViewer(QWidget):
             y = toolbar_height + margin
             
             self.image_info_label.move(x, y)
+            self.image_info_label.show()
+            self.image_info_label.raise_()
+        
+        # 이미지 레이아웃 강제 업데이트
+        if hasattr(self, 'main_layout') and hasattr(self, 'image_label'):
+            self.image_label.updateGeometry()
+            self.main_layout.update()
         
         # 슬라이더 위젯 자체의 패딩 조정
         if hasattr(self, 'slider_widget'):
@@ -1439,9 +1436,10 @@ class ImageViewer(QWidget):
             self.image_info_label.show()
             self.image_info_label.raise_()
         
-        # 이미지 컨테이너 레이아웃 강제 업데이트
-        if hasattr(self, 'image_container'):
-            self.image_container.updateGeometry()
+        # 이미지 레이아웃 강제 업데이트
+        if hasattr(self, 'main_layout') and hasattr(self, 'image_label'):
+            self.image_label.updateGeometry()
+            self.main_layout.update()
 
     # 다음 이미지를 보여주는 메서드입니다.
     def show_next_image(self):
