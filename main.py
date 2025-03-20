@@ -7,7 +7,7 @@ import re  # 정규표현식 처리 기능 제공 (패턴 검색 및 문자열 �
 import json  # JSON 파일 처리를 위한 모듈
 from collections import OrderedDict  # LRU 캐시 구현을 위한 정렬된 딕셔너리
 from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout, QPushButton, QFileDialog, QHBoxLayout, QSizePolicy, QSlider, QLayout, QSpacerItem, QStyle, QStyleOptionSlider, QMenu, QAction, QScrollArea, QListWidgetItem, QListWidget, QAbstractItemView, QInputDialog, QMessageBox, QDialog, QTableWidget, QTableWidgetItem, QHeaderView, QFrame, QLineEdit, QStackedWidget  # PyQt5 UI 위젯 (사용자 인터페이스 구성 요소)
-from PyQt5.QtGui import QPixmap, QImage, QImageReader, QFont, QMovie, QCursor, QIcon, QColor, QPalette, QFontMetrics, QTransform, QKeySequence  # 그래픽 요소 처리 (이미지, 폰트, 커서 등)
+from PyQt5.QtGui import QPixmap, QImage, QImageReader, QFont, QMovie, QCursor, QIcon, QColor, QPalette, QFontMetrics, QTransform, QKeySequence, QWheelEvent  # 그래픽 요소 처리 (이미지, 폰트, 커서 등)
 from PyQt5.QtCore import Qt, QSize, QTimer, QEvent, QPoint, pyqtSignal, QRect, QMetaObject, QObject, QUrl, QThread, QBuffer  # Qt 코어 기능 (이벤트, 신호, 타이머 등)
 import cv2  # OpenCV 라이브러리 - 비디오 처리용 (프레임 추출, 이미지 변환 등)
 from PIL import Image, ImageCms  # Pillow 라이브러리 - 이미지 처리용 (다양한 이미지 포맷 지원)
@@ -40,6 +40,7 @@ from ui.components.control_buttons import (
     MuteButton, MenuButton, BookmarkButton, UILockButton,
     MinimizeButton, MaximizeButton, FullscreenButton, CloseButton, TitleLockButton
 )  # 수정된 import
+from ui.components.media_display import MediaDisplay  # 추가된 import
 # 대화상자
 from ui.dialogs.about_dialog import AboutDialog
 from ui.dialogs.preferences_dialog import PreferencesDialog
@@ -337,11 +338,8 @@ class ImageViewer(QWidget):
         container_layout.setContentsMargins(0, 0, 0, 0)  # 여백 없음
         container_layout.setSpacing(0)  # 간격 없음
         
-        # 이미지 표시 레이블
-        self.image_label = QLabel()
-        self.image_label.setAlignment(Qt.AlignCenter)  # 중앙 정렬 (이미지 중앙 배치)
-        self.image_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)  # 확장 가능한 크기 정책
-        self.image_label.setStyleSheet("background-color: black;")  # 검은색 배경 (이미지 대비 위함)
+        # 이미지 표시 레이블 (QLabel → MediaDisplay로 변경)
+        self.image_label = MediaDisplay()
         container_layout.addWidget(self.image_label)
         
         # 이미지 정보 표시 레이블 (파일 이름, 크기 등 표시)
@@ -652,6 +650,49 @@ class ImageViewer(QWidget):
         self.image_handler = ImageHandler(self, self.image_label)
         self.psd_handler = PSDHandler(self, self.image_label)
         self.video_handler = VideoHandler(self, self.image_label)
+
+        # MediaDisplay 이벤트 연결
+        self.image_label.mouseDoubleClicked.connect(self.mouseDoubleClickEvent)
+        self.image_label.mouseWheelScrolled.connect(self.handle_wheel_event)
+        
+        # 추가 이벤트 핸들러 함수 추가
+    def handle_wheel_event(self, delta):
+        """
+        MediaDisplay에서 전달된 휠 이벤트를 처리합니다.
+        
+        Args:
+            delta (int): 휠 스크롤 값 (양수: 위로, 음수: 아래로)
+        """
+        # 현재 미디어 타입 확인
+        current_media_type = getattr(self, 'current_media_type', 'unknown')
+        
+        # 애니메이션이나 비디오 재생 중인 경우 필요한 정리 작업 수행
+        if current_media_type in ['gif_animation', 'webp_animation', 'video']:
+            # 비디오 재생 중인 경우
+            if current_media_type == 'video':
+                # 비디오 중지
+                self.stop_video()
+            
+            # 애니메이션 재생 중인 경우 (GIF/WEBP)
+            elif current_media_type in ['gif_animation', 'webp_animation']:
+                # 리소스 정리를 위해 먼저 cleanup_current_media 호출
+                self.cleanup_current_media()
+                # 스크롤 방향에 따라 이미지 변경 위치 선택
+                if delta > 0:
+                    # 휠을 위로 돌린 경우 - 이전 이미지
+                    self.show_previous_image()
+                else:
+                    # 휠을 아래로 돌린 경우 - 다음 이미지
+                    self.show_next_image()
+                return
+        
+        # 일반 이미지인 경우 또는 다른 타입
+        if delta > 0:
+            # 휠을 위로 돌린 경우 - 이전 이미지
+            self.show_previous_image()
+        else:
+            # 휠을 아래로 돌린 경우 - 다음 이미지
+            self.show_next_image()
 
     def delete_current_image(self):
         """
@@ -1500,6 +1541,26 @@ class ImageViewer(QWidget):
             self.generate_qmovie_reference_graph()
             return
             
+        # 현재 미디어 타입 확인
+        current_media_type = getattr(self, 'current_media_type', 'unknown')
+            
+        # 이전/다음 이미지 키 처리 시 애니메이션/비디오 정리
+        if (event.key() == self.key_settings["prev_image"] or 
+            event.key() == self.key_settings["next_image"]):
+            
+            # 애니메이션이나 비디오 재생 중인 경우 필요한 정리 작업 수행
+            if current_media_type in ['gif_animation', 'webp_animation', 'video']:
+                # 비디오 재생 중인 경우
+                if current_media_type == 'video':
+                    # 비디오 중지
+                    self.stop_video()
+                
+                # 애니메이션 재생 중인 경우 (GIF/WEBP)
+                elif current_media_type in ['gif_animation', 'webp_animation']:
+                    # 리소스 정리를 위해 먼저 cleanup_current_media 호출
+                    self.cleanup_current_media()
+        
+        # 이제 해당 키 이벤트 처리
         if event.key() == self.key_settings["prev_image"]:  # 이전 이미지 키
             self.show_previous_image()  # 이전 이미지로 이동
         elif event.key() == self.key_settings["next_image"]:  # 다음 이미지 키
@@ -1526,16 +1587,12 @@ class ImageViewer(QWidget):
             self.toggle_mute()  # 음소거 토글 함수 호출
         elif event.key() == self.key_settings["delete_image"]:  # 이미지 삭제 키
             self.delete_current_image()  # 현재 이미지 삭제 함수 호출
-        # ESC 키로 전체화면 모드 종료
-        elif event.key() == Qt.Key_Escape and self.isFullScreen():
-            self.toggle_fullscreen()
-            return
         # 전체화면 토글
         elif event.key() == self.key_settings.get("toggle_fullscreen", Qt.ControlModifier | Qt.Key_Return) or \
           (event.modifiers() == Qt.ControlModifier and event.key() == Qt.Key_Return):  # Ctrl+Enter도 추가
             self.toggle_fullscreen()
             return
-        
+            
         # 최대화 상태 토글 (Enter 키) - 전체화면 모드가 아닐 때만 적용
         elif event.key() == self.key_settings.get("toggle_maximize_state", Qt.Key_Return) and \
           event.modifiers() != Qt.ControlModifier and not self.isFullScreen():  # 전체화면이 아닐 때만 처리
@@ -1553,10 +1610,27 @@ class ImageViewer(QWidget):
             event.accept()  # 이벤트 처리됨으로 표시하고 무시
             return
         
+        # 현재 미디어 타입 확인
+        current_media_type = getattr(self, 'current_media_type', 'unknown')
+        
+        # 애니메이션이나 비디오 재생 중인 경우 필요한 정리 작업 수행
+        if current_media_type in ['gif_animation', 'webp_animation', 'video']:
+            # 비디오 재생 중인 경우
+            if current_media_type == 'video':
+                # 비디오 중지
+                self.stop_video()
+            
+            # 애니메이션 재생 중인 경우 (GIF/WEBP)
+            elif current_media_type in ['gif_animation', 'webp_animation']:
+                # 리소스 정리를 위해 먼저 cleanup_current_media 호출
+                self.cleanup_current_media()
+        
         # 방향 체크 후 이미지 전환
         if event.angleDelta().y() > 0:
+            # 휠을 위로 돌린 경우 - 이전 이미지
             self.show_previous_image()
         elif event.angleDelta().y() < 0:
+            # 휠을 아래로 돌린 경우 - 다음 이미지
             self.show_next_image()
         
         self.last_wheel_time = current_time  # 마지막 처리 시간 업데이트
@@ -2741,12 +2815,11 @@ class ImageViewer(QWidget):
             from PyQt5.QtWidgets import QApplication
             QApplication.processEvents()
         
-        # 이미지 라벨 초기화 - 애니메이션 핸들러가 없는 경우에만 수행
-        if hasattr(self, 'image_label') and not animation_handler_exists:
-            print("이미지 라벨 별도 초기화 (애니메이션 핸들러 없음)...")
-            # 중요: 먼저 setMovie(None)을 호출한 후 clear() 호출
-            self.image_label.setMovie(None)
-            self.image_label.clear()
+        # 이미지 라벨 초기화 - MediaDisplay의 clear_media 메서드 사용
+        if hasattr(self, 'image_label'):
+            print("MediaDisplay 초기화...")
+            # MediaDisplay의 clear_media 메서드 호출
+            self.image_label.clear_media()
             # 이벤트 프로세싱
             QApplication.processEvents()
         

@@ -124,8 +124,12 @@ class ImageHandler(MediaHandler):
             Qt.SmoothTransformation
         )
         
-        # 이미지를 표시
-        self.display_label.setPixmap(self.current_pixmap)
+        # MediaDisplay의 display_pixmap 메서드 호출 (있는 경우)
+        if hasattr(self.display_label, 'display_pixmap'):
+            self.display_label.display_pixmap(self.current_pixmap, 'image')
+        else:
+            # 일반 QLabel인 경우 기존 방식으로 이미지 표시
+            self.display_label.setPixmap(self.current_pixmap)
         
         # 이미지 정보 업데이트
         if hasattr(self.parent, 'update_image_info'):

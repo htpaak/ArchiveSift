@@ -225,8 +225,12 @@ class PSDHandler(MediaHandler):
         # 현재 픽스맵 설정
         self.current_pixmap = scaled_pixmap
         
-        # 이미지를 표시
-        self.display_label.setPixmap(scaled_pixmap)
+        # MediaDisplay의 display_pixmap 메서드 호출 (있는 경우)
+        if hasattr(self.display_label, 'display_pixmap'):
+            self.display_label.display_pixmap(scaled_pixmap, 'psd')
+        else:
+            # 일반 QLabel인 경우 기존 방식으로 이미지 표시
+            self.display_label.setPixmap(scaled_pixmap)
         
         # 이미지 정보 업데이트
         if hasattr(self.parent, 'update_image_info'):

@@ -544,23 +544,18 @@ class AnimationHandler:
     
     def rotate_static_image(self, file_path=None):
         """
-        현재 표시된 정적 이미지를 회전시킵니다.
+        정적 이미지를 회전합니다.
         
         Args:
-            file_path (str, optional): 이미지 파일 경로. None이면 현재 로드된 이미지 사용
+            file_path (str, optional): 이미지 파일 경로. 제공되지 않으면 현재 로드된 이미지 사용.
             
         Returns:
-            bool: 성공 여부
+            bool: 회전 성공 여부
         """
-        # 파일 경로가 제공되지 않았다면 현재 로드된 경로 사용
-        if not file_path and hasattr(self.parent, 'current_image_path'):
-            file_path = self.parent.current_image_path
-            
+        file_path = file_path or self.current_file_path
         if not file_path or not os.path.exists(file_path):
             print("회전할 이미지 파일이 없습니다.")
             return False
-            
-        print(f"정적 이미지 회전 시작: {file_path}, 회전 각도: {self.current_rotation}°")
         
         # 이미지 로드
         image = QImage(file_path)
@@ -584,8 +579,13 @@ class AnimationHandler:
                 Qt.KeepAspectRatio,
                 Qt.SmoothTransformation
             )
-            # 이미지 라벨에 표시
-            self.image_label.setPixmap(scaled_pixmap)
+            # MediaDisplay의 display_pixmap 메서드 호출 (있는 경우)
+            if hasattr(self.image_label, 'display_pixmap'):
+                self.image_label.display_pixmap(scaled_pixmap, 'image')
+            else:
+                # 일반 QLabel인 경우 기존 방식으로 이미지 표시
+                self.image_label.setPixmap(scaled_pixmap)
+            
             print(f"회전된 이미지 표시 완료: {scaled_pixmap.width()}x{scaled_pixmap.height()}")
             
             # 이미지 정보 업데이트
@@ -631,7 +631,20 @@ class AnimationHandler:
                     Qt.KeepAspectRatio,
                     Qt.SmoothTransformation
                 )
-                self.image_label.setPixmap(scaled_pixmap)
+                
+                # MediaDisplay의 display_pixmap 메서드 호출 (있는 경우)
+                if hasattr(self.image_label, 'display_pixmap'):
+                    # 파일 확장자에 따라 미디어 타입 결정
+                    if file_path.lower().endswith('.gif'):
+                        media_type = 'gif_image'
+                    elif file_path.lower().endswith('.webp'):
+                        media_type = 'webp_image'
+                    else:
+                        media_type = 'image'
+                    self.image_label.display_pixmap(scaled_pixmap, media_type)
+                else:
+                    # 일반 QLabel인 경우 기존 방식으로 이미지 표시
+                    self.image_label.setPixmap(scaled_pixmap)
             
             # 이미지 정보 업데이트 (너비, 높이 등)
             if self.parent and hasattr(self.parent, 'update_image_info'):
@@ -778,6 +791,22 @@ class AnimationHandler:
                 Qt.SmoothTransformation
             )
             
-            # 이미지 라벨에 표시
-            self.image_label.setPixmap(scaled_pixmap)
+            # MediaDisplay의 display_pixmap 메서드 호출 (있는 경우)
+            if hasattr(self.image_label, 'display_pixmap'):
+                # 미디어 타입 감지 - current_movie의 파일명으로 판단
+                if hasattr(self, 'current_file_path'):
+                    file_path = self.current_file_path
+                    if file_path and file_path.lower().endswith('.gif'):
+                        media_type = 'gif_animation'
+                    elif file_path and file_path.lower().endswith('.webp'):
+                        media_type = 'webp_animation'
+                    else:
+                        media_type = 'animation'
+                else:
+                    media_type = 'animation'
+                
+                self.image_label.display_pixmap(scaled_pixmap, media_type)
+            else:
+                # 일반 QLabel인 경우 기존 방식으로 이미지 표시
+                self.image_label.setPixmap(scaled_pixmap)
     
