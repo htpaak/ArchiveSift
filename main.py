@@ -775,6 +775,47 @@ class ImageViewer(QWidget):
         self.psd_handler = PSDHandler(self, self.image_label)
         self.video_handler = VideoHandler(self, self.image_label)
 
+    def process_pending_deletions(self):
+        """이전에 삭제하지 못한 파일들을 삭제 시도합니다."""
+        if not os.path.exists(self.pending_deletion_file):
+            return
+            
+        try:
+            with open(self.pending_deletion_file, 'r') as f:
+                pending_files = [line.strip() for line in f.readlines() if line.strip()]
+                
+            if not pending_files:
+                return
+                
+            print(f"지연 삭제 목록에서 {len(pending_files)}개 파일 발견")
+            
+            # 파일 목록 비우기 (성공 여부와 관계없이)
+            with open(self.pending_deletion_file, 'w') as f:
+                pass
+                
+            # 각 파일 삭제 시도
+            for file_path in pending_files:
+                try:
+                    if os.path.exists(file_path):
+                        os.remove(file_path)
+                        print(f"지연 삭제 성공: {file_path}")
+                    else:
+                        print(f"지연 삭제 파일이 이미 없음: {file_path}")
+                except Exception as e:
+                    print(f"지연 삭제 실패: {file_path} - {e}")
+        except Exception as e:
+            print(f"지연 삭제 처리 중 오류: {e}")
+            
+    def add_to_pending_deletions(self, file_path):
+        """파일을 지연 삭제 목록에 추가합니다."""
+        try:
+            with open(self.pending_deletion_file, 'a') as f:
+                f.write(file_path + '\n')
+            return True
+        except Exception as e:
+            print(f"지연 삭제 목록에 추가 실패: {e}")
+            return False
+
     def delete_current_image(self):
         """현재 이미지를 삭제합니다 (휴지통으로 이동)."""
         current_file = self.file_navigator.get_current_file()
@@ -784,13 +825,16 @@ class ImageViewer(QWidget):
             
         try:
             import os
+            import time
             import gc
             from pathlib import Path
-            import shutil
+            from PyQt5.QtWidgets import QMessageBox, QApplication
+            from PyQt5.QtGui import QMovie
             
             # Path 객체 사용
             file_path = Path(current_file).resolve()
             file_name = file_path.name
+            file_path_str = str(file_path)
             
             # 파일이 존재하는지 확인
             if not file_path.is_file():
@@ -804,7 +848,6 @@ class ImageViewer(QWidget):
                 return
             
             # 삭제 전 확인 메시지
-            from PyQt5.QtWidgets import QMessageBox
             msg_box = QMessageBox(self)
             msg_box.setWindowTitle('이미지 삭제')
             msg_box.setText(f"정말로 이미지를 휴지통으로 이동하시겠습니까?\n{file_name}")
@@ -814,89 +857,157 @@ class ImageViewer(QWidget):
             if msg_box.exec_() != QMessageBox.Yes:
                 return
             
-            # 애니메이션 파일(GIF/WebP)인 경우의 특별 처리
-            file_ext = os.path.splitext(current_file)[1].lower()
-            is_animation = file_ext in ['.gif', '.webp'] and self.current_media_type in ['gif_animation', 'webp_animation']
+            # 삭제 전에 미리 다음 파일 정보 가져오기
+            next_file = None
+            if len(self.image_files) > 1:
+                _, next_file = self.file_navigator.peek_next_file()
             
-            # 1. 현재 이미지의 다음 이미지로 미리 이동하여 리소스 해제
-            next_file_index = (self.current_index + 1) % len(self.image_files) if self.image_files else -1
-            if next_file_index >= 0 and len(self.image_files) > 1:
-                next_file = self.image_files[next_file_index]
-                # 다음 이미지로 이동하기 전에 정리
-                self.cleanup_current_media()
-                # 다음 이미지 표시
-                self.show_image(next_file)
+            print(f"파일 삭제 시작: {file_path_str}")
+            
+            # 이미지 정리 최소화 - 타이머만 중지하고 메모리 리소스는 정리하지 않음
+            self.pause_all_timers()
+            
+            # GIF/애니메이션 관련 명시적 정리를 위한 특별 처리
+            file_ext = os.path.splitext(file_path_str)[1].lower()
+            if file_ext in ['.gif', '.webp']:
+                print(f"GIF/애니메이션 파일 특별 정리 시작: {file_ext}")
                 
-                # 추가 이벤트 처리 및 메모리 정리
-                for i in range(5):  # 몇 번의 이벤트 루프를 더 돌림
-                    QApplication.processEvents()
-            else:
-                # 다음 이미지가 없는 경우 리소스만 정리
-                self.cleanup_current_media()
-                self.image_label.clear()
+                # 1. 애니메이션 핸들러의 QMovie 중지 및 해제
+                if hasattr(self, 'animation_handler'):
+                    print("애니메이션 핸들러 특별 정리...")
+                    if hasattr(self.animation_handler, 'stop_animation'):
+                        self.animation_handler.stop_animation()
+                    
+                    # 애니메이션 핸들러의 QMovie 객체 정리
+                    if hasattr(self.animation_handler, 'current_movie') and self.animation_handler.current_movie:
+                        print("현재 QMovie 객체 정리...")
+                        try:
+                            movie = self.animation_handler.current_movie
+                            movie.stop()
+                            # 시그널 연결 해제
+                            try:
+                                movie.frameChanged.disconnect()
+                                movie.stateChanged.disconnect()
+                                movie.finished.disconnect()
+                            except:
+                                pass
+                            movie.setDevice(None)  # 파일에서 연결 해제
+                            movie.deleteLater()
+                            self.animation_handler.current_movie = None
+                        except Exception as e:
+                            print(f"QMovie 객체 정리 오류: {e}")
+                            
+                # 2. 이미지 레이블에서 QMovie 객체 제거
+                if hasattr(self, 'image_label'):
+                    print("이미지 레이블에서 QMovie 연결 해제...")
+                    self.image_label.setMovie(None)
+                    self.image_label.clear()
+                
+                # 3. GIF 캐시에서 해당 파일 항목 제거
+                if hasattr(self, 'gif_cache') and self.gif_cache:
+                    from PyQt5.QtGui import QMovie
+                    print("GIF 캐시에서 항목 제거...")
+                    for key in list(self.gif_cache.cache.keys()):
+                        if isinstance(key, str) and file_path_str in key:
+                            try:
+                                item = self.gif_cache.cache[key]
+                                if isinstance(item, QMovie):
+                                    item.stop()
+                                    item.setDevice(None)
+                                    try:
+                                        item.finished.disconnect()
+                                        item.frameChanged.disconnect()
+                                    except:
+                                        pass
+                                    item.deleteLater()
+                                print(f"GIF 캐시에서 항목 제거 완료: {key}")
+                                del self.gif_cache.cache[key]
+                            except Exception as e:
+                                print(f"GIF 캐시 항목 제거 오류: {key} - {e}")
             
-            # 추가 메모리 정리
-            gc.collect()
+            # 완전한 정리를 위한 이벤트 처리와 가비지 컬렉션
+            for _ in range(3):
+                QApplication.processEvents()
+                gc.collect()
+                time.sleep(0.1)
             
-            # 2. 휴지통으로 이동 시도
+            # 바로 삭제 시도 - 정리 로직 없이 직접 삭제
+            deleted = False
+            
             try:
+                # 휴지통으로 이동 시도 (안전)
                 from send2trash import send2trash
-                send2trash(str(file_path))
-                file_deleted = True
-            except ImportError:
-                # send2trash 모듈이 없으면 설치
-                self.show_message("send2trash 모듈 설치 중...")
-                import subprocess
-                try:
-                    subprocess.check_call([sys.executable, "-m", "pip", "install", "send2trash"])
-                    from send2trash import send2trash
-                    send2trash(str(file_path))
-                    file_deleted = True
-                except Exception as e:
-                    print(f"send2trash 설치 또는 사용 실패: {e}")
-                    file_deleted = False
+                print(f"send2trash로 휴지통 이동 시도: {file_path_str}")
+                send2trash(file_path_str)
+                deleted = not os.path.exists(file_path_str)
+                print(f"휴지통 이동 결과: {'성공' if deleted else '실패'}")
             except Exception as e:
                 print(f"휴지통 이동 실패: {e}")
-                file_deleted = False
+                # 그냥 실패 처리
+                deleted = False
+                self.show_message("파일을 휴지통으로 이동할 수 없습니다")
+                # 이벤트 처리
+                QApplication.processEvents()
+                time.sleep(0.1)
             
-            # 3. 파일이 성공적으로 삭제되었는지 확인
-            if file_deleted or not os.path.exists(str(file_path)):
+            # 삭제 성공 시에만 다음 이미지로 이동
+            if deleted:
+                print("파일이 성공적으로 삭제되었습니다")
                 # 북마크에서 제거
                 if hasattr(self, 'bookmark_manager') and current_file in self.bookmark_manager.bookmarks:
                     self.bookmark_manager.remove_bookmark()
                 
                 # 내비게이터에서 파일 제거
-                success, _ = self.file_navigator.delete_current_file()
+                success, next_file_after_deletion = self.file_navigator.delete_current_file()
+                
                 if success:
                     self.current_index = self.file_navigator.get_current_index()
                     self.image_files = self.file_navigator.get_files()
                     
-                    if not self.image_files:
+                    # 이미지가 남아있는지 확인
+                    if self.image_files:
+                        # 새로운 다음 파일 있으면 표시 (delete_current_file에서 반환된 값 사용)
+                        if next_file_after_deletion:
+                            print(f"삭제 후 다음 이미지로 이동: {next_file_after_deletion}")
+                            self.show_image(next_file_after_deletion)
+                            self.show_message("파일이 휴지통으로 이동되었습니다")
+                        else:
+                            # 다음 파일이 없으면 현재 인덱스의 파일 표시 
+                            current_file = self.file_navigator.get_current_file()
+                            if current_file:
+                                print(f"현재 인덱스의 파일 표시: {current_file}")
+                                self.show_image(current_file)
+                                self.show_message("파일이 휴지통으로 이동되었습니다")
+                            else:
+                                # 파일이 없으면 메시지만 표시
+                                self.image_label.clear()
+                                self.current_image_path = ""
+                                self.show_message("파일이 휴지통으로 이동되었습니다")
+                    else:
+                        # 더 이상 표시할 이미지가 없음
                         self.image_label.clear()
                         self.current_image_path = ""
                         self.show_message("모든 이미지가 삭제되었습니다")
-                    else:
-                        # 여기서는 이미 이미지를 바꿨으므로 메시지만 표시
-                        self.show_message("파일이 휴지통으로 이동되었습니다")
+                else:
+                    self.show_message("파일 목록 업데이트 실패")
+                    
+                # cleanup_current_media 호출 제거 - show_image에서 이미 처리됨
             else:
                 self.show_message("파일 삭제에 실패했습니다. 다른 프로그램에서 사용 중일 수 있습니다.")
                 
-                # 원래 이미지로 돌아가기
-                if current_file and os.path.exists(current_file):
-                    self.show_image(current_file)
         except Exception as e:
             import traceback
             error_details = traceback.format_exc()
-            print(f"삭제 중 예외 발생: {e}\n{error_details}")
-            self.show_message(f"삭제 중 오류 발생: {str(e)}")
+            print(f"이미지 삭제 중 오류 발생: {e}\n{error_details}")
+            self.show_message(f"이미지 삭제 실패: {str(e)}")
 
     def ensure_maximized(self):
-        """창이 최대화 상태인지 확인하고 그렇지 않으면 다시 최대화합니다."""
+        """창이 최대화 상태인지 확인하고, 최대화 상태가 아니면 최대화합니다."""
         if not self.isMaximized():
-            self.showMaximized()  # 최대화 상태가 아니면 최대화 적용
+            self.showMaximized()
 
     def resizeEvent(self, event):
-        """창 크기 변경 이벤트 처리 (창 크기 변경 시 UI 요소 조정)"""
+        """창 크기가 변경될 때 호출되는 이벤트"""
         # 필수적인 UI 요소 즉시 조정
         window_width = self.width()
         
@@ -1641,11 +1752,21 @@ class ImageViewer(QWidget):
                 self.show_next_image()
 
     def keyPressEvent(self, event):
-            # ESC 키로 전체화면 모드 종료
+        # ESC 키로 전체화면 모드 종료
         if event.key() == Qt.Key_Escape and self.isFullScreen():
             self.toggle_fullscreen()
             return  # ESC 키 처리 완료
         
+        # Ctrl+D: 디버깅 모드 토글
+        if event.key() == Qt.Key_D and event.modifiers() == Qt.ControlModifier:
+            self.toggle_debug_mode()
+            return
+            
+        # Ctrl+G: QMovie 참조 그래프 생성
+        if event.key() == Qt.Key_G and event.modifiers() == Qt.ControlModifier:
+            self.generate_qmovie_reference_graph()
+            return
+            
         if event.key() == self.key_settings["prev_image"]:  # 이전 이미지 키
             self.show_previous_image()  # 이전 이미지로 이동
         elif event.key() == self.key_settings["next_image"]:  # 다음 이미지 키
@@ -2082,49 +2203,60 @@ class ImageViewer(QWidget):
         QTimer.singleShot(50, self.setFocus)
 
     def closeEvent(self, event):
-        """창이 닫힐 때 호출되는 이벤트, 리소스 정리를 수행합니다."""
-        # 전체 미디어 리소스 정리
+        """
+        애플리케이션 종료 시 필요한 정리 작업을 수행합니다.
+        """
+        print("프로그램 종료 처리 시작...")
+        
+        # 디버깅을 위한 초기 상태 확인
+        if hasattr(self, 'debug_mode') and self.debug_mode:
+            self.debug_qmovie_before_cleanup()
+        
+        # 현재 미디어 리소스 정리
         self.cleanup_current_media()
         
-        # 로더 스레드 종료
-        for path, loader in list(self.loader_threads.items()):
-            if loader.isRunning():
-                try:
-                    loader.terminate()
-                    loader.wait(300)  # 최대 300ms까지만 대기 (무한 대기 방지)
-                except Exception as e:
-                    print(f"스레드 종료 오류: {e}")
-        self.loader_threads.clear()
-        
-        # VideoHandler 정리
-        if hasattr(self, 'video_handler') and self.video_handler:
-            try:
-                self.video_handler.unload()  # VideoHandler의 unload 메서드 호출
-            except Exception as e:
-                print(f"비디오 핸들러 정리 오류: {e}")
-        
-        # 미디어 핸들러 정리
-        if hasattr(self, 'image_handler'):
-            self.image_handler.unload()
-            
-        if hasattr(self, 'psd_handler'):
+        # PSD 핸들러 언로드
+        if hasattr(self, 'psd_handler') and self.psd_handler:
             self.psd_handler.unload()
-        
-        # 캐시 정리
-        if hasattr(self, 'image_cache'):
+            
+        # 이미지 캐시 정리
+        if hasattr(self, 'image_cache') and self.image_cache:
             print("이미지 캐시 정리 시작...")
             self.image_cache.clear()
             print("이미지 캐시 정리 완료")
-        if hasattr(self, 'psd_cache'):
+            
+        # PSD 캐시 정리
+        if hasattr(self, 'psd_cache') and self.psd_cache:
             print("PSD 캐시 정리 시작...")
             self.psd_cache.clear()
             print("PSD 캐시 정리 완료")
-        if hasattr(self, 'gif_cache'):
+            
+        # GIF 캐시 정리
+        if hasattr(self, 'gif_cache') and self.gif_cache:
             print("GIF 캐시 정리 시작...")
-            self.gif_cache.clear()
+            # 단순화된 QMovie 정리 과정
+            try:
+                from PyQt5.QtGui import QMovie
+                from PyQt5.QtWidgets import QApplication
+                
+                # 캐시에서 QMovie 객체 간단히 확인 및 정리
+                for key, item in list(self.gif_cache.cache.items()):
+                    if isinstance(item, QMovie):
+                        # 기본적인 정리 단계만 수행
+                        item.stop()
+                        item.deleteLater()
+                
+                # 한 번의 이벤트 처리만 수행
+                QApplication.processEvents()
+                
+                # 캐시 비우기
+                self.gif_cache.clear()
+                self.gif_cache = None  # 참조 해제
+            except Exception as e:
+                print(f"GIF 캐시 정리 중 오류: {e}")
             print("GIF 캐시 정리 완료")
-        
-        # 일반 타이머 정리
+            
+        # 활성 타이머 정리
         for timer in list(self.timers):
             try:
                 if timer.isActive():
@@ -2147,6 +2279,10 @@ class ImageViewer(QWidget):
         # 책갈피 저장
         self.save_bookmarks()
         
+        # 디버깅을 위한 정리 후 상태 확인
+        if hasattr(self, 'debug_mode') and self.debug_mode:
+            self.debug_qmovie_after_cleanup()
+            
         # 마지막 정리 작업 후 이벤트 처리를 강제로 수행하여 모든 정리 작업이 완료되도록 함
         from PyQt5.QtWidgets import QApplication
         QApplication.processEvents()
@@ -2566,7 +2702,13 @@ class ImageViewer(QWidget):
             del self.loader_threads[path]
 
     def pause_all_timers(self):
+        """모든 타이머를 일시 중지합니다."""
         for timer in self.timers:
+            if timer.isActive():
+                timer.stop()
+        
+        # 싱글샷 타이머도 중지
+        for timer in self.singleshot_timers:
             if timer.isActive():
                 timer.stop()
 
@@ -2847,7 +2989,11 @@ class ImageViewer(QWidget):
         dialog.exec_()
 
     def cleanup_current_media(self):
-        """현재 미디어 리소스를 정리합니다."""
+        """현재 미디어 정리 (이미지, 비디오, 애니메이션 등)"""
+        # 디버깅을 위한 초기 상태 확인
+        if hasattr(self, 'debug_mode') and self.debug_mode:
+            self.debug_qmovie_before_cleanup()
+            
         print("미디어 리소스 정리 시작...")
         
         # 비디오 재생 중지
@@ -2899,6 +3045,10 @@ class ImageViewer(QWidget):
             
         print("미디어 리소스 정리 완료")
 
+        # 디버깅을 위한 정리 후 상태 확인
+        if hasattr(self, 'debug_mode') and self.debug_mode:
+            self.debug_qmovie_after_cleanup()
+
     def create_single_shot_timer(self, timeout, callback):
         """
         싱글샷 타이머를 생성하고 추적합니다.
@@ -2935,6 +3085,160 @@ class ImageViewer(QWidget):
             if timer in self.singleshot_timers:
                 self.singleshot_timers.remove(timer)
             timer.deleteLater()
+
+    def toggle_debug_mode(self):
+        """디버깅 모드를 켜고 끕니다."""
+        import gc
+        import objgraph
+        
+        if not hasattr(self, 'debug_mode'):
+            self.debug_mode = False
+            
+        self.debug_mode = not self.debug_mode
+        print(f"디버깅 모드: {'켜짐' if self.debug_mode else '꺼짐'}")
+        
+        # 디버깅 모드가 켜진 경우 현재 QMovie 객체 상태 출력
+        if self.debug_mode:
+            self.debug_qmovie_status()
+            
+    def debug_qmovie_status(self):
+        """현재 QMovie 객체 상태를 출력합니다."""
+        import gc
+        import objgraph
+        from PyQt5.QtGui import QMovie
+        import types
+        
+        print("\n===== QMovie 객체 상태 =====")
+        # QMovie 객체 수 확인
+        try:
+            movie_count = objgraph.count('QMovie')
+            print(f"QMovie 객체 수: {movie_count}")
+        except Exception as e:
+            print(f"objgraph로 QMovie 객체 수 확인 중 오류: {e}")
+        
+        # 모든 객체에서 QMovie 인스턴스 찾기
+        qmovie_objects = []
+        for obj in gc.get_objects():
+            if isinstance(obj, QMovie):
+                qmovie_objects.append(obj)
+                
+        print(f"gc에서 찾은 QMovie 객체 수: {len(qmovie_objects)}")
+        
+        # 각 QMovie 객체에 대한 참조 출력
+        for i, movie in enumerate(qmovie_objects):
+            print(f"\nQMovie 객체 #{i+1}:")
+            try:
+                print(f"- 파일명: {movie.fileName() if movie.fileName() else '알 수 없음'}")
+                print(f"- 상태: {'실행 중' if movie.state() == QMovie.Running else '중지됨'}")
+            except Exception as e:
+                print(f"QMovie 속성 접근 중 오류: {e}")
+            
+            # 이 객체를 참조하는 객체들 찾기
+            try:
+                referrers = gc.get_referrers(movie)
+                print(f"- 참조하는 객체 수: {len(referrers)}")
+                
+                # 참조하는 객체 유형 분석
+                ref_types = {}
+                for ref in referrers:
+                    ref_type = type(ref).__name__
+                    if ref_type in ref_types:
+                        ref_types[ref_type] += 1
+                    else:
+                        ref_types[ref_type] = 1
+                        
+                print("- 참조 유형:")
+                for ref_type, count in ref_types.items():
+                    print(f"  - {ref_type}: {count}개")
+                
+                # 중요 참조 자세히 출력 (모듈, 함수, 클래스 외의 참조)
+                print("- 중요 참조 상세:")
+                for ref in referrers:
+                    # 함수, 모듈, 클래스, dict, list 등은 건너뛰기
+                    if (isinstance(ref, (types.ModuleType, types.FunctionType, type)) or 
+                            type(ref).__name__ in ['dict', 'list', 'tuple', 'set', 'frame']):
+                        continue
+                        
+                    # LRUCache 객체인지 확인
+                    if type(ref).__name__ == 'LRUCache' or 'Cache' in type(ref).__name__:
+                        print(f"  - 캐시 객체 발견: {type(ref).__name__}")
+                        if hasattr(ref, 'cache'):
+                            print(f"    - 캐시 항목 수: {len(ref.cache)}")
+                            # 캐시 내의 QMovie 객체 찾기
+                            for k, v in ref.cache.items():
+                                if v is movie:
+                                    print(f"    - 캐시 키: {k}")
+                                    
+                    elif hasattr(ref, 'image_label') and hasattr(ref, 'current_movie'):
+                        print(f"  - AnimationHandler 의심 객체: {type(ref).__name__}")
+                        print(f"    - current_movie: {ref.current_movie is movie}")
+                        print(f"    - image_label.movie(): {ref.image_label.movie() is movie if hasattr(ref.image_label, 'movie') else 'N/A'}")
+                    else:
+                        print(f"  - 기타 객체: {type(ref).__name__}")
+                        # 객체의 주요 속성 출력
+                        for attr_name in dir(ref):
+                            if attr_name.startswith('__'):
+                                continue
+                            try:
+                                attr = getattr(ref, attr_name)
+                                if attr is movie:
+                                    print(f"    - 속성: {attr_name} ({type(ref).__name__}.{attr_name} == QMovie)")
+                            except:
+                                pass
+            except Exception as e:
+                print(f"참조 분석 중 오류: {e}")
+        
+        print("\n===== 메모리 상위 객체 =====")
+        try:
+            objgraph.show_most_common_types(limit=10)
+        except Exception as e:
+            print(f"메모리 상위 객체 분석 중 오류: {e}")
+        
+    def debug_qmovie_before_cleanup(self):
+        """정리 전 QMovie 상태를 출력합니다."""
+        print("\n===== 정리 전 QMovie 상태 =====")
+        self.debug_qmovie_status()
+        
+    def debug_qmovie_after_cleanup(self):
+        """정리 후 QMovie 상태를 출력합니다."""
+        import gc
+        # 가비지 컬렉션 강제 실행
+        gc.collect()
+        print("\n===== 정리 후 QMovie 상태 =====")
+        self.debug_qmovie_status()
+        
+    def generate_qmovie_reference_graph(self):
+        """QMovie 객체의 참조 그래프를 생성합니다."""
+        import gc
+        import objgraph
+        from PyQt5.QtGui import QMovie
+        
+        # 가비지 컬렉션 강제 실행
+        gc.collect()
+        
+        # QMovie 객체 찾기
+        qmovie_objects = []
+        for obj in gc.get_objects():
+            if isinstance(obj, QMovie):
+                qmovie_objects.append(obj)
+                
+        if not qmovie_objects:
+            print("QMovie 객체를 찾을 수 없습니다.")
+            return
+            
+        print(f"{len(qmovie_objects)}개의 QMovie 객체 발견, 참조 그래프 생성 중...")
+        
+        try:
+            # 첫 번째 QMovie 객체에 대한 참조 그래프 생성
+            objgraph.show_backrefs(
+                qmovie_objects[0], 
+                max_depth=5, 
+                filename='qmovie_refs.png',
+                filter=lambda x: not isinstance(x, dict)
+            )
+            print("참조 그래프가 'qmovie_refs.png' 파일로 저장되었습니다.")
+        except Exception as e:
+            print(f"참조 그래프 생성 중 오류: {e}")
 
 class ScrollableMenu(QMenu):
     """스크롤을 지원하는 메뉴 클래스"""
