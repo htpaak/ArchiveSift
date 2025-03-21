@@ -27,6 +27,7 @@ from core.config_manager import load_settings, save_settings  # 설정 관리 �
 from media.format_detector import FormatDetector  # 파일 형식 감지 클래스
 # 이미지 로딩 기능
 from media.loaders.image_loader import ImageLoaderThread
+from media.loaders.image_loader import ImageLoader, ImageLoaderThread
 # 미디어 처리
 from media.handlers.image_handler import ImageHandler  # 이미지 처리 클래스
 from media.handlers.psd_handler import PSDHandler  # PSD 처리 클래스
@@ -145,6 +146,7 @@ class ImageViewer(QWidget):
         
         # 비동기 이미지 로딩 관련 변수 초기화
         self.loader_threads = {}  # 로더 스레드 추적용 딕셔너리 (경로: 스레드)
+        self.image_loader = ImageLoader()  # 이미지 로더 매니저 초기화
         self.loading_label = QLabel("로딩 중...", self)  # 로딩 중 표시용 레이블
         self.loading_label.setAlignment(Qt.AlignCenter)  # 중앙 정렬
         self.loading_label.setStyleSheet("""
@@ -899,7 +901,10 @@ class ImageViewer(QWidget):
 
     def cancel_pending_loaders(self, current_path=None):
         """현재 로딩 중인 이미지를 제외한 모든 로더 스레드를 취소합니다."""
-        # 기존 진행 중인 로딩 스레드 취소 (현재 로딩 중인 이미지는 제외)
+        # ImageLoader 클래스에 로더 취소 책임 위임
+        self.image_loader.cancel_pending_loaders(current_path)
+        
+        # 기존 코드 호환성 유지 (점진적 마이그레이션 중)
         for path, loader in list(self.loader_threads.items()):
             if (current_path is None or path != current_path) and loader.isRunning():
                 try:
@@ -1715,6 +1720,9 @@ class ImageViewer(QWidget):
     def cleanup_loader_threads(self):
         """로더 스레드를 정리하고 메모리를 확보합니다."""
         try:
+            # ImageLoader를 통한 정리 (점진적 마이그레이션으로 추가)
+            self.image_loader.cleanup()
+            
             # 완료되었거나 오류가 발생한 스레드 제거
             current_threads = list(self.loader_threads.items())
             for path, loader in current_threads:

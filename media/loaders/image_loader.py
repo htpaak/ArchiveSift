@@ -4,10 +4,100 @@
 # 프로그램을 멈추지 않고 효율적으로 로드할 수 있게 해줘요.
 
 import os  # 파일 경로와 크기 확인을 위한 운영체제 모듈
-from PyQt5.QtCore import QThread, pyqtSignal  # 스레드 생성과 신호 전달 기능
+from PyQt5.QtCore import QThread, pyqtSignal, QObject  # 스레드 생성과 신호 전달 기능
 from PyQt5.QtGui import QPixmap, QImageReader  # 이미지 표시와 읽기 기능
 from PIL import Image, ImageCms  # 다양한 이미지 형식 지원과 ICC 프로파일 처리
 from io import BytesIO  # 메모리에 이미지 데이터를 저장하는 기능
+
+class ImageLoader(QObject):
+    """
+    이미지 로더 스레드를 관리하는 클래스예요.
+    
+    이 클래스는 여러 이미지 로더 스레드를 추적하고 관리해요.
+    불필요한 로더를 취소하거나 새 로더를 시작할 수 있어요.
+    """
+    
+    def __init__(self):
+        """이미지 로더 매니저 초기화"""
+        super().__init__()
+        self.loader_threads = {}  # 경로: 로더 스레드
+    
+    def start_loading(self, image_path, file_type='image'):
+        """
+        이미지 로딩을 시작합니다.
+        
+        매개변수:
+            image_path: 로드할 이미지 파일 경로
+            file_type: 파일 타입 ('image', 'psd', 'gif' 등)
+            
+        반환값:
+            loader: 생성된 ImageLoaderThread 인스턴스
+        """
+        # 이미 로딩 중인지 확인
+        if image_path in self.loader_threads and self.loader_threads[image_path].isRunning():
+            print(f"이미 로딩 중인 이미지: {os.path.basename(image_path)}")
+            return self.loader_threads[image_path]
+        
+        # 새 로더 생성
+        loader = ImageLoaderThread(image_path, file_type)
+        self.loader_threads[image_path] = loader
+        loader.start()
+        
+        return loader
+    
+    def cancel_loading(self, image_path):
+        """
+        특정 이미지의 로딩을 취소합니다.
+        
+        매개변수:
+            image_path: 취소할 이미지 경로
+        """
+        if image_path in self.loader_threads and self.loader_threads[image_path].isRunning():
+            try:
+                self.loader_threads[image_path].terminate()
+                self.loader_threads[image_path].wait(100)  # 최대 100ms 대기
+                print(f"이미지 로딩 취소: {os.path.basename(image_path)}")
+            except Exception as e:
+                print(f"로딩 취소 실패: {e}")
+            finally:
+                del self.loader_threads[image_path]
+    
+    def cancel_pending_loaders(self, current_path=None):
+        """
+        현재 로딩 중인 이미지를 제외한 모든 로더 스레드를 취소합니다.
+        
+        매개변수:
+            current_path: 취소하지 않을 현재 이미지 경로 (있는 경우)
+        """
+        for path, loader in list(self.loader_threads.items()):
+            if (current_path is None or path != current_path) and loader.isRunning():
+                try:
+                    loader.terminate()
+                    loader.wait(100)  # 최대 100ms 대기
+                except Exception as e:
+                    print(f"로딩 취소 실패: {e}")
+                del self.loader_threads[path]
+                print(f"이미지 로딩 취소: {os.path.basename(path)}")
+    
+    def cleanup(self):
+        """모든 로더 스레드를 취소하고 정리합니다."""
+        for path, loader in list(self.loader_threads.items()):
+            if loader.isRunning():
+                try:
+                    loader.terminate()
+                    loader.wait(100)
+                except:
+                    pass
+                print(f"이미지 로딩 취소 (정리): {os.path.basename(path)}")
+        self.loader_threads.clear()
+    
+    def is_loading(self, image_path):
+        """특정 이미지가 현재 로딩 중인지 확인합니다."""
+        return image_path in self.loader_threads and self.loader_threads[image_path].isRunning()
+    
+    def get_active_loaders_count(self):
+        """현재 활성화된 로더 수를 반환합니다."""
+        return sum(1 for loader in self.loader_threads.values() if loader.isRunning())
 
 class ImageLoaderThread(QThread):
     """

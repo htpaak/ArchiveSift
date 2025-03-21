@@ -323,6 +323,12 @@ class WindowHandler(QObject):
         # 현재 미디어 리소스 정리
         self.parent.cleanup_current_media()
         
+        # ImageLoader 정리 (이미지 로더 스레드 정리)
+        if hasattr(self.parent, 'image_loader') and self.parent.image_loader:
+            print("이미지 로더 정리 시작...")
+            self.parent.image_loader.cleanup()
+            print("이미지 로더 정리 완료")
+        
         # PSD 핸들러 언로드
         if hasattr(self.parent, 'psd_handler') and self.parent.psd_handler:
             self.parent.psd_handler.unload()
