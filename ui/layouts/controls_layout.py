@@ -319,4 +319,10 @@ class ControlsLayout(QWidget):
             # VideoHandler의 seek 함수를 사용하여 정확한 위치로 이동
             self.parent.video_handler.seek(seconds)
 
+    def seek_animation(self, value):
+        """슬라이더 값에 따라 애니메이션 재생 위치를 변경합니다."""
+        # AnimationHandler만 사용
+        if self.parent.current_media_type in ['gif_animation', 'webp_animation'] and hasattr(self.parent, 'animation_handler'):
+            self.parent.animation_handler.seek_to_frame(value)
+
     # 여기에 main.py에서 옮겨올 메서드들이 추가될 예정 

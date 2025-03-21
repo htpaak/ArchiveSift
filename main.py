@@ -1292,11 +1292,12 @@ class ImageViewer(QWidget):
             print("Controls layout not initialized")
 
     def seek_animation(self, value):
-        """슬라이더 값에 따라 애니메이션 재생 위치를 변경합니다."""
-        # AnimationHandler만 사용
-        if self.current_media_type in ['gif_animation', 'webp_animation'] and hasattr(self, 'animation_handler'):
-            self.animation_handler.seek_to_frame(value)
-        # else 부분 완전 제거
+        """슬라이더 값에 따라 애니메이션 재생 위치를 변경하는 메서드 - controls_layout으로 위임"""
+        # 이 메서드는 controls_layout으로 이동됨
+        if hasattr(self, 'controls_layout'):
+            self.controls_layout.seek_animation(value)
+        else:
+            print("Controls layout not initialized")
 
     def update_video_playback(self):
         """VideoHandler를 사용하여 비디오의 재생 위치에 따라 슬라이더 값을 업데이트합니다."""
