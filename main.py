@@ -43,6 +43,7 @@ from ui.components.control_buttons import (
 from ui.components.media_display import MediaDisplay  # 추가된 import
 # 레이아웃
 from ui.layouts.main_layout import MainLayout  # 추가된 import - 메인 레이아웃
+from ui.layouts.controls_layout import ControlsLayout  # 추가된 import - 컨트롤 레이아웃
 # 대화상자
 from ui.dialogs.about_dialog import AboutDialog
 from ui.dialogs.preferences_dialog import PreferencesDialog
@@ -519,9 +520,12 @@ class ImageViewer(QWidget):
         # 메인 레이아웃에 컨트롤 레이아웃 추가
         self.main_layout.set_controls_layout(self.slider_widget)
         
+        # ControlsLayout 인스턴스 생성
+        self.controls_layout = ControlsLayout(self)
+        
         # MPV 상태 확인을 위한 타이머 설정 (주기적으로 재생 상태 업데이트)
         self.play_button_timer = QTimer(self)
-        self.play_button_timer.timeout.connect(self.update_play_button)  # 타이머가 작동할 때마다 update_play_button 메소드 호출
+        self.play_button_timer.timeout.connect(self.controls_layout.update_play_button)  # 타이머가 작동할 때마다 update_play_button 메소드 호출
         self.play_button_timer.start(200)  # 200ms마다 상태 확인 (초당 5번 업데이트로 최적화)
         self.timers.append(self.play_button_timer)  # 타이머 추적에 추가
         
@@ -1347,20 +1351,8 @@ class ImageViewer(QWidget):
 
     def update_play_button(self):
         """재생 상태에 따라 버튼 텍스트 업데이트"""
-        # 미디어 타입에 따른 버튼 텍스트 업데이트
-        if self.current_media_type in ['gif_animation', 'webp_animation'] and hasattr(self, 'animation_handler'):
-            # 애니메이션 핸들러를 통해 재생 상태 확인
-            is_playing = self.animation_handler.is_playing()
-            self.play_button.set_play_state(is_playing)
-        elif self.current_media_type == 'video':
-            # 비디오 재생 상태 확인
-            try:
-                is_playing = self.video_handler.is_video_playing()
-                self.play_button.set_play_state(is_playing)
-                self.update_video_playback()  # 슬라이더 업데이트 호출
-            except Exception as e:
-                print(f"재생 버튼 업데이트 오류: {e}")
-                self.play_button.setEnabled(False)  # 버튼 비활성화
+        # 이 메서드는 controls_layout으로 이동했으므로 여기서는 controls_layout의 메서드를 호출
+        self.controls_layout.update_play_button()
 
     def update_video_frame(self):
         # 비디오에서 프레임을 읽어옵니다.

@@ -1,1 +1,1 @@
-"""Layout modules for the Media Viewer application.""" 
+# ui/layouts 패키지
