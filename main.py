@@ -49,6 +49,7 @@ from ui.dialogs.about_dialog import AboutDialog
 from ui.dialogs.preferences_dialog import PreferencesDialog
 from events.handlers.keyboard_handler import KeyInputEdit
 from events.handlers.mouse_handler import MouseHandler
+from events.handlers.window_handler import WindowHandler
 # 북마크 관리
 from features.bookmark import BookmarkManager  # 북마크 관리 클래스
 # 회전 기능
@@ -110,6 +111,9 @@ class ImageViewer(QWidget):
         
         # 마우스 이벤트 핸들러 초기화
         self.mouse_handler = MouseHandler(self)
+        
+        # 윈도우 이벤트 핸들러 초기화
+        self.window_handler = WindowHandler(self)
         
         # 파일 브라우저 초기화
         self.file_browser = FileBrowser(self)
@@ -754,8 +758,7 @@ class ImageViewer(QWidget):
 
     def ensure_maximized(self):
         """창이 최대화 상태인지 확인하고, 최대화 상태가 아니면 최대화합니다."""
-        if not self.isMaximized():
-            self.showMaximized()
+        self.window_handler.ensure_maximized()
 
     def resizeEvent(self, event):
         """창 크기가 변경될 때 호출되는 이벤트"""
