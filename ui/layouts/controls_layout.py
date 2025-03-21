@@ -108,4 +108,9 @@ class ControlsLayout(QWidget):
         """타이틀바 잠금을 토글: UI 잠금 관리자에 위임"""
         self.parent.ui_lock_manager.toggle_title_lock()
 
+    def update_ui_lock_button_state(self):
+        """UI 잠금 버튼 상태 업데이트 - 이제 UILockUI 클래스에서 관리합니다."""
+        if hasattr(self.parent, 'ui_lock_ui'):
+            self.parent.ui_lock_ui.update_ui_lock_button_state()
+
     # 여기에 main.py에서 옮겨올 메서드들이 추가될 예정 
