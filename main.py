@@ -712,61 +712,10 @@ class ImageViewer(QWidget):
         """
         현재 이미지를 삭제합니다 (휴지통으로 이동).
         
-        FileOperations 클래스를 사용하여 안전하게 파일을 휴지통으로 이동합니다.
-        파일이 성공적으로 삭제되면 내비게이터에서 파일을 제거하고 다음 이미지로 이동합니다.
+        단일책임 원칙에 맞게 파일 삭제 로직을 FileOperations로 위임합니다.
         """
-        current_file = self.file_navigator.get_current_file()
-        if not current_file:
-            self.show_message("삭제할 이미지가 없습니다")
-            return
-        
-        try:
-            # 삭제 전에 미리 다음 파일 정보 가져오기 (필요한 경우)
-            next_file = None
-            if len(self.image_files) > 1:
-                _, next_file = self.file_navigator.peek_next_file()
-                
-            # FileOperations를 통해 파일 삭제 시도
-            # 확인 대화상자는 FileOperations에서 표시
-            success, _ = self.file_operations.delete_file(current_file, confirm=True)
-            
-            if success:
-                # 내비게이터에서 파일 제거
-                success, next_file_after_deletion = self.file_navigator.delete_current_file()
-                
-                if success:
-                    # 현재 인덱스와 파일 목록 업데이트
-                    self.current_index = self.file_navigator.get_current_index()
-                    self.image_files = self.file_navigator.get_files()
-                    
-                    # 이미지가 남아있는지 확인
-                    if self.image_files:
-                        # 새로운 다음 파일 있으면 표시
-                        if next_file_after_deletion:
-                            print(f"삭제 후 다음 이미지로 이동: {next_file_after_deletion}")
-                            self.show_image(next_file_after_deletion)
-                        else:
-                            # 다음 파일이 없으면 현재 인덱스의 파일 표시
-                            current_file = self.file_navigator.get_current_file()
-                            if current_file:
-                                print(f"현재 인덱스의 파일 표시: {current_file}")
-                                self.show_image(current_file)
-                            else:
-                                # 파일이 없으면 메시지만 표시
-                                self.image_label.clear()
-                                self.current_image_path = ""
-                    else:
-                        # 더 이상 표시할 이미지가 없음
-                        self.image_label.clear()
-                        self.current_image_path = ""
-                        self.show_message("모든 이미지가 삭제되었습니다")
-                else:
-                    self.show_message("파일 목록 업데이트 실패")
-        except Exception as e:
-            import traceback
-            error_details = traceback.format_exc()
-            print(f"이미지 삭제 중 오류 발생: {e}\n{error_details}")
-            self.show_message(f"이미지 삭제 실패: {str(e)}")
+        # FileOperations로 삭제 기능 위임
+        self.file_operations.delete_current_image(confirm=True)
 
     def ensure_maximized(self):
         """창이 최대화 상태인지 확인하고, 최대화 상태가 아니면 최대화합니다."""

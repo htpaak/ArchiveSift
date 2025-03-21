@@ -301,4 +301,79 @@ class FileOperations:
             target_path = os.path.join(folder_path, f"{name} ({counter}){ext}")
             counter += 1
             
-        return target_path 
+        return target_path
+    
+    def delete_current_image(self, confirm=True):
+        """
+        현재 이미지를 삭제하고 다음 이미지로 이동합니다.
+        
+        매개변수:
+            confirm (bool): 삭제 전 확인 대화상자 표시 여부
+            
+        반환값:
+            bool: 삭제 성공 여부
+        """
+        # 현재 파일 가져오기
+        if not hasattr(self.viewer, 'file_navigator') or not self.viewer.file_navigator:
+            self.viewer.show_message("파일 네비게이터가 초기화되지 않았습니다")
+            return False
+            
+        current_file = self.viewer.file_navigator.get_current_file()
+        if not current_file:
+            self.viewer.show_message("삭제할 이미지가 없습니다")
+            return False
+        
+        try:
+            # 삭제 전에 미리 다음 파일 정보 가져오기 (필요한 경우)
+            next_file = None
+            if hasattr(self.viewer, 'image_files') and len(self.viewer.image_files) > 1:
+                _, next_file = self.viewer.file_navigator.peek_next_file()
+                
+            # 파일 삭제 시도
+            success, _ = self.delete_file(current_file, confirm=confirm)
+            
+            if not success:
+                return False
+                
+            # 내비게이터에서 파일 제거
+            nav_success, next_file_after_deletion = self.viewer.file_navigator.delete_current_file()
+            
+            if not nav_success:
+                self.viewer.show_message("파일 목록 업데이트 실패")
+                return False
+                
+            # 현재 인덱스와 파일 목록 업데이트
+            self.viewer.current_index = self.viewer.file_navigator.get_current_index()
+            self.viewer.image_files = self.viewer.file_navigator.get_files()
+            
+            # 이미지가 남아있는지 확인
+            if not self.viewer.image_files:
+                # 더 이상 표시할 이미지가 없음
+                self.viewer.image_label.clear()
+                self.viewer.current_image_path = ""
+                self.viewer.show_message("모든 이미지가 삭제되었습니다")
+                return True
+                
+            # 새로운 다음 파일 있으면 표시
+            if next_file_after_deletion:
+                print(f"삭제 후 다음 이미지로 이동: {next_file_after_deletion}")
+                self.viewer.show_image(next_file_after_deletion)
+            else:
+                # 다음 파일이 없으면 현재 인덱스의 파일 표시
+                current_file = self.viewer.file_navigator.get_current_file()
+                if current_file:
+                    print(f"현재 인덱스의 파일 표시: {current_file}")
+                    self.viewer.show_image(current_file)
+                else:
+                    # 파일이 없으면 메시지만 표시
+                    self.viewer.image_label.clear()
+                    self.viewer.current_image_path = ""
+            
+            return True
+            
+        except Exception as e:
+            import traceback
+            error_details = traceback.format_exc()
+            print(f"이미지 삭제 중 오류 발생: {e}\n{error_details}")
+            self.viewer.show_message(f"이미지 삭제 실패: {str(e)}")
+            return False 
