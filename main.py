@@ -1030,6 +1030,13 @@ class ImageViewer(QWidget):
         self.current_media_type = 'video'  # 미디어 타입 업데이트
         self.play_video(image_path)  # 비디오 재생
 
+    def finalize_media_loading(self, image_path):
+        """미디어 로딩 후 최종 처리 작업을 수행합니다."""
+        # 전체화면 모드에서 지연된 리사이징 적용
+        if self.isFullScreen():
+            QTimer.singleShot(300, self.delayed_resize)
+            print("전체화면 모드에서 이미지 로드 후 지연된 리사이징 예약")
+
     def show_image(self, image_path):
         """이미지/미디어 파일 표시 및 관련 UI 업데이트"""
         # 미디어 로딩 준비
@@ -1057,10 +1064,8 @@ class ImageViewer(QWidget):
         else:
             self.current_media_type = 'unknown'  # 미디어 타입 업데이트
         
-        # 추가: 전체화면 모드에서 지연된 리사이징 적용
-        if self.isFullScreen():
-            QTimer.singleShot(300, self.delayed_resize)
-            print("전체화면 모드에서 이미지 로드 후 지연된 리사이징 예약")
+        # 미디어 로딩 후 최종 처리
+        self.finalize_media_loading(image_path)
 
     def show_gif(self, image_path):
         """GIF 애니메이션을 표시합니다."""
