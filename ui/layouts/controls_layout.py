@@ -64,8 +64,8 @@ class ControlsLayout(QWidget):
         if self.parent.current_media_type in ['gif_animation', 'webp_animation']:
             # AnimationHandler 사용
             if hasattr(self.parent, 'animation_handler'):
+                # 재생 상태만 토글하고 UI 업데이트는 시그널을 통해 처리됨
                 self.parent.animation_handler.toggle_playback()
-                # 버튼 텍스트는 animation_handler 내에서 직접 업데이트됨
                 
         # 비디오 처리
         elif self.parent.current_media_type == 'video':
@@ -363,5 +363,38 @@ class ControlsLayout(QWidget):
         """초를 'MM:SS' 형식으로 변환합니다."""
         # 이미 임포트된 core.utils.time_utils의 format_time 함수를 사용합니다
         return format_time(seconds)
+
+    def connect_animation_handler(self, animation_handler):
+        """
+        AnimationHandler 시그널 연결
+        
+        Args:
+            animation_handler: AnimationHandler 인스턴스
+        """
+        try:
+            if animation_handler:
+                # 재생 상태 변경 시그널 연결
+                animation_handler.playback_state_changed.connect(self.on_animation_playback_changed)
+                print("애니메이션 핸들러 시그널 연결 완료")
+        except Exception as e:
+            print(f"애니메이션 핸들러 시그널 연결 오류: {e}")
+            
+    def on_animation_playback_changed(self, is_playing):
+        """
+        애니메이션 재생 상태 변경 시 호출되는 메서드
+        
+        Args:
+            is_playing (bool): 현재 재생 중인지 여부
+        """
+        try:
+            # 재생 버튼 UI 업데이트
+            if hasattr(self, 'play_button'):
+                if is_playing:
+                    self.play_button.setText("❚❚")  # 일시정지 아이콘 (현재 재생 중)
+                else:
+                    self.play_button.setText("▶")  # 재생 아이콘 (현재 일시정지됨)
+            print(f"애니메이션 재생 상태 변경: {'재생 중' if is_playing else '일시정지'}")
+        except Exception as e:
+            print(f"애니메이션 재생 상태 변경 처리 오류: {e}")
 
     # 여기에 main.py에서 옮겨올 메서드들이 추가될 예정 

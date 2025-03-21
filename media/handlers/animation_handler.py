@@ -7,14 +7,17 @@
 
 from PyQt5.QtWidgets import QLabel, QApplication
 from PyQt5.QtGui import QMovie, QImageReader, QPixmap, QImage, QTransform
-from PyQt5.QtCore import Qt, QTimer, QSize
+from PyQt5.QtCore import Qt, QTimer, QSize, QObject, pyqtSignal
 import os
 import weakref
 
-class AnimationHandler:
+class AnimationHandler(QObject):
     """
     GIF 및 WEBP 애니메이션을 처리하는 클래스
     """
+    
+    # 재생 상태 변경 시그널 추가
+    playback_state_changed = pyqtSignal(bool)  # True: 재생 중, False: 일시정지
     
     def __init__(self, image_label, parent=None):
         """
@@ -24,6 +27,7 @@ class AnimationHandler:
             image_label (QLabel): 애니메이션을 표시할 레이블
             parent: 부모 객체 (일반적으로 ImageViewer)
         """
+        super(AnimationHandler, self).__init__(parent)
         self.image_label = image_label
         self.parent = parent
         self.current_movie = None
@@ -340,15 +344,12 @@ class AnimationHandler:
                 # 상태 토글
                 self.current_movie.setPaused(not is_paused)
                 
-                # 재생 버튼 상태 업데이트
-                if hasattr(self.parent, 'play_button'):
-                    if not is_paused:  # 재생 중 -> 일시정지로 변경
-                        self.parent.play_button.setText("▶")  # 재생 아이콘 (현재 일시정지됨)
-                    else:  # 일시정지 -> 재생으로 변경
-                        self.parent.play_button.setText("❚❚")  # 일시정지 아이콘 (현재 재생 중)
+                # 상태가 변경되었음을 알리는 시그널 발생
+                is_playing = not is_paused
+                self.playback_state_changed.emit(is_playing)
                 
                 # 재생 상태 반환 (정지 상태의 반대)
-                return not is_paused
+                return is_playing
             except Exception as e:
                 print(f"애니메이션 재생 상태 토글 중 오류 발생: {e}")
         return False

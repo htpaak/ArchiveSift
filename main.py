@@ -1086,6 +1086,9 @@ class ImageViewer(QWidget):
         """GIF 애니메이션을 표시합니다."""
         if not hasattr(self, 'animation_handler'):
             self.animation_handler = AnimationHandler(self.image_label, self)
+            # 애니메이션 핸들러 시그널 연결
+            if hasattr(self, 'controls_layout'):
+                self.controls_layout.connect_animation_handler(self.animation_handler)
         
         # AnimationHandler를 통해 GIF 로드
         self.animation_handler.load_gif(image_path)
@@ -1098,6 +1101,9 @@ class ImageViewer(QWidget):
         """WEBP 애니메이션을 표시합니다."""
         if not hasattr(self, 'animation_handler'):
             self.animation_handler = AnimationHandler(self.image_label, self)
+            # 애니메이션 핸들러 시그널 연결
+            if hasattr(self, 'controls_layout'):
+                self.controls_layout.connect_animation_handler(self.animation_handler)
         
         # AnimationHandler를 통해 WEBP 로드
         self.animation_handler.load_webp(image_path)
