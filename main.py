@@ -2113,23 +2113,28 @@ class ImageViewer(QWidget):
 
     def toggle_bookmark(self):
         """북마크 토글: 북마크 관리자에 위임"""
-        self.bookmark_manager.toggle_bookmark()
+        # 이 메서드는 controls_layout으로 이동했으므로 여기서는 controls_layout의 메서드를 호출
+        self.controls_layout.toggle_bookmark()
         
     def update_bookmark_menu(self):
         """북마크 메뉴 업데이트: 북마크 관리자에 위임"""
-        self.bookmark_manager.update_bookmark_menu()
+        # 이 메서드는 controls_layout으로 이동했으므로 여기서는 controls_layout의 메서드를 호출
+        self.controls_layout.update_bookmark_menu()
         
     def load_bookmarked_image(self, path):
         """북마크된 이미지 로드: 북마크 관리자에 위임"""
-        self.bookmark_manager.load_bookmarked_image(path)
+        # 이 메서드는 controls_layout으로 이동했으므로 여기서는 controls_layout의 메서드를 호출
+        self.controls_layout.load_bookmarked_image(path)
         
     def clear_bookmarks(self):
         """모든 북마크 삭제: 북마크 관리자에 위임"""
-        self.bookmark_manager.clear_bookmarks()
+        # 이 메서드는 controls_layout으로 이동했으므로 여기서는 controls_layout의 메서드를 호출
+        self.controls_layout.clear_bookmarks()
         
     def update_bookmark_button_state(self):
         """북마크 버튼 상태 업데이트: 북마크 관리자에 위임"""
-        self.bookmark_manager.update_bookmark_button_state()
+        # 이 메서드는 controls_layout으로 이동했으므로 여기서는 controls_layout의 메서드를 호출
+        self.controls_layout.update_bookmark_button_state()
     
     # 삭제할 메서드들 (이미 북마크 관리자로 기능이 이전됨)
     def add_bookmark(self):

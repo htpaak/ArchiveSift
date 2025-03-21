@@ -79,5 +79,25 @@ class ControlsLayout(QWidget):
             except Exception as e:
                 print(f"비디오 재생/일시정지 토글 오류: {e}")
                 pass  # 예외 발생 시 무시
+                
+    def toggle_bookmark(self):
+        """북마크 토글: 북마크 관리자에 위임"""
+        self.parent.bookmark_manager.toggle_bookmark()
+        
+    def update_bookmark_menu(self):
+        """북마크 메뉴 업데이트: 북마크 관리자에 위임"""
+        self.parent.bookmark_manager.update_bookmark_menu()
+        
+    def load_bookmarked_image(self, path):
+        """북마크된 이미지 로드: 북마크 관리자에 위임"""
+        self.parent.bookmark_manager.load_bookmarked_image(path)
+        
+    def clear_bookmarks(self):
+        """모든 북마크 삭제: 북마크 관리자에 위임"""
+        self.parent.bookmark_manager.clear_bookmarks()
+        
+    def update_bookmark_button_state(self):
+        """북마크 버튼 상태 업데이트: 북마크 관리자에 위임"""
+        self.parent.bookmark_manager.update_bookmark_button_state()
 
     # 여기에 main.py에서 옮겨올 메서드들이 추가될 예정 
