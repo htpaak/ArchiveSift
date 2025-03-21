@@ -984,19 +984,12 @@ class ImageViewer(QWidget):
                             button.setToolTip(subfolders[index])  # 툴팁으로 전체 경로 표시
 
     def on_button_click(self):
-        """하위 폴더 버튼 클릭 처리 - 현재 이미지를 선택된 폴더로 복사"""
-        button = self.sender()  # 클릭된 버튼 객체 참조
-        folder_path = button.toolTip()  # 버튼 툴팁에서 폴더 경로 가져오기
-        print(f"Selected folder: {folder_path}")  # 선택된 폴더 경로 출력
-
-        # 커서를 일반 모양으로 복원
-        QApplication.restoreOverrideCursor()  # 모래시계에서 일반 커서로 복원
-
-        # 현재 이미지를 선택된 폴더로 복사
-        self.copy_image_to_folder(folder_path)
-        
-        # 버튼 클릭 후 약간의 지연을 두고 창에 포커스를 돌려줌
-        self.create_single_shot_timer(50, self.setFocus)
+        """하위 폴더 버튼 클릭 처리 - controls_layout으로 위임"""
+        # 이 메서드는 controls_layout으로 이동됨
+        if hasattr(self, 'controls_layout'):
+            self.controls_layout.on_button_click()
+        else:
+            print("Controls layout not initialized")
 
     def open_folder(self):
         """이미지 폴더 열기 대화상자 표시 및 처리"""

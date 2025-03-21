@@ -254,4 +254,20 @@ class ControlsLayout(QWidget):
             # 북마크 버튼 상태 업데이트 (별도로 호출)
             self.update_bookmark_button_state()
 
+    def on_button_click(self):
+        """하위 폴더 버튼 클릭 처리 - 현재 이미지를 선택된 폴더로 복사"""
+        button = self.sender()  # 클릭된 버튼 객체 참조
+        folder_path = button.toolTip()  # 버튼 툴팁에서 폴더 경로 가져오기
+        print(f"Selected folder: {folder_path}")  # 선택된 폴더 경로 출력
+
+        # 커서를 일반 모양으로 복원
+        from PyQt5.QtWidgets import QApplication
+        QApplication.restoreOverrideCursor()  # 모래시계에서 일반 커서로 복원
+
+        # 현재 이미지를 선택된 폴더로 복사
+        self.parent.copy_image_to_folder(folder_path)
+        
+        # 버튼 클릭 후 약간의 지연을 두고 창에 포커스를 돌려줌
+        self.parent.create_single_shot_timer(50, self.parent.setFocus)
+
     # 여기에 main.py에서 옮겨올 메서드들이 추가될 예정 
