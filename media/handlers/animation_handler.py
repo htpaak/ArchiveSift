@@ -749,11 +749,14 @@ class AnimationHandler:
         if hasattr(self.parent, 'timers'):
             self.parent.timers.append(self.animation_timer)
             
-        # 슬라이더 시그널 연결
+        # 슬라이더 시그널 연결 (ClickableSlider의 메서드 사용)
         if hasattr(self.parent, 'playback_slider'):
-            self.parent.playback_slider.valueChanged.connect(self.seek_to_frame)
-            self.parent.playback_slider.sliderPressed.connect(self._slider_pressed)
-            self.parent.playback_slider.sliderReleased.connect(self._slider_released)
+            # 슬라이더 신호를 애니메이션 핸들러 메서드에 연결
+            self.parent.playback_slider.connect_to_animation_control(
+                self.seek_to_frame,
+                self._slider_pressed,
+                self._slider_released
+            )
     
     def is_playing(self):
         """

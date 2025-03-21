@@ -441,8 +441,8 @@ class ImageViewer(QWidget):
         self.volume_slider.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)  # 고정 크기 사용
         self.volume_slider.setFixedHeight(50)  # 슬라이더 높이를 50px로 고정
         
-        self.volume_slider.valueChanged.connect(self.adjust_volume)  # 슬라이더 값 변경 시 음량 조절 함수 연결
-        self.volume_slider.clicked.connect(self.adjust_volume)  # 클릭 이벤트 연결 (클릭 위치로 음량 즉시 변경)
+        # ClickableSlider의 메서드로 볼륨 컨트롤에 필요한 시그널 연결
+        self.volume_slider.connect_to_volume_control(self.adjust_volume)
         new_slider_layout.addWidget(self.volume_slider)  # 음량 조절 슬라이더를 레이아웃에 추가
         
         # 메뉴 버튼 추가 
@@ -573,7 +573,7 @@ class ImageViewer(QWidget):
         self.player = mpv.MPV(ytdl=True, input_default_bindings=True, input_vo_keyboard=True, hr_seek="yes")  # MPV 플레이어 객체 생성 (고품질 비디오 재생)
 
         # 슬라이더와 음량 조절 동기화
-        self.volume_slider.valueChanged.connect(self.adjust_volume)  # 슬라이더 값 변경 시 음량 조절 메서드 연결 (볼륨 실시간 조절)
+        self.volume_slider.connect_to_volume_control(self.adjust_volume)
 
         # 슬라이더 스타일 적용 (UI 일관성)
         self.playback_slider.setStyleSheet(self.slider_style)  # 재생 슬라이더 스타일 적용
@@ -610,7 +610,7 @@ class ImageViewer(QWidget):
         self.volume_slider.setStyleSheet(self.slider_style)  # 음량 조절 슬라이더 스타일 적용
         
         # 연결 추가 (이벤트와 함수 연결)
-        self.volume_slider.valueChanged.connect(self.adjust_volume)  # 슬라이더 값 변경 시 음량 조절 메서드 연결 (볼륨 실시간 조절)
+        self.volume_slider.connect_to_volume_control(self.adjust_volume)  # 슬라이더로 음량 조절
 
         # UI 잠금 관리자 생성
         self.ui_lock_manager = UILockManager(self)
@@ -875,29 +875,9 @@ class ImageViewer(QWidget):
     def disconnect_all_slider_signals(self):
         """슬라이더의 모든 신호 연결 해제 (이벤트 충돌 방지)"""
         
-        try:
-            # valueChanged 시그널 연결 해제
-            self.playback_slider.valueChanged.disconnect()
-        except (TypeError, RuntimeError):
-            pass  # 연결된 슬롯이 없으면 무시
-            
-        try:
-            # sliderPressed 시그널 연결 해제
-            self.playback_slider.sliderPressed.disconnect()
-        except (TypeError, RuntimeError):
-            pass  # 연결된 슬롯이 없으면 무시
-            
-        try:
-            # sliderReleased 시그널 연결 해제
-            self.playback_slider.sliderReleased.disconnect()
-        except (TypeError, RuntimeError):
-            pass  # 연결된 슬롯이 없으면 무시
-            
-        try:
-            # clicked 시그널 연결 해제
-            self.playback_slider.clicked.disconnect()
-        except (TypeError, RuntimeError):
-            pass  # 연결된 슬롯이 없으면 무시
+        # ClickableSlider의 disconnect_all_signals 메서드로 책임 위임
+        if hasattr(self, 'playback_slider') and self.playback_slider:
+            self.playback_slider.disconnect_all_signals()
 
     def cancel_pending_loaders(self, current_path=None):
         """현재 로딩 중인 이미지를 제외한 모든 로더 스레드를 취소합니다."""
@@ -1150,14 +1130,13 @@ class ImageViewer(QWidget):
             self.playback_slider.setRange(0, 0)  # 슬라이더 범위를 0으로 설정
             self.playback_slider.setValue(0)  # 슬라이더 초기값을 0으로 설정
             
-            # 슬라이더 시그널 연결 전에 기존 연결 해제
-            self.disconnect_all_slider_signals()
-            
-            # 슬라이더 이벤트 연결
-            self.playback_slider.sliderPressed.connect(self.slider_pressed)
-            self.playback_slider.sliderReleased.connect(self.slider_released)
-            self.playback_slider.valueChanged.connect(self.seek_video)
-            self.playback_slider.clicked.connect(self.slider_clicked)
+            # ClickableSlider의 메서드로 비디오 컨트롤에 필요한 시그널 연결
+            self.playback_slider.connect_to_video_control(
+                self.seek_video,
+                self.slider_pressed,
+                self.slider_released,
+                self.slider_clicked
+            )
             
             # 재생 버튼 상태 업데이트
             self.play_button.set_play_state(True)  # 일시정지 아이콘으로 설정

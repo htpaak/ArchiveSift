@@ -166,7 +166,7 @@ class ControlsLayout(QWidget):
             """)
         
         # 연결 추가 (이벤트와 함수 연결)
-        self.parent.volume_slider.valueChanged.connect(self.adjust_volume)  # 슬라이더 값 변경 시 음량 조절 메서드 연결 (볼륨 실시간 조절)
+        self.parent.volume_slider.connect_to_volume_control(self.adjust_volume)
         # AnimationHandler 초기화 (UI 설정 완료 후)
         self.parent.animation_handler = AnimationHandler(self.parent.image_label, self.parent)
 

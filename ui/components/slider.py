@@ -28,6 +28,66 @@ class ClickableSlider(QSlider):
         super().__init__(*args, **kwargs)  # 부모 클래스 초기화 (QSlider 기본 기능 상속)
         self.is_dragging = False  # 드래그 상태 추적 변수 (마우스 누름+이동 상태 확인용)
         
+    def disconnect_all_signals(self):
+        """슬라이더의 모든 신호 연결을 해제합니다."""
+        try:
+            # valueChanged 시그널 연결 해제
+            self.valueChanged.disconnect()
+        except (TypeError, RuntimeError):
+            pass  # 연결된 슬롯이 없으면 무시
+            
+        try:
+            # sliderPressed 시그널 연결 해제
+            self.sliderPressed.disconnect()
+        except (TypeError, RuntimeError):
+            pass  # 연결된 슬롯이 없으면 무시
+            
+        try:
+            # sliderReleased 시그널 연결 해제
+            self.sliderReleased.disconnect()
+        except (TypeError, RuntimeError):
+            pass  # 연결된 슬롯이 없으면 무시
+            
+        try:
+            # clicked 시그널 연결 해제
+            self.clicked.disconnect()
+        except (TypeError, RuntimeError):
+            pass  # 연결된 슬롯이 없으면 무시
+    
+    def connect_to_video_control(self, value_changed_slot, pressed_slot, released_slot, clicked_slot):
+        """비디오 컨트롤에 필요한 모든 신호를 연결합니다."""
+        self.disconnect_all_signals()  # 기존 연결 해제
+        
+        # 슬라이더 값 변경 시그널 연결
+        self.valueChanged.connect(value_changed_slot)
+        
+        # 슬라이더 조작 관련 시그널 연결
+        self.sliderPressed.connect(pressed_slot)
+        self.sliderReleased.connect(released_slot)
+        self.clicked.connect(clicked_slot)
+    
+    def connect_to_animation_control(self, value_changed_slot, pressed_slot=None, released_slot=None):
+        """애니메이션 컨트롤에 필요한 신호를 연결합니다."""
+        self.disconnect_all_signals()  # 기존 연결 해제
+        
+        # 값 변경 시그널 연결 (필수)
+        self.valueChanged.connect(value_changed_slot)
+        
+        # 선택적 시그널 연결
+        if pressed_slot:
+            self.sliderPressed.connect(pressed_slot)
+        
+        if released_slot:
+            self.sliderReleased.connect(released_slot)
+    
+    def connect_to_volume_control(self, value_changed_slot):
+        """볼륨 컨트롤에 필요한 신호를 연결합니다."""
+        self.disconnect_all_signals()  # 기존 연결 해제
+        
+        # 볼륨 슬라이더는 값 변경과 클릭 시그널을 동일한 슬롯에 연결
+        self.valueChanged.connect(value_changed_slot)
+        self.clicked.connect(value_changed_slot)
+    
     def mousePressEvent(self, event):
         """
         마우스 클릭 이벤트 처리
