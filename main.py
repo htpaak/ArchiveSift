@@ -961,11 +961,8 @@ class ImageViewer(QWidget):
             
         return image_size_mb  # 이미지 크기 정보 반환
 
-    def show_image(self, image_path):
-        """이미지/미디어 파일 표시 및 관련 UI 업데이트"""
-        # 미디어 로딩 준비
-        image_size_mb = self.prepare_for_media_loading(image_path)
-        
+    def update_current_media_state(self, image_path):
+        """현재 미디어 상태 관련 변수 업데이트 및 UI 요소 갱신"""
         # 현재 이미지 경로 저장
         self.current_image_path = image_path
         
@@ -974,6 +971,14 @@ class ImageViewer(QWidget):
 
         # UI 요소 업데이트
         self.update_ui_for_media(image_path)
+
+    def show_image(self, image_path):
+        """이미지/미디어 파일 표시 및 관련 UI 업데이트"""
+        # 미디어 로딩 준비
+        image_size_mb = self.prepare_for_media_loading(image_path)
+        
+        # 현재 미디어 상태 업데이트
+        self.update_current_media_state(image_path)
         
         # 파일 확장자 확인 (소문자로 변환)
         file_ext = os.path.splitext(image_path)[1].lower()
