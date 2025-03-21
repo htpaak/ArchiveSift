@@ -39,5 +39,16 @@ class ControlsLayout(QWidget):
         except Exception as e:
             print(f"음소거 토글 오류: {e}")
             pass
+            
+    def adjust_volume(self, volume):
+        """음량을 조절합니다."""
+        try:
+            # 현재 슬라이더 값을 가져와서 볼륨을 설정
+            volume_value = self.parent.volume_slider.value()  # 슬라이더의 현재 값
+            # VideoHandler의 set_volume 메서드 사용
+            self.parent.video_handler.set_volume(volume_value)
+        except Exception as e:
+            print(f"볼륨 조절 오류: {e}")
+            pass
 
     # 여기에 main.py에서 옮겨올 메서드들이 추가될 예정 

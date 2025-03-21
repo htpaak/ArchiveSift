@@ -2103,14 +2103,8 @@ class ImageViewer(QWidget):
 
     def adjust_volume(self, volume):
         """음량을 조절합니다."""
-        try:
-            # 현재 슬라이더 값을 가져와서 볼륨을 설정
-            volume_value = self.volume_slider.value()  # 슬라이더의 현재 값
-            # VideoHandler의 set_volume 메서드 사용
-            self.video_handler.set_volume(volume_value)
-        except Exception as e:
-            print(f"볼륨 조절 오류: {e}")
-            pass
+        # 이 메서드는 controls_layout으로 이동했으므로 여기서는 controls_layout의 메서드를 호출
+        self.controls_layout.adjust_volume(volume)
 
     def toggle_animation_playback(self):
         """애니메이션(GIF, WEBP) 또는 비디오 재생/일시정지 토글"""
