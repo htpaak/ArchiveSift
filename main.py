@@ -2263,53 +2263,11 @@ class ImageViewer(QWidget):
 
     # 초기 및 resizeEvent에서 동적으로 호출되는 커스텀 UI 설정 메서드
     def setup_custom_ui(self):
-        # 버튼 높이 측정 (open_button 기준)
-        button_height = 50  # 실측으로 확인한 버튼 높이
-        
-        # 슬라이더 스타일 적용 (UI 일관성)
-        self.playback_slider.setStyleSheet(self.slider_style)  # 재생 슬라이더 스타일 적용
-        self.volume_slider.setStyleSheet(self.slider_style)  # 음량 조절 슬라이더 스타일 적용
-        
-        # 슬라이더를 버튼과 동일한 높이로 직접 설정
-        self.playback_slider.setFixedHeight(button_height)  # 재생 슬라이더 높이 설정
-        self.volume_slider.setFixedHeight(button_height)    # 볼륨 슬라이더 높이 설정
-        
-        # 슬라이더의 부모 위젯인 slider_widget에 배경 스타일을 적용
-        self.slider_widget.setStyleSheet("""
-            QWidget {
-                background-color: transparent;
-            }
-        """)
-        
-        # 슬라이더 컨테이너에 대한 스타일 설정
-        playback_container = self.playback_slider.parentWidget()
-        volume_container = self.volume_slider.parentWidget()
-        if playback_container:
-            playback_container.setStyleSheet("""
-                QWidget {
-                    background-color: rgba(52, 73, 94, 0.6);
-                    border-radius: 3px;
-                }
-                QWidget:hover {
-                    background-color: rgba(52, 73, 94, 1.0);
-                }
-            """)
-            
-        if volume_container:
-            volume_container.setStyleSheet("""
-                QWidget {
-                    background-color: rgba(52, 73, 94, 0.6);
-                    border-radius: 3px;
-                }
-                QWidget:hover {
-                    background-color: rgba(52, 73, 94, 1.0);
-                }
-            """)
-        
-        # 연결 추가 (이벤트와 함수 연결)
-        self.volume_slider.valueChanged.connect(self.adjust_volume)  # 슬라이더 값 변경 시 음량 조절 메서드 연결 (볼륨 실시간 조절)
-        # AnimationHandler 초기화 (UI 설정 완료 후)
-        self.animation_handler = AnimationHandler(self.image_label, self)
+        """사용자 정의 UI 설정"""
+        # 이 메서드는 controls_layout으로 이동했으므로 여기서는 controls_layout의 메서드를 호출
+        if hasattr(self, 'controls_layout'):
+            self.controls_layout.setup_custom_ui()
+        # 이전 코드는 유지하지 않음 - controls_layout에서 모든 기능 처리
 
     def show_loading_indicator(self):
         """로딩 인디케이터를 화면 중앙에 표시합니다."""

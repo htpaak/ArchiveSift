@@ -1,6 +1,7 @@
 from PyQt5.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QPushButton, QSlider, QMenu, QAction
 from PyQt5.QtCore import Qt, QTimer, pyqtSignal
 from PyQt5.QtGui import QIcon
+from media.handlers.animation_handler import AnimationHandler  # AnimationHandler 클래스 임포트
 
 class ControlsLayout(QWidget):
     """
@@ -117,5 +118,55 @@ class ControlsLayout(QWidget):
         """타이틀 잠금 버튼 상태 업데이트 - 이제 UILockUI 클래스에서 관리합니다."""
         if hasattr(self.parent, 'ui_lock_ui'):
             self.parent.ui_lock_ui.update_title_lock_button_state()
+
+    def setup_custom_ui(self):
+        """초기 및 resizeEvent에서 동적으로 호출되는 커스텀 UI 설정 메서드"""
+        # 버튼 높이 측정 (open_button 기준)
+        button_height = 50  # 실측으로 확인한 버튼 높이
+        
+        # 슬라이더 스타일 적용 (UI 일관성)
+        self.parent.playback_slider.setStyleSheet(self.parent.slider_style)  # 재생 슬라이더 스타일 적용
+        self.parent.volume_slider.setStyleSheet(self.parent.slider_style)  # 음량 조절 슬라이더 스타일 적용
+        
+        # 슬라이더를 버튼과 동일한 높이로 직접 설정
+        self.parent.playback_slider.setFixedHeight(button_height)  # 재생 슬라이더 높이 설정
+        self.parent.volume_slider.setFixedHeight(button_height)    # 볼륨 슬라이더 높이 설정
+        
+        # 슬라이더의 부모 위젯인 slider_widget에 배경 스타일을 적용
+        self.parent.slider_widget.setStyleSheet("""
+            QWidget {
+                background-color: transparent;
+            }
+        """)
+        
+        # 슬라이더 컨테이너에 대한 스타일 설정
+        playback_container = self.parent.playback_slider.parentWidget()
+        volume_container = self.parent.volume_slider.parentWidget()
+        if playback_container:
+            playback_container.setStyleSheet("""
+                QWidget {
+                    background-color: rgba(52, 73, 94, 0.6);
+                    border-radius: 3px;
+                }
+                QWidget:hover {
+                    background-color: rgba(52, 73, 94, 1.0);
+                }
+            """)
+            
+        if volume_container:
+            volume_container.setStyleSheet("""
+                QWidget {
+                    background-color: rgba(52, 73, 94, 0.6);
+                    border-radius: 3px;
+                }
+                QWidget:hover {
+                    background-color: rgba(52, 73, 94, 1.0);
+                }
+            """)
+        
+        # 연결 추가 (이벤트와 함수 연결)
+        self.parent.volume_slider.valueChanged.connect(self.adjust_volume)  # 슬라이더 값 변경 시 음량 조절 메서드 연결 (볼륨 실시간 조절)
+        # AnimationHandler 초기화 (UI 설정 완료 후)
+        self.parent.animation_handler = AnimationHandler(self.parent.image_label, self.parent)
 
     # 여기에 main.py에서 옮겨올 메서드들이 추가될 예정 
