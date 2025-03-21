@@ -32,3 +32,22 @@ update_bookmark_button_state (2602~2638줄):
 북마크 상태 확인 및 버튼 스타일 설정
 wheelEvent (2071~2097줄):
 미디어 타입에 따른 쿨다운 계산 및 이미지 전환
+
+mouse_handler.py 구현 (가장 우선)
+events/handlers 패키지가 이미 존재하고 keyboard_handler.py도 구현되어 있어 확장하기 쉽습니다.
+main.py의 마우스 이벤트 처리 코드(wheelEvent, mouseDoubleClickEvent 등)가 많아 모듈화 효과가 큽니다.
+MediaDisplay 클래스와의 통합이 용이합니다.
+
+window_handler.py 구현 (두 번째 우선)
+마우스 이벤트와 함께 UI와 관련된 이벤트 처리의 핵심입니다.
+전체화면, 최대화 등의 창 상태 관리 로직을 통합할 수 있습니다.
+
+media_display.py 완성 및 통합 (세 번째 우선)
+이미 일부 구현되어 있으나, 완전한 통합이 필요합니다.
+이미지, 애니메이션, 비디오 표시 관련 메서드를 통합하면 main.py의 크기를 크게 줄일 수 있습니다.
+
+event_dispatcher.py 구현 (네 번째 우선)
+앞의 세 가지 핸들러가 구현된 후에 이를 통합하는 역할을 합니다.
+
+core/media_viewer.py 시작 (마지막 단계)
+다른 모듈화가 상당 부분 진행된 후에 시작하는 것이 효율적입니다.

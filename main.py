@@ -48,6 +48,7 @@ from ui.layouts.controls_layout import ControlsLayout  # 추가된 import - 컨�
 from ui.dialogs.about_dialog import AboutDialog
 from ui.dialogs.preferences_dialog import PreferencesDialog
 from events.handlers.keyboard_handler import KeyInputEdit
+from events.handlers.mouse_handler import MouseHandler
 # 북마크 관리
 from features.bookmark import BookmarkManager  # 북마크 관리 클래스
 # 회전 기능
@@ -106,6 +107,9 @@ class ImageViewer(QWidget):
         self.rotation_ui = RotationUI(self, self.rotation_manager)
         self.ui_lock_manager = UILockManager()
         self.ui_lock_ui = UILockUI(self, self.ui_lock_manager)
+        
+        # 마우스 이벤트 핸들러 초기화
+        self.mouse_handler = MouseHandler(self)
         
         # 파일 브라우저 초기화
         self.file_browser = FileBrowser(self)
@@ -924,14 +928,14 @@ class ImageViewer(QWidget):
         except Exception as e:
             print(f"지연된 리사이징 처리 중 오류 발생: {e}")
 
-    def mouseDoubleClickEvent(self, event):
+    def mouseDoubleClickEvent(self, event=None):
         """더블 클릭 시 전체화면 또는 최대화 상태 전환"""
-        if self.isFullScreen():
-            # 전체화면 모드에서는 전체화면 토글 함수 호출
-            self.toggle_fullscreen()
+        if event:
+            self.mouse_handler.handle_double_click(event)
         else:
-            # 일반 모드에서는 최대화/일반 창 전환
-            self.toggle_maximize_state()
+            # 이벤트 객체가 없는 경우 (MediaDisplay에서 호출된 경우) 처리
+            print("더블 클릭 이벤트가 이벤트 객체 없이 호출되었습니다.")
+            self.mouse_handler.handle_double_click(None)
 
     def set_base_folder(self):
         """기준 폴더 설정 (하위 폴더 버튼 자동 생성용)"""
@@ -1558,286 +1562,13 @@ class ImageViewer(QWidget):
             return
 
     def wheelEvent(self, event):
-        current_time = time.time() * 1000  # 현재 시간(밀리초)
-        
-        # 기본 쿨다운 값 설정 (일반적인 경우 500ms)
-        cooldown_ms = 500
-        
-        # 쿨다운 체크 - 상수 시간 연산 O(1)
-        if current_time - self.last_wheel_time < cooldown_ms:
-            event.accept()  # 이벤트 처리됨으로 표시하고 무시
-            return
-        
-        # 현재 미디어 타입 확인
-        current_media_type = getattr(self, 'current_media_type', 'unknown')
-        
-        # 애니메이션이나 비디오 재생 중인 경우 필요한 정리 작업 수행
-        if current_media_type in ['gif_animation', 'webp_animation', 'video']:
-            # 비디오 재생 중인 경우
-            if current_media_type == 'video':
-                # 비디오 중지
-                self.stop_video()
-            
-            # 애니메이션 재생 중인 경우 (GIF/WEBP)
-            elif current_media_type in ['gif_animation', 'webp_animation']:
-                # 리소스 정리를 위해 먼저 cleanup_current_media 호출
-                self.cleanup_current_media()
-        
-        # 방향 체크 후 이미지 전환
-        if event.angleDelta().y() > 0:
-            # 휠을 위로 돌린 경우 - 이전 이미지
-            self.show_previous_image()
-        elif event.angleDelta().y() < 0:
-            # 휠을 아래로 돌린 경우 - 다음 이미지
-            self.show_next_image()
-        
-        self.last_wheel_time = current_time  # 마지막 처리 시간 업데이트
+        """휠 이벤트 처리"""
+        self.mouse_handler.wheel_event(event)
 
     def eventFilter(self, obj, event):
         """모든 마우스 이벤트를 필터링"""
-        if event.type() == QEvent.MouseMove:
-            global_pos = event.globalPos()
-            local_pos = self.mapFromGlobal(global_pos)
-            
-            # 변수를 조건문 외부에서 정의 (이 부분이 중요합니다)
-            title_bar_area_height = 50  # 마우스가 상단 50px 이내일 때 타이틀바 표시
-            bottom_area_height = 250  # 마우스가 하단 250px 이내일 때 컨트롤 표시
-
-                
-            # UI 상태 변경 여부를 추적하기 위한 변수
-            ui_state_changed = False
-            title_bar_changed = False
-            slider_changed = False
-            buttons_changed = False
-
-            # UI 잠금 관리자를 사용하여 UI가 고정된 상태인지 확인
-            title_ui_locked = hasattr(self, 'ui_lock_manager') and self.ui_lock_manager.title_locked
-            bottom_ui_locked = hasattr(self, 'ui_lock_manager') and self.ui_lock_manager.ui_locked
-            
-            # 이전 코드와의 호환성을 위해 is_title_ui_locked와 is_bottom_ui_locked도 확인
-            if not title_ui_locked and hasattr(self, 'is_title_ui_locked'):
-                title_ui_locked = self.is_title_ui_locked
-            if not bottom_ui_locked and hasattr(self, 'is_bottom_ui_locked'):
-                bottom_ui_locked = self.is_bottom_ui_locked
-
-            # 상단 영역에 있을 때 타이틀바 표시 (타이틀바 UI가 잠겨있지 않은 경우만)
-            if not title_ui_locked:
-                if local_pos.y() <= title_bar_area_height:
-                    if hasattr(self, 'title_bar') and self.title_bar.isHidden():
-                        self.title_bar.show()
-                        title_bar_changed = True
-                else:
-                    # 상단 영역을 벗어나면 타이틀바 숨김
-                    if hasattr(self, 'title_bar') and not self.title_bar.isHidden():
-                        self.title_bar.hide()
-                        title_bar_changed = True
-
-            # 하단 영역에 있을 때 슬라이더와 버튼 표시 (하단 UI가 잠겨있지 않은 경우만)
-            if not bottom_ui_locked:
-                if local_pos.y() >= self.height() - bottom_area_height:
-                    if hasattr(self, 'slider_widget') and self.slider_widget.isHidden():
-                        self.slider_widget.show()
-                        slider_changed = True
-                    
-                    # 폴더 버튼 표시 설정
-                    for row in self.buttons:
-                        for button in row:
-                            if button.isHidden():
-                                button.show()
-                                buttons_changed = True
-                else:
-                    # 하단 영역을 벗어나면 슬라이더와 버튼 숨김
-                    if hasattr(self, 'slider_widget') and not self.slider_widget.isHidden():
-                        self.slider_widget.hide()
-                        slider_changed = True
-                    
-                    # 폴더 버튼 숨김 설정
-                    for row in self.buttons:
-                        for button in row:
-                            if not button.isHidden():
-                                button.hide()
-                                buttons_changed = True
-                
-                # 모든 변경사항 처리 후 한 번만 UI 상태 변경 확인
-                ui_state_changed = title_bar_changed or slider_changed or buttons_changed
-                
-                # UI 상태가 변경되었으면 이미지 크기 조정 (하단 UI 변경 시 지연 시간 증가)
-                if ui_state_changed:
-                    # 기존 타이머가 실행 중이면 중지
-                    if self.ui_update_timer.isActive():
-                        self.ui_update_timer.stop()
-                    
-                    # 하단 UI 변경이면 지연 시간 더 길게 설정
-                    if slider_changed or buttons_changed:
-                        delay = 50  # 하단 UI 변경 시 150ms 지연
-                    else:
-                        delay = 50   # 상단 UI만 변경 시 50ms 지연
-                    
-                    # 디버깅용 메시지
-                    print(f"UI 업데이트 타이머 시작: {delay}ms 지연, 상단변경: {title_bar_changed}, 하단변경: {slider_changed or buttons_changed}")
-                    
-                    # 지연 시간 설정 후 타이머 시작
-                    self.ui_update_timer.start(delay)
-            
-            # 창이 최대화 상태가 아닐 때만 크기 조절 가능
-            if not self.isMaximized():
-                # 리사이징 중이면 크기 조절 처리
-                if self.resizing:
-                    diff = event.globalPos() - self.resize_start_pos
-                    new_geometry = self.resize_start_geometry.adjusted(0, 0, 0, 0)
-                    
-                    if self.resize_direction in ['left', 'top_left', 'bottom_left']:
-                        new_geometry.setLeft(self.resize_start_geometry.left() + diff.x())
-                    if self.resize_direction in ['right', 'top_right', 'bottom_right']:
-                        new_geometry.setRight(self.resize_start_geometry.right() + diff.x())
-                    if self.resize_direction in ['top', 'top_left', 'top_right']:
-                        new_geometry.setTop(self.resize_start_geometry.top() + diff.y())
-                    if self.resize_direction in ['bottom', 'bottom_left', 'bottom_right']:
-                        new_geometry.setBottom(self.resize_start_geometry.bottom() + diff.y())
-                    
-                    # 최소 크기 제한
-                    if new_geometry.width() >= 400 and new_geometry.height() >= 300:
-                        self.setGeometry(new_geometry)
-                    return True
-
-                # 제목 표시줄 드래그 중이면 창 이동
-                elif hasattr(self, 'drag_start_pos') and event.buttons() == Qt.LeftButton:
-                    if self.isMaximized():
-                        # 최대화 상태에서 드래그하면 일반 크기로 복원
-                        cursor_x = event.globalPos().x()
-                        window_width = self.width()
-                        ratio = cursor_x / window_width
-                        self.showNormal()
-                        # 마우스 위치 비율에 따라 창 위치 조정
-                        new_x = int(event.globalPos().x() - (self.width() * ratio))
-                        self.move(new_x, 0)
-                        self.drag_start_pos = event.globalPos()
-                    else:
-                        # 창 이동
-                        self.move(event.globalPos() - self.drag_start_pos)
-                    return True
-                
-                # 리사이징 중이 아닐 때 커서 모양 변경
-                edge_size = 4
-                
-                # 제목표시줄의 버튼 영역인지 확인
-                is_in_titlebar = local_pos.y() <= 30
-                
-                # 버튼 영역 판단 수정 - 버튼 위젯 객체를 직접 확인
-                is_in_titlebar_buttons = False
-                if is_in_titlebar:
-                    # 제목 표시줄의 모든 자식 버튼 검사
-                    for child in self.title_bar.children():
-                        if isinstance(child, QPushButton):
-                            # 버튼의 전역 위치와 크기로 사각형 생성
-                            button_pos = child.mapToGlobal(QPoint(0, 0))
-                            button_rect = QRect(button_pos, child.size())
-                            # 마우스 포인터가 버튼 위에 있는지 확인
-                            if button_rect.contains(event.globalPos()):
-                                is_in_titlebar_buttons = True
-                                QApplication.setOverrideCursor(Qt.ArrowCursor)  # 버튼 위에서는 항상 화살표 커서
-                                break
-                
-                # 마우스 커서 위치에 따른 크기 조절 방향 결정
-                if not is_in_titlebar_buttons:  # 버튼 영역이 아닐 때만 리사이징 방향 결정
-                    if local_pos.x() <= edge_size and local_pos.y() <= edge_size:
-                        QApplication.setOverrideCursor(Qt.SizeFDiagCursor)
-                        self.resize_direction = 'top_left'
-                    elif local_pos.x() >= self.width() - edge_size and local_pos.y() <= edge_size:
-                        QApplication.setOverrideCursor(Qt.SizeBDiagCursor)
-                        self.resize_direction = 'top_right'
-                    elif local_pos.x() <= edge_size and local_pos.y() >= self.height() - edge_size:
-                        QApplication.setOverrideCursor(Qt.SizeBDiagCursor)
-                        self.resize_direction = 'bottom_left'
-                    elif local_pos.x() >= self.width() - edge_size and local_pos.y() >= self.height() - edge_size:
-                        QApplication.setOverrideCursor(Qt.SizeFDiagCursor)
-                        self.resize_direction = 'bottom_right'
-                    elif local_pos.x() <= edge_size:
-                        QApplication.setOverrideCursor(Qt.SizeHorCursor)
-                        self.resize_direction = 'left'
-                    elif local_pos.x() >= self.width() - edge_size:
-                        QApplication.setOverrideCursor(Qt.SizeHorCursor)
-                        self.resize_direction = 'right'
-                    elif local_pos.y() <= edge_size:
-                        QApplication.setOverrideCursor(Qt.SizeVerCursor)
-                        self.resize_direction = 'top'
-                    elif local_pos.y() >= self.height() - edge_size:
-                        QApplication.setOverrideCursor(Qt.SizeVerCursor)
-                        self.resize_direction = 'bottom'
-                    else:
-                        if is_in_titlebar and not is_in_titlebar_buttons:
-                            QApplication.setOverrideCursor(Qt.ArrowCursor)
-                            self.resize_direction = None
-                        elif self.image_label.geometry().contains(local_pos) or \
-                            any(button.geometry().contains(local_pos) for row in self.buttons for button in row):
-                            QApplication.setOverrideCursor(Qt.ArrowCursor)
-                            self.resize_direction = None
-                        else:
-                            QApplication.restoreOverrideCursor()
-                            self.resize_direction = None
-                else:
-                    # 제목표시줄 버튼 영역에서는 기본 커서 사용
-                    QApplication.setOverrideCursor(Qt.ArrowCursor)
-                    self.resize_direction = None
-
-        elif event.type() == QEvent.MouseButtonPress and event.button() == Qt.LeftButton:
-            local_pos = self.mapFromGlobal(event.globalPos())
-            is_in_titlebar = local_pos.y() <= 30
-            
-            # 버튼 영역 판단 수정 - 버튼 위젯 객체를 직접 확인
-            is_in_titlebar_buttons = False
-            if is_in_titlebar:
-                # 제목 표시줄의 모든 자식 버튼 검사
-                for child in self.title_bar.children():
-                    if isinstance(child, QPushButton):
-                        button_pos = child.mapToGlobal(QPoint(0, 0))
-                        button_rect = QRect(button_pos, child.size())
-                        if button_rect.contains(event.globalPos()):
-                            is_in_titlebar_buttons = True
-                            return False  # 버튼 클릭은 이벤트 필터에서 처리하지 않고 버튼에게 전달
-            
-            if self.resize_direction and not self.isMaximized() and not is_in_titlebar_buttons:
-                # 리사이징 시작
-                self.resizing = True
-                self.resize_start_pos = event.globalPos()
-                self.resize_start_geometry = self.geometry()
-                return True
-            elif is_in_titlebar and not is_in_titlebar_buttons:
-                # 제목 표시줄 드래그 시작
-                self.drag_start_pos = event.globalPos() - self.pos()
-                # 제목 표시줄 드래그 시 창에 포커스 설정
-                self.setFocus()
-                return True
-            return False
-
-        elif event.type() == QEvent.MouseButtonRelease:
-            # 리사이징 또는 드래그 종료
-            was_resizing = self.resizing
-            if self.resizing:
-                self.resizing = False
-                QApplication.restoreOverrideCursor()
-            if hasattr(self, 'drag_start_pos'):
-                delattr(self, 'drag_start_pos')
-            
-            # 버튼이나 슬라이더 조작 후에 창 전체에 포커스 설정
-            QTimer.singleShot(10, self.setFocus)
-            
-            return was_resizing
-
-        # 애플리케이션 활성화/비활성화 상태 처리
-        elif event.type() == QEvent.WindowStateChange:
-            if self.windowState() & Qt.WindowMinimized:  # 창이 최소화되었을 때
-                self.pause_all_timers()
-            elif event.oldState() & Qt.WindowMinimized:  # 창이 최소화 상태에서 복구되었을 때
-                self.resume_all_timers()
-                
-        # 창 활성화/비활성화 처리
-        elif event.type() == QEvent.WindowActivate:  # 창이 활성화될 때
-            self.resume_all_timers()
-        elif event.type() == QEvent.WindowDeactivate:  # 창이 비활성화될 때
-            self.pause_all_timers()
-
-        return super().eventFilter(obj, event)
+        # MouseHandler로 이벤트 필터링 위임
+        return self.mouse_handler.event_filter(obj, event)
 
     def toggle_fullscreen(self):
         """전체화면 모드를 전환합니다."""

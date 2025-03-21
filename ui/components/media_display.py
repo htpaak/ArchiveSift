@@ -26,7 +26,7 @@ class MediaDisplay(QLabel):
     """
     
     # 사용자 정의 시그널 정의
-    mouseDoubleClicked = pyqtSignal()
+    mouseDoubleClicked = pyqtSignal(object)  # 더블 클릭 이벤트 객체 전달
     mouseWheelScrolled = pyqtSignal(int)  # 휠 스크롤 방향과 강도
     mouseMoved = pyqtSignal(int, int)  # x, y 좌표
     mousePressed = pyqtSignal(int, int, int)  # 버튼, x, y 좌표
@@ -148,8 +148,14 @@ class MediaDisplay(QLabel):
         Args:
             event (QMouseEvent): 마우스 이벤트
         """
-        super().mouseDoubleClickEvent(event)
-        self.mouseDoubleClicked.emit()
+        # 부모 클래스의 mouseDoubleClickEvent는 호출하지 않음
+        # super().mouseDoubleClickEvent(event)
+        
+        # 이벤트가 처리되었음을 표시
+        event.accept()
+        
+        # 시그널 발생
+        self.mouseDoubleClicked.emit(event)
     
     def wheelEvent(self, event):
         """
