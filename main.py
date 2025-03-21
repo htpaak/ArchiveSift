@@ -2108,32 +2108,8 @@ class ImageViewer(QWidget):
 
     def toggle_animation_playback(self):
         """애니메이션(GIF, WEBP) 또는 비디오 재생/일시정지 토글"""
-        
-        # 현재 열려있는 파일 확인
-        if not self.current_image_path:
-            return
-            
-        # 미디어 타입에 따라 처리
-        if self.current_media_type in ['gif_animation', 'webp_animation']:
-            # AnimationHandler 사용
-            if hasattr(self, 'animation_handler'):
-                self.animation_handler.toggle_playback()
-                # 버튼 텍스트는 animation_handler 내에서 직접 업데이트됨
-                
-        # 비디오 처리
-        elif self.current_media_type == 'video':
-            try:
-                # VideoHandler를 사용하여 재생 상태 확인 및 토글
-                is_playing = self.video_handler.is_video_playing()
-                if is_playing:
-                    self.video_handler.pause()  # 재생 중이면 일시정지
-                else:
-                    self.video_handler.play()  # 일시정지 중이면 재생
-                # 버튼 상태 업데이트
-                self.update_play_button()
-            except Exception as e:
-                print(f"비디오 재생/일시정지 토글 오류: {e}")
-                pass  # 예외 발생 시 무시
+        # 이 메서드는 controls_layout으로 이동했으므로 여기서는 controls_layout의 메서드를 호출
+        self.controls_layout.toggle_animation_playback()
 
     def toggle_bookmark(self):
         """북마크 토글: 북마크 관리자에 위임"""
