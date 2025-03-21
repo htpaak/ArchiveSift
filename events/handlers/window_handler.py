@@ -295,3 +295,17 @@ class WindowHandler(QObject):
             # 비디오 복구 (필요한 경우)
             if self.parent.current_media_type == 'video' and position > 0:
                 QTimer.singleShot(500, lambda: self.parent.restore_video_state(was_playing, position)) 
+
+    def toggle_maximize_state(self):
+        """최대화 상태와 일반 상태를 토글합니다."""
+        if self.parent.isMaximized():
+            self.parent.showNormal()
+            self.parent.max_btn.setText("□")  # 일반 상태일 때는 □ 표시
+            print("창 상태: 일반")  # 디버깅용 로그
+        else:
+            self.parent.showMaximized()
+            self.parent.max_btn.setText("❐")  # 최대화 상태일 때는 ❐ 표시
+            print("창 상태: 최대화")  # 디버깅용 로그
+        
+        # 창 포커스 설정 (이벤트 처리 개선)
+        QTimer.singleShot(50, self.parent.setFocus) 

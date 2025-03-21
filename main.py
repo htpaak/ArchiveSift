@@ -1438,17 +1438,7 @@ class ImageViewer(QWidget):
     # toggle_maximize 메소드 추가 (이름을 toggle_maximize_state로 변경)
     def toggle_maximize_state(self):
         """최대화 상태와 일반 상태를 토글합니다."""
-        if self.isMaximized():
-            self.showNormal()
-            self.max_btn.setText("□")  # 일반 상태일 때는 □ 표시
-            print("창 상태: 일반")  # 디버깅용 로그
-        else:
-            self.showMaximized()
-            self.max_btn.setText("❐")  # 최대화 상태일 때는 ❐ 표시
-            print("창 상태: 최대화")  # 디버깅용 로그
-        
-        # 창 포커스 설정 (이벤트 처리 개선)
-        QTimer.singleShot(50, self.setFocus)
+        self.window_handler.toggle_maximize_state()
 
     def closeEvent(self, event):
         """
