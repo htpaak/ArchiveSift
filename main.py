@@ -1024,6 +1024,12 @@ class ImageViewer(QWidget):
             # 이미지 정보 업데이트
             self.update_image_info()
 
+    def load_video_media(self, image_path):
+        """비디오 파일을 로드하고 재생합니다."""
+        # 비디오 파일 처리
+        self.current_media_type = 'video'  # 미디어 타입 업데이트
+        self.play_video(image_path)  # 비디오 재생
+
     def show_image(self, image_path):
         """이미지/미디어 파일 표시 및 관련 UI 업데이트"""
         # 미디어 로딩 준비
@@ -1046,9 +1052,8 @@ class ImageViewer(QWidget):
             # 정적 이미지 처리 (일반 이미지, PSD)
             self.load_static_image(image_path, file_format, file_ext)
         elif file_format == 'video':
-            # 비디오 파일 처리
-            self.current_media_type = 'video'  # 미디어 타입 업데이트
-            self.play_video(image_path)  # 비디오 재생
+            # 비디오 미디어 처리
+            self.load_video_media(image_path)
         else:
             self.current_media_type = 'unknown'  # 미디어 타입 업데이트
         
