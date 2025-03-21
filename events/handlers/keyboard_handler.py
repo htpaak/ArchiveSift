@@ -273,7 +273,7 @@ class KeyboardHandler:
     def handle_file_management(self, key):
         """파일 관리 관련 키를 처리합니다."""
         if key == self.parent.key_settings.get("delete_file", Qt.Key_Delete):  # 파일 삭제 키
-            self.parent.delete_current_file()  # 현재 파일 삭제
+            self.parent.delete_current_image()  # 현재 파일 삭제
             return True
             
         return False  # 키 처리 안됨 

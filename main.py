@@ -2024,9 +2024,31 @@ class ImageViewer(QWidget):
             
         print("미디어 리소스 정리 시작...")
         
-        # 비디오 재생 중지
-        self.stop_video()  
+        # 비디오 리소스 정리
+        self.cleanup_video_resources()
+        
+        # 애니메이션 리소스 정리
+        self.cleanup_animation_resources()
+        
+        # UI 컴포넌트 초기화
+        self.cleanup_ui_components()
+        
+        # 가비지 컬렉션 수행
+        self.perform_garbage_collection()
+            
+        print("미디어 리소스 정리 완료")
 
+        # 디버깅을 위한 정리 후 상태 확인
+        if hasattr(self, 'debug_mode') and self.debug_mode:
+            self.debug_qmovie_after_cleanup()
+            
+    def cleanup_video_resources(self):
+        """비디오 관련 리소스 정리"""
+        # 비디오 재생 중지
+        self.stop_video()
+        
+    def cleanup_animation_resources(self):
+        """애니메이션 관련 리소스 정리"""
         # 애니메이션 핸들러 존재 여부 확인
         animation_handler_exists = hasattr(self, 'animation_handler')
 
@@ -2038,7 +2060,9 @@ class ImageViewer(QWidget):
             # 이벤트 처리 루프 실행으로 UI 갱신 및 정리 작업 완료 유도
             from PyQt5.QtWidgets import QApplication
             QApplication.processEvents()
-        
+            
+    def cleanup_ui_components(self):
+        """UI 컴포넌트 초기화"""
         # 이미지 라벨 초기화 - MediaDisplay의 clear_media 메서드 사용
         if hasattr(self, 'image_label'):
             print("MediaDisplay 초기화...")
@@ -2062,7 +2086,8 @@ class ImageViewer(QWidget):
             self.time_label.setText("00:00 / 00:00")
             self.time_label.show()
             
-        # 가비지 컬렉션 명시적 호출
+    def perform_garbage_collection(self):
+        """가비지 컬렉션 명시적 수행"""
         try:
             import gc
             gc.collect()
@@ -2070,12 +2095,6 @@ class ImageViewer(QWidget):
         except Exception as e:
             print(f"가비지 컬렉션 호출 중 오류: {e}")
             
-        print("미디어 리소스 정리 완료")
-
-        # 디버깅을 위한 정리 후 상태 확인
-        if hasattr(self, 'debug_mode') and self.debug_mode:
-            self.debug_qmovie_after_cleanup()
-
     def create_single_shot_timer(self, timeout, callback):
         """
         싱글샷 타이머를 생성하고 추적합니다.
