@@ -198,4 +198,100 @@ class WindowHandler(QObject):
             self.parent.controls_layout.update_bookmark_button_state()
                     
         except Exception as e:
-            print(f"지연된 리사이징 처리 중 오류 발생: {e}") 
+            print(f"지연된 리사이징 처리 중 오류 발생: {e}")
+            
+    def toggle_fullscreen(self):
+        """전체화면 모드를 전환합니다."""
+        if self.parent.isFullScreen():
+            # 전체화면 모드에서 일반 모드로 전환
+            self.parent.showNormal()
+            
+            # UI 고정 상태에 따라 UI 요소 표시 여부 결정 - 각각 독립적으로 확인
+            if hasattr(self.parent, 'is_title_ui_locked') and self.parent.is_title_ui_locked:
+                # 상단 UI가 고정된 상태라면 타이틀바 표시
+                if hasattr(self.parent, 'title_bar'):
+                    self.parent.title_bar.show()
+            else:
+                # 상단 UI가 고정되지 않은 상태라면 타이틀바 숨김
+                if hasattr(self.parent, 'title_bar'):
+                    self.parent.title_bar.hide()
+            
+            if hasattr(self.parent, 'is_bottom_ui_locked') and self.parent.is_bottom_ui_locked:
+                # 하단 UI가 고정된 상태라면 UI 요소들을 표시
+                if hasattr(self.parent, 'slider_widget'):
+                    self.parent.slider_widget.show()
+                
+                for row in self.parent.buttons:
+                    for button in row:
+                        button.show()
+            else:
+                # 하단 UI가 고정되지 않은 상태라면 UI 요소들을 숨김
+                if hasattr(self.parent, 'slider_widget'):
+                    self.parent.slider_widget.hide()
+                
+                for row in self.parent.buttons:
+                    for button in row:
+                        button.hide()
+            
+            # 전체화면 오버레이 숨기기
+            if hasattr(self.parent, 'fullscreen_overlay') and self.parent.fullscreen_overlay.isVisible():
+                self.parent.fullscreen_overlay.hide()
+                
+            # 풀스크린 버튼 텍스트 업데이트
+            if hasattr(self.parent, 'fullscreen_btn'):
+                self.parent.fullscreen_btn.setText("🗖")  # 전체화면 아이콘
+            
+            # 전체화면 모드 상태 업데이트
+            self.parent.is_in_fullscreen = False
+            
+            # 전체화면에서 일반 모드로 전환 후 모든 미디어 타입에 대해 리사이징 적용
+            QTimer.singleShot(100, self.parent.delayed_resize)
+
+            # 잠금 버튼 상태 갱신 - 각각 개별적으로 갱신
+            QTimer.singleShot(150, self.parent.update_title_lock_button_state)
+            QTimer.singleShot(150, self.parent.update_ui_lock_button_state)
+                
+        else:
+            # 현재 비디오 상태 저장 (있는 경우)
+            was_playing = False
+            position = 0
+            if self.parent.current_media_type == 'video' and hasattr(self.parent, 'player') and self.parent.player:
+                try:
+                    was_playing = not self.parent.player.pause
+                    position = self.parent.player.playback_time or 0
+                except:
+                    pass
+            
+            # 일반 모드에서 전체화면 모드로 전환
+            self.parent.showFullScreen()
+
+            # 상단 UI 및 하단 UI 잠금 상태에 따라 개별적으로 처리
+            if not hasattr(self.parent, 'is_title_ui_locked') or not self.parent.is_title_ui_locked:
+                if hasattr(self.parent, 'title_bar'):
+                    self.parent.title_bar.hide()
+            
+            if not hasattr(self.parent, 'is_bottom_ui_locked') or not self.parent.is_bottom_ui_locked:
+                if hasattr(self.parent, 'slider_widget'):
+                    self.parent.slider_widget.hide()
+                
+                for row in self.parent.buttons:
+                    for button in row:
+                        button.hide()
+            
+            # 풀스크린 버튼 텍스트 업데이트
+            if hasattr(self.parent, 'fullscreen_btn'):
+                self.parent.fullscreen_btn.setText("🗗")  # 창 모드 아이콘
+            
+            # 전체화면 모드 상태 업데이트
+            self.parent.is_in_fullscreen = True
+            
+            # 전체화면 모드로 전환 후 모든 미디어 타입에 대해 리사이징 적용
+            QTimer.singleShot(100, self.parent.delayed_resize)
+
+            # 잠금 버튼 상태 갱신 - 각각 개별적으로 갱신
+            QTimer.singleShot(150, self.parent.update_title_lock_button_state)
+            QTimer.singleShot(150, self.parent.update_ui_lock_button_state)
+                
+            # 비디오 복구 (필요한 경우)
+            if self.parent.current_media_type == 'video' and position > 0:
+                QTimer.singleShot(500, lambda: self.parent.restore_video_state(was_playing, position)) 
