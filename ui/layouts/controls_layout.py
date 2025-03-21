@@ -27,5 +27,17 @@ class ControlsLayout(QWidget):
             except Exception as e:
                 print(f"재생 버튼 업데이트 오류: {e}")
                 self.parent.play_button.setEnabled(False)  # 버튼 비활성화
+                
+    def toggle_mute(self):
+        """음소거 상태를 토글합니다."""
+        try:
+            # VideoHandler의 toggle_mute 메서드 사용
+            is_muted = self.parent.video_handler.toggle_mute()
+            
+            # 버튼 아이콘 변경 (음소거 상태에 따라)
+            self.parent.mute_button.set_mute_state(is_muted)
+        except Exception as e:
+            print(f"음소거 토글 오류: {e}")
+            pass
 
     # 여기에 main.py에서 옮겨올 메서드들이 추가될 예정 

@@ -1083,6 +1083,15 @@ class ImageViewer(QWidget):
         # 북마크 메뉴 업데이트 추가 - 이미지 변경 시 메뉴 상태도 함께 업데이트
         self.bookmark_manager.update_bookmark_menu()
         
+        # 비디오 미디어의 경우 음소거 버튼 상태 재설정
+        if self.current_media_type == 'video' and hasattr(self, 'mute_button'):
+            try:
+                is_muted = self.video_handler.is_muted()
+                if is_muted is not None:  # None이 아닌 경우에만 상태 업데이트
+                    self.mute_button.set_mute_state(is_muted)
+            except Exception as e:
+                print(f"음소거 버튼 상태 업데이트 오류: {e}")
+        
         # 제목표시줄과 이미지 정보 레이블을 앞으로 가져옴
         if hasattr(self, 'title_bar'):
             self.title_bar.raise_()
@@ -2089,15 +2098,8 @@ class ImageViewer(QWidget):
 
     def toggle_mute(self):
         """음소거 상태를 토글합니다."""
-        try:
-            # VideoHandler의 toggle_mute 메서드 사용
-            is_muted = self.video_handler.toggle_mute()
-            
-            # 버튼 아이콘 변경 (음소거 상태에 따라)
-            self.mute_button.set_mute_state(is_muted)
-        except Exception as e:
-            print(f"음소거 토글 오류: {e}")
-            pass
+        # 이 메서드는 controls_layout으로 이동했으므로 여기서는 controls_layout의 메서드를 호출
+        self.controls_layout.toggle_mute()
 
     def adjust_volume(self, volume):
         """음량을 조절합니다."""
