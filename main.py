@@ -983,6 +983,26 @@ class ImageViewer(QWidget):
         
         return file_format, file_ext
 
+    def load_animation_media(self, image_path, format_type):
+        """GIF와 WEBP 애니메이션을 로드하고 표시합니다."""
+        if format_type == 'gif_image' or format_type == 'gif_animation':
+            # AnimationHandler로 GIF 처리
+            if hasattr(self, 'animation_handler'):
+                detected_type = self.animation_handler.load_gif(image_path)
+                self.current_media_type = detected_type
+            else:
+                # AnimationHandler가 없는 경우 기존 방식으로 처리
+                self.show_gif(image_path) 
+        elif format_type == 'webp_image' or format_type == 'webp_animation':
+            # AnimationHandler로 WEBP 처리
+            if hasattr(self, 'animation_handler'):
+                detected_type = self.animation_handler.load_webp(image_path)
+                self.current_media_type = detected_type
+                print(f"WEBP 미디어 타입 감지: {detected_type}")
+            else:
+                # AnimationHandler가 없는 경우 기존 방식으로 처리
+                self.show_webp(image_path)
+
     def show_image(self, image_path):
         """이미지/미디어 파일 표시 및 관련 UI 업데이트"""
         # 미디어 로딩 준비
@@ -996,22 +1016,11 @@ class ImageViewer(QWidget):
         
         # 파일 형식 감지 결과에 따라 적절한 핸들러 호출
         if file_format == 'gif_image' or file_format == 'gif_animation':
-            # AnimationHandler로 GIF 처리
-            if hasattr(self, 'animation_handler'):
-                detected_type = self.animation_handler.load_gif(image_path)
-                self.current_media_type = detected_type
-            else:
-                # AnimationHandler가 없는 경우 기존 방식으로 처리
-                self.show_gif(image_path) 
+            # 애니메이션 미디어 (GIF) 처리
+            self.load_animation_media(image_path, file_format)
         elif file_format == 'webp_image' or file_format == 'webp_animation':
-            # AnimationHandler로 WEBP 처리
-            if hasattr(self, 'animation_handler'):
-                detected_type = self.animation_handler.load_webp(image_path)
-                self.current_media_type = detected_type
-                print(f"WEBP 미디어 타입 감지: {detected_type}")
-            else:
-                # AnimationHandler가 없는 경우 기존 방식으로 처리
-                self.show_webp(image_path)
+            # 애니메이션 미디어 (WEBP) 처리
+            self.load_animation_media(image_path, file_format)
         elif file_format == 'psd':
             # PSD 파일 처리
             self.current_media_type = 'image'  # 미디어 타입 업데이트
