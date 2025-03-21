@@ -350,7 +350,7 @@ class ControlsLayout(QWidget):
                         # 슬라이더 값을 밀리초 단위로 설정 (1000으로 곱해서 더 세밀하게)
                         self.parent.playback_slider.setValue(int(position * 1000))
                     
-                    self.parent.time_label.setText(f"{format_time(position)} / {format_time(duration)}")
+                    self.parent.time_label.setText(f"{self.format_time(position)} / {self.format_time(duration)}")
 
                 self.parent.previous_position = position  # 현재 위치를 이전 위치로 저장
 
@@ -358,5 +358,10 @@ class ControlsLayout(QWidget):
                 print(f"비디오 업데이트 에러: {e}")
                 if hasattr(self.parent, 'video_timer') and self.parent.video_timer.isActive():
                     self.parent.video_timer.stop()  # 타이머 중지
+
+    def format_time(self, seconds):
+        """초를 'MM:SS' 형식으로 변환합니다."""
+        # 이미 임포트된 core.utils.time_utils의 format_time 함수를 사용합니다
+        return format_time(seconds)
 
     # 여기에 main.py에서 옮겨올 메서드들이 추가될 예정 

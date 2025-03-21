@@ -1308,9 +1308,14 @@ class ImageViewer(QWidget):
             print("Controls layout not initialized")
 
     def format_time(self, seconds):
-        """초를 'MM:SS' 형식으로 변환합니다."""
-        # core.utils 모듈의 format_time 함수를 사용합니다
-        return format_time(seconds)
+        """초를 'MM:SS' 형식으로 변환하는 메서드 - controls_layout으로 위임"""
+        # 이 메서드는 controls_layout으로 이동됨
+        if hasattr(self, 'controls_layout'):
+            return self.controls_layout.format_time(seconds)
+        else:
+            # controls_layout이 초기화되지 않은 경우 직접 모듈 함수 호출
+            from core.utils.time_utils import format_time as utils_format_time
+            return utils_format_time(seconds)
 
     def update_play_button(self):
         """재생 상태에 따라 버튼 텍스트 업데이트"""
