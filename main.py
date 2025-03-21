@@ -762,115 +762,11 @@ class ImageViewer(QWidget):
 
     def resizeEvent(self, event):
         """창 크기가 변경될 때 호출되는 이벤트"""
-        # 필수적인 UI 요소 즉시 조정
-        window_width = self.width()
-        
-        # 슬라이더 위젯의 너비를 창 너비와 동일하게 설정
-        if hasattr(self, 'slider_widget'):
-            self.slider_widget.setFixedWidth(window_width)
-        
-        if hasattr(self, 'title_bar'):
-            self.title_bar.setGeometry(0, 0, self.width(), 30)  # 제목표시줄 위치와 크기 조정
-            self.title_bar.raise_()  # 제목표시줄을 항상 맨 위로 유지
-            # 제목표시줄 버튼 업데이트
-            for child in self.title_bar.children():
-                if isinstance(child, QPushButton):
-                    child.updateGeometry()
-                    child.update()
-        
-        # 전체화면 오버레이 위치 조정
-        if hasattr(self, 'fullscreen_overlay') and not self.fullscreen_overlay.isHidden():
-            self.fullscreen_overlay.move(
-                (self.width() - self.fullscreen_overlay.width()) // 2,
-                (self.height() - self.fullscreen_overlay.height()) // 2
-            )
-        
-        # 버튼 크기 계산 및 조정
-        self.update_button_sizes()
-        
-        # 슬라이더 위젯 레이아웃 업데이트
-        if hasattr(self, 'playback_slider'):
-            self.playback_slider.updateGeometry()
-        if hasattr(self, 'volume_slider'):
-            self.volume_slider.updateGeometry()
-        
-        # 메시지 레이블 업데이트
-        if hasattr(self, 'message_label') and self.message_label.isVisible():
-            window_width = self.width()
-            font_size = max(12, min(32, int(window_width * 0.02)))
-            padding = max(8, min(12, int(window_width * 0.008)))
-            margin = max(10, min(30, int(window_width * 0.02)))
-            
-            self.message_label.setStyleSheet(f"""
-                QLabel {{
-                    color: white;
-                    background-color: rgba(52, 73, 94, 0.9);
-                    font-size: {font_size}px;
-                    padding: {padding}px {padding + 4}px;
-                    border-radius: 3px;
-                    font-weight: normal;
-                }}
-            """)
-            self.message_label.adjustSize()
-            toolbar_height = 90  # 제목바(30) + 툴바(40) + 추가 여백(20)
-            self.message_label.move(margin, toolbar_height + margin)
-
-        # resizeEvent 함수 내에 다음 코드 추가 (message_label 업데이트 코드 아래에)
-        # 이미지 정보 레이블 즉시 업데이트 
-        if hasattr(self, 'image_info_label') and self.image_info_label.isVisible():
-            window_width = self.width()
-            font_size = max(12, min(32, int(window_width * 0.02)))
-            padding = max(8, min(12, int(window_width * 0.008))) 
-            margin = max(10, min(30, int(window_width * 0.02)))
-            
-            self.image_info_label.setStyleSheet(f"""
-                QLabel {{
-                    color: white;
-                    background-color: rgba(52, 73, 94, 0.9);
-                    font-size: {font_size}px;
-                    padding: {padding}px {padding + 4}px;
-                    border-radius: 3px;
-                    font-weight: normal;
-                }}
-            """)
-            self.image_info_label.adjustSize()
-            
-            # 우측 상단에 위치
-            toolbar_height = 90  # 제목바(30) + 툴바(40) + 추가 여백(20)
-            x = self.width() - self.image_info_label.width() - margin
-            y = toolbar_height + margin
-            
-            self.image_info_label.move(x, y)
-            self.image_info_label.show()
-            self.image_info_label.raise_()
-        
-        # 이미지 레이아웃 강제 업데이트
-        if hasattr(self, 'main_layout') and hasattr(self, 'image_label'):
-            self.image_label.updateGeometry()
-            self.main_layout.update()
-        
-        # 슬라이더 위젯 자체의 패딩 조정
-        if hasattr(self, 'slider_widget'):
-            padding = max(5, min(15, int(window_width * 0.01)))
-            self.slider_widget.setStyleSheet(f"background-color: rgba(52, 73, 94, 0.9); padding: {padding}px;")
-        
-        # 전체 레이아웃 강제 업데이트
-        self.updateGeometry()
-        if self.layout():
-            self.layout().update()
-        
-        # 나머지 무거운 작업은 타이머를 통해 지연 처리
-        if self.resize_timer.isActive():
-            self.resize_timer.stop()
-        self.resize_timer.start(150)  # 리사이징이 끝나고 150ms 후에 업데이트
+        # window_handler로 이벤트 처리 위임
+        self.window_handler.resize_event(event)
         
         # 부모 클래스의 resizeEvent 호출
         super().resizeEvent(event)
-
-        # 잠금 버튼과 북마크 버튼 상태 업데이트
-        self.update_ui_lock_button_state()
-        self.update_title_lock_button_state()
-        self.controls_layout.update_bookmark_button_state()
 
     def delayed_resize(self):
         """리사이징 완료 후 지연된 UI 업데이트 처리"""
