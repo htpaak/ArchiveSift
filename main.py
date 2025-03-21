@@ -939,8 +939,8 @@ class ImageViewer(QWidget):
         if hasattr(self, 'image_info_label'):
             self.image_info_label.raise_()
 
-    def show_image(self, image_path):
-        """이미지/미디어 파일 표시 및 관련 UI 업데이트"""
+    def prepare_for_media_loading(self, image_path):
+        """미디어 로딩 전 준비 작업"""
         print(f"\n========= 이미지 로드 시작: {os.path.basename(image_path)} =========")
         
         # 기존 미디어 리소스 정리
@@ -958,7 +958,14 @@ class ImageViewer(QWidget):
         if self.isFullScreen() and image_size_mb > 5:  # 큰 이미지인 경우
             # 최대한 고품질로 표시 (필요한 작업 추가)
             QApplication.processEvents()  # UI 응답성 유지
+            
+        return image_size_mb  # 이미지 크기 정보 반환
 
+    def show_image(self, image_path):
+        """이미지/미디어 파일 표시 및 관련 UI 업데이트"""
+        # 미디어 로딩 준비
+        image_size_mb = self.prepare_for_media_loading(image_path)
+        
         # 현재 이미지 경로 저장
         self.current_image_path = image_path
         
