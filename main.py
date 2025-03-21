@@ -1318,31 +1318,52 @@ class ImageViewer(QWidget):
 
     # 다음 이미지를 보여주는 메서드입니다.
     def show_next_image(self):
+        """다음 이미지로 이동합니다."""
         print("\n=== 다음 이미지 로드 시작 ===")
+        self.handle_navigation('next')
+        print("=== 다음 이미지 로드 종료 ===\n")
+
+    def show_previous_image(self):
+        """이전 이미지로 이동합니다."""
+        print("\n=== 이전 이미지 로드 시작 ===")
+        self.handle_navigation('previous')
+        print("=== 이전 이미지 로드 종료 ===\n")
+        
+    def handle_navigation(self, direction):
+        """이미지 탐색 로직을 처리합니다.
+        
+        Args:
+            direction (str): 'next' 또는 'previous'
+        """
         print(f"현재 인덱스(이동 전): {self.current_index}")
         print(f"현재 이미지: {self.current_image_path}")
         print(f"파일 내비게이터 파일 수: {len(self.file_navigator.get_files())}")
         print(f"메인 이미지 목록 수: {len(self.image_files)}")
         
+        # 이미지 목록 동기화 확인
         if self.file_navigator.get_files() != self.image_files:
             print("경고: 파일 내비게이터와 메인 이미지 목록이 불일치합니다.")
             # 필요한 경우 동기화
             self.image_files = self.file_navigator.get_files()
             print(f"이미지 목록 동기화됨: {len(self.image_files)} 파일")
         
-        success, next_image = self.file_navigator.next_file()
+        # 탐색 방향에 따라 적절한 메서드 호출
+        if direction == 'next':
+            success, image_path = self.file_navigator.next_file()
+            direction_text = "다음"
+        else:  # previous
+            success, image_path = self.file_navigator.previous_file()
+            direction_text = "이전"
         
-        print(f"다음 이미지 로드 성공 여부: {success}")
-        print(f"다음 이미지 경로: {next_image}")
+        print(f"{direction_text} 이미지 로드 성공 여부: {success}")
+        print(f"{direction_text} 이미지 경로: {image_path}")
         
-        if success and next_image:
+        if success and image_path:
             self.current_index = self.file_navigator.get_current_index()  # 인덱스 동기화
             print(f"새 인덱스: {self.current_index}")
-            self.show_image(next_image)
+            self.show_image(image_path)
         else:
-            print("다음 이미지 로드 실패")
-        
-        print("=== 다음 이미지 로드 종료 ===\n")
+            print(f"{direction_text} 이미지 로드 실패")
 
     # 이전 이미지를 보여주는 메서드입니다.
     def show_previous_image(self):
