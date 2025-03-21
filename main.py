@@ -47,7 +47,7 @@ from ui.layouts.controls_layout import ControlsLayout  # 추가된 import - 컨�
 # 대화상자
 from ui.dialogs.about_dialog import AboutDialog
 from ui.dialogs.preferences_dialog import PreferencesDialog
-from events.handlers.keyboard_handler import KeyInputEdit
+from events.handlers.keyboard_handler import KeyboardHandler, KeyInputEdit
 from events.handlers.mouse_handler import MouseHandler
 from events.handlers.window_handler import WindowHandler
 # 북마크 관리
@@ -1383,121 +1383,6 @@ class ImageViewer(QWidget):
         # 키보드 핸들러로 이벤트 처리 위임
         self.keyboard_handler.handle_key_press(event)
 
-    def handle_special_keys(self, key, modifiers):
-        """특수 키 조합을 처리합니다."""
-        # ESC 키로 전체화면 모드 종료
-        if key == Qt.Key_Escape and self.isFullScreen():
-            self.toggle_fullscreen()
-            return True  # 키 처리 완료
-        
-        # Ctrl+D: 디버깅 모드 토글
-        if key == Qt.Key_D and modifiers == Qt.ControlModifier:
-            self.toggle_debug_mode()
-            return True
-            
-        # Ctrl+G: QMovie 참조 그래프 생성
-        if key == Qt.Key_G and modifiers == Qt.ControlModifier:
-            self.generate_qmovie_reference_graph()
-            return True
-            
-        return False  # 키 처리 안됨
-
-    def prepare_media_transition(self, key):
-        """이미지 전환 전 미디어 상태를 정리합니다."""
-        # 이전/다음 이미지 키인지 확인
-        if (key == self.key_settings["prev_image"] or 
-            key == self.key_settings["next_image"]):
-            
-            # 현재 미디어 타입 확인
-            current_media_type = getattr(self, 'current_media_type', 'unknown')
-            
-            # 애니메이션이나 비디오 재생 중인 경우 필요한 정리 작업 수행
-            if current_media_type in ['gif_animation', 'webp_animation', 'video']:
-                # 비디오 재생 중인 경우
-                if current_media_type == 'video':
-                    # 비디오 중지
-                    self.stop_video()
-                
-                # 애니메이션 재생 중인 경우 (GIF/WEBP)
-                elif current_media_type in ['gif_animation', 'webp_animation']:
-                    # 리소스 정리를 위해 먼저 cleanup_current_media 호출
-                    self.cleanup_current_media()
-            
-            return True  # 준비 작업 수행됨
-        
-        return False  # 준비 작업 불필요
-
-    def handle_image_navigation(self, key):
-        """이미지 탐색 관련 키를 처리합니다."""
-        if key == self.key_settings["prev_image"]:  # 이전 이미지 키
-            self.show_previous_image()  # 이전 이미지로 이동
-            return True
-        elif key == self.key_settings["next_image"]:  # 다음 이미지 키
-            self.show_next_image()  # 다음 이미지로 이동
-            return True
-        
-        return False  # 키 처리 안됨
-
-    def handle_image_manipulation(self, key):
-        """이미지 조작 관련 키를 처리합니다."""
-        if key == self.key_settings["rotate_clockwise"]:  # 시계 방향 회전 키
-            self.rotate_image(True)  # 시계 방향 회전
-            return True
-        elif key == self.key_settings["rotate_counterclockwise"]:  # 반시계 방향 회전 키
-            self.rotate_image(False)  # 반시계 방향 회전
-            return True
-            
-        return False  # 키 처리 안됨
-
-    def handle_media_controls(self, key):
-        """미디어 제어 관련 키를 처리합니다."""
-        if key == self.key_settings["play_pause"]:  # 재생/일시정지 키
-            self.toggle_animation_playback()  # 재생/일시정지 토글
-            return True
-        elif key == self.key_settings["volume_up"]:  # 볼륨 증가 키
-            # 볼륨 슬라이더 값을 가져와서 5씩 증가 (0-100 범위)
-            current_volume = self.volume_slider.value()
-            new_volume = min(current_volume + 5, 100)  # 최대 100을 넘지 않도록
-            self.volume_slider.setValue(new_volume)
-            self.adjust_volume(new_volume)
-            return True
-        elif key == self.key_settings["volume_down"]:  # 볼륨 감소 키
-            # 볼륨 슬라이더 값을 가져와서 5씩 감소 (0-100 범위)
-            current_volume = self.volume_slider.value()
-            new_volume = max(current_volume - 5, 0)  # 최소 0 미만으로 내려가지 않도록
-            self.volume_slider.setValue(new_volume)
-            self.adjust_volume(new_volume)
-            return True
-        elif key == self.key_settings["toggle_mute"]:  # 음소거 토글 키
-            self.toggle_mute()  # 음소거 토글 함수 호출
-            return True
-            
-        return False  # 키 처리 안됨
-
-    def handle_window_management(self, key, modifiers):
-        """창 관리 관련 키를 처리합니다."""
-        # 전체화면 토글
-        if key == self.key_settings.get("toggle_fullscreen", Qt.Key_F11) or \
-           (modifiers == Qt.ControlModifier and key == Qt.Key_Return):  # Ctrl+Enter도 추가
-            self.toggle_fullscreen()
-            return True
-            
-        # 최대화 상태 토글 (Enter 키) - 전체화면 모드가 아닐 때만 적용
-        elif key == self.key_settings.get("toggle_maximize_state", Qt.Key_Return) and \
-             modifiers != Qt.ControlModifier and not self.isFullScreen():  # 전체화면이 아닐 때만 처리
-            self.toggle_maximize_state()
-            return True
-            
-        return False  # 키 처리 안됨
-
-    def handle_file_management(self, key):
-        """파일 관리 관련 키를 처리합니다."""
-        if key == self.key_settings["delete_image"]:  # 이미지 삭제 키
-            self.delete_current_image()  # 현재 이미지 삭제 함수 호출
-            return True
-            
-        return False  # 키 처리 안됨
-
     def wheelEvent(self, event):
         """휠 이벤트 처리"""
         self.mouse_handler.wheel_event(event)
@@ -2360,38 +2245,6 @@ class ImageViewer(QWidget):
         except Exception as e:
             print(f"참조 그래프 생성 중 오류: {e}")
 
-class KeyboardHandler:
-    """키보드 입력을 처리하는 핸들러 클래스"""
-    
-    def __init__(self, parent):
-        """KeyboardHandler 초기화"""
-        self.parent = parent  # ImageViewer 인스턴스 참조
-    
-    def handle_key_press(self, event):
-        """키 입력 이벤트를 처리합니다."""
-        key = event.key()
-        modifiers = event.modifiers()
-        
-        # 1. 특수 키 처리 (ESC, Ctrl+D, Ctrl+G 등)
-        if self.parent.handle_special_keys(key, modifiers):
-            return
-        
-        # 2. 이미지 전환 전 준비 작업
-        self.parent.prepare_media_transition(key)
-        
-        # 3. 이미지 탐색 처리 (이전/다음 이미지)
-        if self.parent.handle_image_navigation(key):
-            return
-        
-        # 4. 이미지 조작 처리 (회전 등)
-        if self.parent.handle_image_manipulation(key):
-            return
-        
-        # 5. 미디어 컨트롤 처리 (재생/일시정지, 볼륨 등)
-        if self.parent.handle_media_controls(key):
-            return
-        
-        # 6. 창 관리 처리 (전체화면, 최대화 등)
         if self.parent.handle_window_management(key, modifiers):
             return
         
