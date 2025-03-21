@@ -100,4 +100,8 @@ class ControlsLayout(QWidget):
         """북마크 버튼 상태 업데이트: 북마크 관리자에 위임"""
         self.parent.bookmark_manager.update_bookmark_button_state()
 
+    def toggle_ui_lock(self):
+        """UI 잠금을 토글: UI 잠금 관리자에 위임"""
+        self.parent.ui_lock_manager.toggle_ui_lock()
+
     # 여기에 main.py에서 옮겨올 메서드들이 추가될 예정 

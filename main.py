@@ -447,7 +447,7 @@ class ImageViewer(QWidget):
 
         # 여기에 UI 고정 버튼 추가 (완전히 새로운 코드로 교체)
         self.ui_lock_btn = UILockButton(self)  # UILockButton 클래스 사용
-        self.ui_lock_btn.connect_action(self.toggle_ui_lock)  # 토글 함수 연결
+        self.ui_lock_btn.connect_action(self.toggle_ui_lock)  # toggle_ui_lock은 이제 controls_layout으로 호출을 위임합니다
         new_slider_layout.addWidget(self.ui_lock_btn)
 
         # 슬라이더바 컨트롤 리스트 생성 (버튼과 레이블을 함께 관리)
@@ -2235,8 +2235,8 @@ class ImageViewer(QWidget):
 
     def toggle_ui_lock(self):
         """UI 잠금을 토글합니다."""
-        # UILockManager를 사용하여 토글
-        self.ui_lock_manager.toggle_ui_lock()
+        # 이 메서드는 controls_layout으로 이동했으므로 여기서는 controls_layout의 메서드를 호출
+        self.controls_layout.toggle_ui_lock()
 
     def toggle_title_ui_lock(self):
         """타이틀바 잠금을 토글합니다."""
