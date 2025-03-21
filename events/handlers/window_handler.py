@@ -7,6 +7,8 @@ ImageViewer 클래스에서 창 이벤트 처리 코드를 분리하여 모듈�
 
 from PyQt5.QtCore import QObject, QTimer, Qt
 from PyQt5.QtWidgets import QApplication, QPushButton
+from PyQt5.QtGui import QPixmap
+import os
 
 class WindowHandler(QObject):
     """
@@ -137,4 +139,63 @@ class WindowHandler(QObject):
         # 잠금 버튼과 북마크 버튼 상태 업데이트
         self.parent.update_ui_lock_button_state()
         self.parent.update_title_lock_button_state()
-        self.parent.controls_layout.update_bookmark_button_state() 
+        self.parent.controls_layout.update_bookmark_button_state()
+        
+    def delayed_resize(self):
+        """리사이징 완료 후 지연된 UI 업데이트 처리"""
+        try:
+            print("delayed_resize 실행")  # 디버깅용 메시지 추가
+            
+            # 현재 표시 중인 미디어 크기 조절
+            if hasattr(self.parent, 'current_image_path') and self.parent.current_image_path:
+                file_ext = os.path.splitext(self.parent.current_image_path)[1].lower()
+                
+                # 이미지 타입에 따른 리사이징 처리
+                if file_ext in ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.ico', '.heic', '.heif']:
+                    # ImageHandler를 사용하여 이미지 크기 조정
+                    self.parent.image_handler.resize()
+                elif file_ext == '.psd':
+                    # PSDHandler를 사용하여 PSD 파일 크기 조정
+                    self.parent.psd_handler.resize()
+                elif (file_ext == '.gif' or file_ext == '.webp') and self.parent.current_media_type in ['gif_animation', 'webp_animation']:
+                    # 애니메이션 핸들러를 통해 애니메이션 크기 조정
+                    if hasattr(self.parent, 'animation_handler'):
+                        print(f"{file_ext.upper()} 애니메이션 핸들러를 통한 리사이징")
+                        self.parent.animation_handler.scale_animation()
+                    else:
+                        # 기존 방식으로 처리 (호환성 유지)
+                        if file_ext == '.gif':
+                            print("GIF 애니메이션 직접 리사이징")
+                            self.parent.scale_gif()
+                        elif file_ext == '.webp':
+                            print("WEBP 애니메이션 직접 리사이징")
+                            self.parent.scale_webp()
+                        # UI 처리 완료 후 애니메이션이 제대로 보이도록 강제 프레임 업데이트
+                        QApplication.processEvents()
+                elif file_ext == '.webp' and self.parent.current_media_type == 'webp_image':
+                    # 정적 WEBP 이미지 처리
+                    if hasattr(self.parent, 'animation_handler'):
+                        print("정적 WEBP 이미지 핸들러를 통한 리사이징")
+                        self.parent.animation_handler.rotate_static_image(self.parent.current_image_path)
+                    else:
+                        # 일반 WEBP 이미지 처리 (애니메이션이 아닌 경우)
+                        pixmap = QPixmap(self.parent.current_image_path)
+                        if not pixmap.isNull():
+                            scaled_pixmap = pixmap.scaled(self.parent.image_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                            self.parent.image_label.setPixmap(scaled_pixmap)
+                elif file_ext in ['.mp4', '.avi', '.wmv', '.ts', '.m2ts', '.mov', '.qt', '.mkv', '.flv', '.webm', '.3gp', '.m4v', '.mpg', '.mpeg', '.vob', '.wav', '.flac', '.mp3', '.aac', '.m4a', '.ogg']:
+                    # MPV 플레이어 윈도우 ID 업데이트
+                    if hasattr(self.parent, 'player'):
+                        self.parent.player.wid = int(self.parent.image_label.winId())
+            
+            # 이미지 정보 레이블 업데이트
+            if hasattr(self.parent, 'image_info_label') and self.parent.image_files:
+                self.parent.update_image_info()
+
+            # 잠금 버튼과 북마크 버튼 상태 업데이트 (리사이징 후 스타일 복원)
+            self.parent.update_ui_lock_button_state()
+            self.parent.update_title_lock_button_state()
+            self.parent.controls_layout.update_bookmark_button_state()
+                    
+        except Exception as e:
+            print(f"지연된 리사이징 처리 중 오류 발생: {e}") 
