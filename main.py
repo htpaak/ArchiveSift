@@ -1003,6 +1003,27 @@ class ImageViewer(QWidget):
                 # AnimationHandler가 없는 경우 기존 방식으로 처리
                 self.show_webp(image_path)
 
+    def load_static_image(self, image_path, format_type, file_ext):
+        """일반 이미지와 PSD 이미지를 로드하고 표시합니다."""
+        if format_type == 'psd':
+            # PSD 파일 처리
+            self.current_media_type = 'image'  # 미디어 타입 업데이트
+            
+            # PSDHandler를 사용하여 PSD 파일 로드
+            self.psd_handler.load(image_path)
+            
+            # 이미지 정보 업데이트
+            self.update_image_info()
+        elif format_type == 'image' or file_ext in ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.ico', '.heic', '.heif']:
+            # 일반 이미지 파일 처리
+            self.current_media_type = 'image'  # 미디어 타입 업데이트
+            
+            # ImageHandler를 사용하여 이미지 로드
+            self.image_handler.load(image_path)
+            
+            # 이미지 정보 업데이트
+            self.update_image_info()
+
     def show_image(self, image_path):
         """이미지/미디어 파일 표시 및 관련 UI 업데이트"""
         # 미디어 로딩 준비
@@ -1021,28 +1042,13 @@ class ImageViewer(QWidget):
         elif file_format == 'webp_image' or file_format == 'webp_animation':
             # 애니메이션 미디어 (WEBP) 처리
             self.load_animation_media(image_path, file_format)
-        elif file_format == 'psd':
-            # PSD 파일 처리
-            self.current_media_type = 'image'  # 미디어 타입 업데이트
-            
-            # PSDHandler를 사용하여 PSD 파일 로드
-            self.psd_handler.load(image_path)
-            
-            # 이미지 정보 업데이트
-            self.update_image_info()
+        elif file_format == 'psd' or file_format == 'image' or file_ext in ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.ico', '.heic', '.heif']:
+            # 정적 이미지 처리 (일반 이미지, PSD)
+            self.load_static_image(image_path, file_format, file_ext)
         elif file_format == 'video':
             # 비디오 파일 처리
             self.current_media_type = 'video'  # 미디어 타입 업데이트
             self.play_video(image_path)  # 비디오 재생
-        elif file_format == 'image' or file_ext in ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.ico', '.heic', '.heif']:
-            # 일반 이미지 파일 처리
-            self.current_media_type = 'image'  # 미디어 타입 업데이트
-            
-            # ImageHandler를 사용하여 이미지 로드
-            self.image_handler.load(image_path)
-            
-            # 이미지 정보 업데이트
-            self.update_image_info()
         else:
             self.current_media_type = 'unknown'  # 미디어 타입 업데이트
         
