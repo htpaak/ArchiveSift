@@ -99,6 +99,9 @@ class ImageViewer(QWidget):
         self.base_folder = ""  # 기준 폴더 경로
         self.folder_buttons = []  # 폴더 버튼 목록
         
+        # 키보드 핸들러 초기화
+        self.keyboard_handler = KeyboardHandler(self)
+        
         # 키 설정 로드
         self.load_key_settings()
         
@@ -1376,27 +1379,37 @@ class ImageViewer(QWidget):
                 self.show_next_image()
 
     def keyPressEvent(self, event):
+        """키보드 이벤트를 키보드 핸들러로 위임합니다."""
+        # 키보드 핸들러로 이벤트 처리 위임
+        self.keyboard_handler.handle_key_press(event)
+
+    def handle_special_keys(self, key, modifiers):
+        """특수 키 조합을 처리합니다."""
         # ESC 키로 전체화면 모드 종료
-        if event.key() == Qt.Key_Escape and self.isFullScreen():
+        if key == Qt.Key_Escape and self.isFullScreen():
             self.toggle_fullscreen()
-            return  # ESC 키 처리 완료
+            return True  # 키 처리 완료
         
         # Ctrl+D: 디버깅 모드 토글
-        if event.key() == Qt.Key_D and event.modifiers() == Qt.ControlModifier:
+        if key == Qt.Key_D and modifiers == Qt.ControlModifier:
             self.toggle_debug_mode()
-            return
+            return True
             
         # Ctrl+G: QMovie 참조 그래프 생성
-        if event.key() == Qt.Key_G and event.modifiers() == Qt.ControlModifier:
+        if key == Qt.Key_G and modifiers == Qt.ControlModifier:
             self.generate_qmovie_reference_graph()
-            return
+            return True
             
-        # 현재 미디어 타입 확인
-        current_media_type = getattr(self, 'current_media_type', 'unknown')
+        return False  # 키 처리 안됨
+
+    def prepare_media_transition(self, key):
+        """이미지 전환 전 미디어 상태를 정리합니다."""
+        # 이전/다음 이미지 키인지 확인
+        if (key == self.key_settings["prev_image"] or 
+            key == self.key_settings["next_image"]):
             
-        # 이전/다음 이미지 키 처리 시 애니메이션/비디오 정리
-        if (event.key() == self.key_settings["prev_image"] or 
-            event.key() == self.key_settings["next_image"]):
+            # 현재 미디어 타입 확인
+            current_media_type = getattr(self, 'current_media_type', 'unknown')
             
             # 애니메이션이나 비디오 재생 중인 경우 필요한 정리 작업 수행
             if current_media_type in ['gif_animation', 'webp_animation', 'video']:
@@ -1409,45 +1422,81 @@ class ImageViewer(QWidget):
                 elif current_media_type in ['gif_animation', 'webp_animation']:
                     # 리소스 정리를 위해 먼저 cleanup_current_media 호출
                     self.cleanup_current_media()
+            
+            return True  # 준비 작업 수행됨
         
-        # 이제 해당 키 이벤트 처리
-        if event.key() == self.key_settings["prev_image"]:  # 이전 이미지 키
+        return False  # 준비 작업 불필요
+
+    def handle_image_navigation(self, key):
+        """이미지 탐색 관련 키를 처리합니다."""
+        if key == self.key_settings["prev_image"]:  # 이전 이미지 키
             self.show_previous_image()  # 이전 이미지로 이동
-        elif event.key() == self.key_settings["next_image"]:  # 다음 이미지 키
+            return True
+        elif key == self.key_settings["next_image"]:  # 다음 이미지 키
             self.show_next_image()  # 다음 이미지로 이동
-        elif event.key() == self.key_settings["rotate_clockwise"]:  # 시계 방향 회전 키
+            return True
+        
+        return False  # 키 처리 안됨
+
+    def handle_image_manipulation(self, key):
+        """이미지 조작 관련 키를 처리합니다."""
+        if key == self.key_settings["rotate_clockwise"]:  # 시계 방향 회전 키
             self.rotate_image(True)  # 시계 방향 회전
-        elif event.key() == self.key_settings["rotate_counterclockwise"]:  # 반시계 방향 회전 키
+            return True
+        elif key == self.key_settings["rotate_counterclockwise"]:  # 반시계 방향 회전 키
             self.rotate_image(False)  # 반시계 방향 회전
-        elif event.key() == self.key_settings["play_pause"]:  # 재생/일시정지 키
+            return True
+            
+        return False  # 키 처리 안됨
+
+    def handle_media_controls(self, key):
+        """미디어 제어 관련 키를 처리합니다."""
+        if key == self.key_settings["play_pause"]:  # 재생/일시정지 키
             self.toggle_animation_playback()  # 재생/일시정지 토글
-        elif event.key() == self.key_settings["volume_up"]:  # 볼륨 증가 키
+            return True
+        elif key == self.key_settings["volume_up"]:  # 볼륨 증가 키
             # 볼륨 슬라이더 값을 가져와서 5씩 증가 (0-100 범위)
             current_volume = self.volume_slider.value()
             new_volume = min(current_volume + 5, 100)  # 최대 100을 넘지 않도록
             self.volume_slider.setValue(new_volume)
             self.adjust_volume(new_volume)
-        elif event.key() == self.key_settings["volume_down"]:  # 볼륨 감소 키
+            return True
+        elif key == self.key_settings["volume_down"]:  # 볼륨 감소 키
             # 볼륨 슬라이더 값을 가져와서 5씩 감소 (0-100 범위)
             current_volume = self.volume_slider.value()
             new_volume = max(current_volume - 5, 0)  # 최소 0 미만으로 내려가지 않도록
             self.volume_slider.setValue(new_volume)
             self.adjust_volume(new_volume)
-        elif event.key() == self.key_settings["toggle_mute"]:  # 음소거 토글 키
+            return True
+        elif key == self.key_settings["toggle_mute"]:  # 음소거 토글 키
             self.toggle_mute()  # 음소거 토글 함수 호출
-        elif event.key() == self.key_settings["delete_image"]:  # 이미지 삭제 키
-            self.delete_current_image()  # 현재 이미지 삭제 함수 호출
+            return True
+            
+        return False  # 키 처리 안됨
+
+    def handle_window_management(self, key, modifiers):
+        """창 관리 관련 키를 처리합니다."""
         # 전체화면 토글
-        elif event.key() == self.key_settings.get("toggle_fullscreen", Qt.ControlModifier | Qt.Key_Return) or \
-          (event.modifiers() == Qt.ControlModifier and event.key() == Qt.Key_Return):  # Ctrl+Enter도 추가
+        if key == self.key_settings.get("toggle_fullscreen", Qt.Key_F11) or \
+           (modifiers == Qt.ControlModifier and key == Qt.Key_Return):  # Ctrl+Enter도 추가
             self.toggle_fullscreen()
-            return
+            return True
             
         # 최대화 상태 토글 (Enter 키) - 전체화면 모드가 아닐 때만 적용
-        elif event.key() == self.key_settings.get("toggle_maximize_state", Qt.Key_Return) and \
-          event.modifiers() != Qt.ControlModifier and not self.isFullScreen():  # 전체화면이 아닐 때만 처리
+        elif key == self.key_settings.get("toggle_maximize_state", Qt.Key_Return) and \
+             modifiers != Qt.ControlModifier and not self.isFullScreen():  # 전체화면이 아닐 때만 처리
             self.toggle_maximize_state()
-            return
+            return True
+            
+        return False  # 키 처리 안됨
+
+    def handle_file_management(self, key):
+        """파일 관리 관련 키를 처리합니다."""
+        if key == self.key_settings["delete_image"]:  # 이미지 삭제 키
+            self.delete_current_image()  # 현재 이미지 삭제 함수 호출
+            return True
+            
+        return False  # 키 처리 안됨
 
     def wheelEvent(self, event):
         """휠 이벤트 처리"""
@@ -2311,86 +2360,44 @@ class ImageViewer(QWidget):
         except Exception as e:
             print(f"참조 그래프 생성 중 오류: {e}")
 
-class ScrollableMenu(QMenu):
-    """스크롤을 지원하는 메뉴 클래스"""
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setWindowFlags(self.windowFlags() | Qt.FramelessWindowHint)
-        self.setAttribute(Qt.WA_TranslucentBackground)
-        # 스크롤 지원을 위한 설정
-        self.setProperty("_q_scrollable", True)
-        # 최대 높이 제한 - 항목을 더 많이 표시하기 위해 높이 증가
-        self.setMaximumHeight(800)
-        self.setStyleSheet("""
-            QMenu {
-                background-color: #2c3e50;
-                color: #ecf0f1;
-                border: 1px solid #34495e;
-                padding: 5px;
-                min-width: 300px;
-                max-height: 800px;
-            }
-            QMenu::item {
-                padding: 3px 20px 3px 20px;  /* 패딩 줄여서 항목 높이 감소 */
-                border: 1px solid transparent;
-                color: #ecf0f1;
-                max-width: 600px;
-                font-size: 9pt;  /* 글자 크기 축소 */
-            }
-            QMenu::item:selected {
-                background-color: #34495e;
-                color: #ecf0f1;
-            }
-            QMenu::separator {
-                height: 1px;
-                background: #34495e;
-                margin: 3px 0;  /* 구분선 간격 축소 */
-            }
-            QMenu::item:disabled {
-                color: #7f8c8d;
-            }
-            QScrollBar:vertical {
-                background: #2c3e50;
-                width: 10px;
-                margin: 0px;
-            }
-            QScrollBar::handle:vertical {
-                background: #34495e;
-                min-height: 20px;
-                border-radius: 5px;
-            }
-            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
-                height: 0px;
-            }
-        """)
+class KeyboardHandler:
+    """키보드 입력을 처리하는 핸들러 클래스"""
     
-    def wheelEvent(self, event):
-        # 마우스 휠 이벤트 처리
-        super().wheelEvent(event)
-        # 이벤트가 처리되었음을 표시
-        event.accept()
-        
-    def showEvent(self, event):
-        # 메뉴가 표시될 때 호출되는 이벤트
-        super().showEvent(event)
-        # 스크롤을 지원하도록 다시 설정
-        self.setProperty("_q_scrollable", True)
-        # 스타일시트 재적용
-        self.setStyle(self.style())
-        
-        # 화면 크기에 맞게 최대 높이 조절
-        desktop = QApplication.desktop().availableGeometry()
-        self.setMaximumHeight(min(800, desktop.height() * 0.7))
+    def __init__(self, parent):
+        """KeyboardHandler 초기화"""
+        self.parent = parent  # ImageViewer 인스턴스 참조
     
-    def addMultipleActions(self, actions):
-        """여러 액션을 추가하고 필요시 스크롤을 활성화합니다"""
-        for action in actions:
-            self.addAction(action)
+    def handle_key_press(self, event):
+        """키 입력 이벤트를 처리합니다."""
+        key = event.key()
+        modifiers = event.modifiers()
         
-        # 액션이 많으면 스크롤 속성을 다시 설정
-        if len(actions) > 7:
-            self.setProperty("_q_scrollable", True)
-            self.setStyle(self.style())
+        # 1. 특수 키 처리 (ESC, Ctrl+D, Ctrl+G 등)
+        if self.parent.handle_special_keys(key, modifiers):
+            return
+        
+        # 2. 이미지 전환 전 준비 작업
+        self.parent.prepare_media_transition(key)
+        
+        # 3. 이미지 탐색 처리 (이전/다음 이미지)
+        if self.parent.handle_image_navigation(key):
+            return
+        
+        # 4. 이미지 조작 처리 (회전 등)
+        if self.parent.handle_image_manipulation(key):
+            return
+        
+        # 5. 미디어 컨트롤 처리 (재생/일시정지, 볼륨 등)
+        if self.parent.handle_media_controls(key):
+            return
+        
+        # 6. 창 관리 처리 (전체화면, 최대화 등)
+        if self.parent.handle_window_management(key, modifiers):
+            return
+        
+        # 7. 파일 관리 처리 (삭제 등)
+        if self.parent.handle_file_management(key):
+            return
 
 # 메인 함수
 def main():
