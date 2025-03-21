@@ -1,7 +1,7 @@
 """
 마우스 이벤트 처리 모듈
 
-이 모듈은 마우스 이벤트 처리를 담당하는 MouseHandler 클래스를 정의합니다.
+이 모듈은 마우스 이벤트(클릭, 더블클릭, 휠, 이동 등)를 처리하는 MouseHandler 클래스를 정의합니다.
 ImageViewer 클래스에서 마우스 이벤트 처리 코드를 분리하여 모듈화했습니다.
 """
 
@@ -73,9 +73,7 @@ class MouseHandler(QObject):
             self.parent.toggle_maximize_state()
             
     def wheel_event(self, event):
-        """
-        휠 이벤트 처리
-        """
+        """휠 이벤트 처리"""
         current_time = time.time() * 1000  # 현재 시간(밀리초)
         
         # 기본 쿨다운 값 설정 (일반적인 경우 500ms)
@@ -110,7 +108,23 @@ class MouseHandler(QObject):
             self.parent.show_next_image()
         
         self.last_wheel_time = current_time  # 마지막 처리 시간 업데이트
-    
+
+    def handle_ui_visibility(self, show_temporary=False):
+        """
+        UI 요소의 표시 여부를 관리하는 메서드
+        
+        Args:
+            show_temporary: 일시적으로 UI를 표시할지 여부
+        """
+        # UI 상태 관리자가 있으면 위임
+        if hasattr(self.parent, 'ui_state_manager'):
+            if show_temporary:
+                self.parent.ui_state_manager.show_ui_temporarily()
+            else:
+                self.parent.ui_state_manager.hide_ui_conditionally()
+            return True
+        return False
+
     def event_filter(self, obj, event):
         """모든 마우스 이벤트를 필터링"""
         if event.type() == QEvent.MouseMove:
@@ -121,81 +135,25 @@ class MouseHandler(QObject):
             title_bar_area_height = 50  # 마우스가 상단 50px 이내일 때 타이틀바 표시
             bottom_area_height = 250  # 마우스가 하단 250px 이내일 때 컨트롤 표시
 
-                
             # UI 상태 변경 여부를 추적하기 위한 변수
             ui_state_changed = False
-            title_bar_changed = False
-            slider_changed = False
-            buttons_changed = False
 
-            # UI 잠금 관리자를 사용하여 UI가 고정된 상태인지 확인
-            title_ui_locked = hasattr(self.parent, 'ui_lock_manager') and self.parent.ui_lock_manager.title_locked
-            bottom_ui_locked = hasattr(self.parent, 'ui_lock_manager') and self.parent.ui_lock_manager.ui_locked
+            # 마우스가 상단 영역에 있는 경우 (타이틀바 영역)
+            if local_pos.y() <= title_bar_area_height or local_pos.y() >= self.parent.height() - bottom_area_height:
+                # UI 일시적으로 표시
+                ui_state_changed = self.handle_ui_visibility(show_temporary=True)
+            else:
+                # 마우스가 상/하단 영역을 벗어난 경우 UI 조건부 숨김
+                ui_state_changed = self.handle_ui_visibility(show_temporary=False)
             
-            # 이전 코드와의 호환성을 위해 is_title_ui_locked와 is_bottom_ui_locked도 확인
-            if not title_ui_locked and hasattr(self.parent, 'is_title_ui_locked'):
-                title_ui_locked = self.parent.is_title_ui_locked
-            if not bottom_ui_locked and hasattr(self.parent, 'is_bottom_ui_locked'):
-                bottom_ui_locked = self.parent.is_bottom_ui_locked
-
-            # 상단 영역에 있을 때 타이틀바 표시 (타이틀바 UI가 잠겨있지 않은 경우만)
-            if not title_ui_locked:
-                if local_pos.y() <= title_bar_area_height:
-                    if hasattr(self.parent, 'title_bar') and self.parent.title_bar.isHidden():
-                        self.parent.title_bar.show()
-                        title_bar_changed = True
-                else:
-                    # 상단 영역을 벗어나면 타이틀바 숨김
-                    if hasattr(self.parent, 'title_bar') and not self.parent.title_bar.isHidden():
-                        self.parent.title_bar.hide()
-                        title_bar_changed = True
-
-            # 하단 영역에 있을 때 슬라이더와 버튼 표시 (하단 UI가 잠겨있지 않은 경우만)
-            if not bottom_ui_locked:
-                if local_pos.y() >= self.parent.height() - bottom_area_height:
-                    if hasattr(self.parent, 'slider_widget') and self.parent.slider_widget.isHidden():
-                        self.parent.slider_widget.show()
-                        slider_changed = True
-                    
-                    # 폴더 버튼 표시 설정
-                    for row in self.parent.buttons:
-                        for button in row:
-                            if button.isHidden():
-                                button.show()
-                                buttons_changed = True
-                else:
-                    # 하단 영역을 벗어나면 슬라이더와 버튼 숨김
-                    if hasattr(self.parent, 'slider_widget') and not self.parent.slider_widget.isHidden():
-                        self.parent.slider_widget.hide()
-                        slider_changed = True
-                    
-                    # 폴더 버튼 숨김 설정
-                    for row in self.parent.buttons:
-                        for button in row:
-                            if not button.isHidden():
-                                button.hide()
-                                buttons_changed = True
+            # UI 상태가 변경되었으면 이미지 크기 조정
+            if ui_state_changed:
+                # 기존 타이머가 실행 중이면 중지
+                if self.parent.ui_update_timer.isActive():
+                    self.parent.ui_update_timer.stop()
                 
-                # 모든 변경사항 처리 후 한 번만 UI 상태 변경 확인
-                ui_state_changed = title_bar_changed or slider_changed or buttons_changed
-                
-                # UI 상태가 변경되었으면 이미지 크기 조정 (하단 UI 변경 시 지연 시간 증가)
-                if ui_state_changed:
-                    # 기존 타이머가 실행 중이면 중지
-                    if self.parent.ui_update_timer.isActive():
-                        self.parent.ui_update_timer.stop()
-                    
-                    # 하단 UI 변경이면 지연 시간 더 길게 설정
-                    if slider_changed or buttons_changed:
-                        delay = 50  # 하단 UI 변경 시 50ms 지연
-                    else:
-                        delay = 50   # 상단 UI만 변경 시 50ms 지연
-                    
-                    # 디버깅용 메시지
-                    print(f"UI 업데이트 타이머 시작: {delay}ms 지연, 상단변경: {title_bar_changed}, 하단변경: {slider_changed or buttons_changed}")
-                    
-                    # 지연 시간 설정 후 타이머 시작
-                    self.parent.ui_update_timer.start(delay)
+                # 일정 시간 후 UI 업데이트 실행
+                self.parent.ui_update_timer.start(50)
             
             # 창이 최대화 상태가 아닐 때만 크기 조절 가능
             if not self.parent.isMaximized():
@@ -286,7 +244,7 @@ class MouseHandler(QObject):
                         if is_in_titlebar and not is_in_titlebar_buttons:
                             QApplication.setOverrideCursor(Qt.ArrowCursor)
                             self.parent.resize_direction = None
-                        elif self.parent.image_label.geometry().contains(local_pos) or \
+                        elif hasattr(self.parent, 'image_label') and self.parent.image_label.geometry().contains(local_pos) or \
                             any(button.geometry().contains(local_pos) for row in self.parent.buttons for button in row):
                             QApplication.setOverrideCursor(Qt.ArrowCursor)
                             self.parent.resize_direction = None

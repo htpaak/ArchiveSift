@@ -59,6 +59,8 @@ from features.rotation.rotation_ui import RotationUI
 # UI 잠금 기능
 from features.ui_lock.ui_lock_manager import UILockManager
 from features.ui_lock.ui_lock_ui import UILockUI
+# UI 상태 관리
+from core.ui.ui_state_manager import UIStateManager  # UI 상태 관리 클래스 추가
 
 # 파일 브라우저 추가
 from file import FileBrowser, FileNavigator
@@ -611,6 +613,11 @@ class ImageViewer(QWidget):
         
         # 연결 추가 (이벤트와 함수 연결)
         self.volume_slider.connect_to_volume_control(self.adjust_volume)  # 슬라이더로 음량 조절
+
+        # UI 상태 관리자 생성
+        self.ui_state_manager = UIStateManager(self)
+        # UI 상태 관리자 신호 연결
+        self.ui_state_manager.ui_visibility_changed.connect(self.on_ui_visibility_changed)
 
         # UI 잠금 관리자 생성
         self.ui_lock_manager = UILockManager(self)
@@ -1419,6 +1426,7 @@ class ImageViewer(QWidget):
 
     def toggle_fullscreen(self):
         """전체화면 모드를 전환합니다."""
+        # 전체화면 모드 전환은 WindowHandler에 위임
         self.window_handler.toggle_fullscreen()
 
     def restore_video_state(self, was_playing, position):
@@ -2320,6 +2328,22 @@ class ImageViewer(QWidget):
         # 7. 파일 관리 처리 (삭제 등)
         if self.parent.handle_file_management(key):
             return
+
+    def on_ui_visibility_changed(self, visibility_dict):
+        """
+        UI 요소 가시성 변경 이벤트 처리
+        
+        Args:
+            visibility_dict: 각 UI 요소의 표시 여부를 담은 사전
+        """
+        # UI 상태 관리자에게 UI 가시성 적용을 위임
+        self.ui_state_manager.apply_ui_visibility()
+        
+        # UI 변경 후 리사이징 적용이 필요한 경우 
+        if hasattr(self, 'current_image_path') and self.current_image_path:
+            # 일정 시간 후 지연 리사이징 실행
+            if hasattr(self, 'resize_timer') and not self.resize_timer.isActive():
+                self.resize_timer.start(100)
 
 # 메인 함수
 def main():
