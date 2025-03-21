@@ -972,6 +972,17 @@ class ImageViewer(QWidget):
         # UI 요소 업데이트
         self.update_ui_for_media(image_path)
 
+    def detect_media_format(self, image_path):
+        """파일 형식을 감지하고 적절한 형식을 반환합니다."""
+        # 파일 확장자 확인 (소문자로 변환)
+        file_ext = os.path.splitext(image_path)[1].lower()
+        
+        # FormatDetector를 사용하여 파일 형식 감지
+        file_format = FormatDetector.detect_format(image_path)
+        print(f"FormatDetector 감지 결과: {file_format}")
+        
+        return file_format, file_ext
+
     def show_image(self, image_path):
         """이미지/미디어 파일 표시 및 관련 UI 업데이트"""
         # 미디어 로딩 준비
@@ -980,13 +991,9 @@ class ImageViewer(QWidget):
         # 현재 미디어 상태 업데이트
         self.update_current_media_state(image_path)
         
-        # 파일 확장자 확인 (소문자로 변환)
-        file_ext = os.path.splitext(image_path)[1].lower()
+        # 파일 형식 감지
+        file_format, file_ext = self.detect_media_format(image_path)
         
-        # FormatDetector를 사용하여 파일 형식 감지
-        file_format = FormatDetector.detect_format(image_path)
-        print(f"FormatDetector 감지 결과: {file_format}")
-
         # 파일 형식 감지 결과에 따라 적절한 핸들러 호출
         if file_format == 'gif_image' or file_format == 'gif_animation':
             # AnimationHandler로 GIF 처리
