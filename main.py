@@ -2592,88 +2592,12 @@ class ImageViewer(QWidget):
             self.show_message(f"이미지 회전: {self.current_rotation}°")
 
     def update_button_sizes(self):
-        # 창 너비 가져오기
-        total_width = self.width()
-        
-        # 1. 폴더 버튼 행 처리
-        if hasattr(self, 'buttons'):
-            # 각 행 위젯의 최대 너비를 현재 창 너비로 업데이트
-            for row in self.buttons:
-                row_widget = row[0].parent()  # 버튼의 부모 위젯(row_widget) 가져오기
-                row_widget.setMaximumWidth(total_width)
-                
-                # 버튼 너비 계산
-                button_width = total_width / 20
-                
-                # 각 버튼의 너비 설정
-                for i, button in enumerate(row):
-                    if i == 19:  # 마지막 버튼
-                        remaining_width = total_width - (int(button_width) * 19)
-                        button.setFixedWidth(remaining_width)
-                    else:
-                        button.setFixedWidth(int(button_width))
-                
-                # 레이아웃 업데이트
-                row_widget.updateGeometry()
-        
-        # 2. 슬라이더바 컨트롤 처리 (통합 로직)
-        if hasattr(self, 'slider_controls'):
-            # 기본 버튼 크기 계산 (모든 컨트롤에 동일하게 적용)
-            button_width = max(60, min(150, int(total_width * 0.08)))
-            button_height = max(30, min(50, int(button_width * 0.6)))
-            
-            # 모든 슬라이더 컨트롤에 동일한 로직 적용
-            for control in self.slider_controls:
-                # 시간 레이블은 너비만 다르게 설정 (내용이 더 길기 때문)
-                if control == self.time_label:
-                    control_width = int(button_width * 1.5)  # 시간 레이블은 1.5배 넓게
-                else:
-                    control_width = button_width
-                
-                # 크기 설정
-                control.setFixedSize(control_width, button_height)
-                
-                # 폰트 크기 계산 (모든 컨트롤에 동일한 로직 적용)
-                font_size = max(9, min(14, int(button_width * 0.25)))
-                
-                # 북마크 버튼은 특별하게 처리: update_bookmark_button_state 함수에서 색상 처리
-                if control == self.slider_bookmark_btn:
-                    # 크기만 설정하고 스타일은 건드리지 않음 (북마크 상태에 따라 다르게 표시해야 하므로)
-                    continue
-                    
-                # 컨트롤 유형에 따라 적절한 스타일시트 적용
-                if isinstance(control, QLabel):  # 레이블인 경우
-                    control.setStyleSheet(f"""
-                        QLabel {{
-                            background-color: rgba(52, 73, 94, 0.6);
-                            color: white;
-                            border: none;
-                            padding: 8px;
-                            border-radius: 3px;
-                            font-size: {font_size}px;
-                            qproperty-alignment: AlignCenter;
-                        }}
-                        QLabel:hover {{
-                            background-color: rgba(52, 73, 94, 1.0);
-                        }}
-                    """)
-                else:  # 일반 버튼
-                    control.setStyleSheet(f"""
-                        QPushButton {{
-                            background-color: rgba(52, 73, 94, 0.6);
-                            color: white;
-                            border: none;
-                            padding: 8px;
-                            border-radius: 3px;
-                            font-size: {font_size}px;
-                        }}
-                        QPushButton:hover {{
-                            background-color: rgba(52, 73, 94, 1.0);
-                        }}
-                    """)
-            
-            # 북마크 버튼 상태 업데이트 (별도로 호출)
-            self.controls_layout.update_bookmark_button_state()
+        """버튼 크기를 창 크기에 맞게 업데이트하는 메서드 - 이제 ControlsLayout에 위임"""
+        if hasattr(self, 'controls_layout'):
+            self.controls_layout.update_button_sizes()
+        else:
+            # 컨트롤 레이아웃이 아직 초기화되지 않은 경우 (예: 초기 로딩 과정)
+            print("ControlsLayout이 초기화되지 않았습니다. 버튼 크기 업데이트를 건너뜁니다.")
 
     def load_key_settings(self):
         """키 설정을 로드합니다."""
