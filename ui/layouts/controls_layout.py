@@ -2,6 +2,7 @@ from PyQt5.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QPushButton, QSli
 from PyQt5.QtCore import Qt, QTimer, pyqtSignal
 from PyQt5.QtGui import QIcon
 from media.handlers.animation_handler import AnimationHandler  # AnimationHandler 클래스 임포트
+from core.utils.time_utils import format_time  # format_time 함수 추가 임포트
 
 class ControlsLayout(QWidget):
     """
@@ -324,5 +325,38 @@ class ControlsLayout(QWidget):
         # AnimationHandler만 사용
         if self.parent.current_media_type in ['gif_animation', 'webp_animation'] and hasattr(self.parent, 'animation_handler'):
             self.parent.animation_handler.seek_to_frame(value)
+
+    def update_video_playback(self):
+        """VideoHandler를 사용하여 비디오의 재생 위치에 따라 슬라이더 값을 업데이트합니다."""
+        if not self.parent.is_slider_dragging:
+            try:
+                position = self.parent.video_handler.get_position()  # 현재 재생 위치
+                duration = self.parent.video_handler.get_duration()  # 총 길이
+                
+                # 재생 위치 값이 None인 경우 처리
+                if position is None:
+                    return  # 슬라이더 업데이트를 건너뜁니다.
+
+                # 슬라이더 범위 설정
+                if duration is not None and duration > 0:
+                    # 슬라이더 범위를 밀리초 단위로 설정 (1000으로 곱해서 더 세밀하게)
+                    self.parent.playback_slider.setRange(0, int(duration * 1000))
+                    
+                    # 현재 위치가 duration을 초과하면 0으로 리셋
+                    if position >= duration:
+                        self.parent.playback_slider.setValue(0)
+                        self.parent.video_handler.seek(0)
+                    else:
+                        # 슬라이더 값을 밀리초 단위로 설정 (1000으로 곱해서 더 세밀하게)
+                        self.parent.playback_slider.setValue(int(position * 1000))
+                    
+                    self.parent.time_label.setText(f"{format_time(position)} / {format_time(duration)}")
+
+                self.parent.previous_position = position  # 현재 위치를 이전 위치로 저장
+
+            except Exception as e:
+                print(f"비디오 업데이트 에러: {e}")
+                if hasattr(self.parent, 'video_timer') and self.parent.video_timer.isActive():
+                    self.parent.video_timer.stop()  # 타이머 중지
 
     # 여기에 main.py에서 옮겨올 메서드들이 추가될 예정 
