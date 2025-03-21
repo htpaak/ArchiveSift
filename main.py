@@ -912,6 +912,20 @@ class ImageViewer(QWidget):
 
     def update_ui_for_media(self, image_path):
         """미디어 표시에 필요한 UI 요소들을 업데이트합니다."""
+        # 창 제목 업데이트
+        self.update_window_title(image_path)
+        
+        # 북마크 관련 UI 업데이트 
+        self.update_bookmark_ui()
+        
+        # 미디어 컨트롤 상태 업데이트
+        self.update_media_controls()
+        
+        # UI 컴포넌트의 가시성 관리
+        self.ensure_ui_visibility()
+        
+    def update_window_title(self, image_path):
+        """창 제목과 제목표시줄 업데이트"""
         # 파일 이름을 제목표시줄에 표시
         file_name = os.path.basename(image_path) if image_path else "Image Viewer"
         title_text = f"Image Viewer - {file_name}" if image_path else "Image Viewer"
@@ -920,13 +934,17 @@ class ImageViewer(QWidget):
             if isinstance(child, QLabel):
                 child.setText(title_text)
                 break
-        
+                
+    def update_bookmark_ui(self):
+        """북마크 관련 UI 요소들을 업데이트"""
         # 책갈피 버튼 상태 업데이트
         self.controls_layout.update_bookmark_button_state()
         
         # 북마크 메뉴 업데이트 추가 - 이미지 변경 시 메뉴 상태도 함께 업데이트
         self.controls_layout.update_bookmark_menu()
         
+    def update_media_controls(self):
+        """미디어 종류에 따른 컨트롤 상태 업데이트"""
         # 비디오 미디어의 경우 음소거 버튼 상태 재설정
         if self.current_media_type == 'video' and hasattr(self, 'mute_button'):
             try:
@@ -935,7 +953,9 @@ class ImageViewer(QWidget):
                     self.mute_button.set_mute_state(is_muted)
             except Exception as e:
                 print(f"음소거 버튼 상태 업데이트 오류: {e}")
-        
+                
+    def ensure_ui_visibility(self):
+        """UI 컴포넌트의 가시성 관리"""
         # 제목표시줄과 이미지 정보 레이블을 앞으로 가져옴
         if hasattr(self, 'title_bar'):
             self.title_bar.raise_()
