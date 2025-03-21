@@ -1284,12 +1284,12 @@ class ImageViewer(QWidget):
             print("Controls layout not initialized")
 
     def seek_video(self, value):
-        """슬라이더 값에 따라 비디오 재생 위치를 변경합니다."""
-        if self.is_slider_dragging:
-            # 슬라이더 값을 초 단위로 변환 (value는 밀리초 단위)
-            seconds = value / 1000.0  # 밀리초를 초 단위로 변환
-            # VideoHandler의 seek 함수를 사용하여 정확한 위치로 이동
-            self.video_handler.seek(seconds)
+        """슬라이더 값에 따라 비디오 재생 위치를 변경하는 메서드 - controls_layout으로 위임"""
+        # 이 메서드는 controls_layout으로 이동됨
+        if hasattr(self, 'controls_layout'):
+            self.controls_layout.seek_video(value)
+        else:
+            print("Controls layout not initialized")
 
     def seek_animation(self, value):
         """슬라이더 값에 따라 애니메이션 재생 위치를 변경합니다."""
