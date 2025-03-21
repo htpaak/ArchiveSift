@@ -2253,8 +2253,12 @@ class ImageViewer(QWidget):
             self.ui_lock_ui.update_ui_lock_button_state()
 
     def update_title_lock_button_state(self):
-        """타이틀 잠금 버튼 상태 업데이트 - 이제 UILockUI 클래스에서 관리합니다."""
-        if hasattr(self, 'ui_lock_ui'):
+        """타이틀 잠금 버튼 상태 업데이트"""
+        # 이 메서드는 controls_layout으로 이동했으므로 여기서는 controls_layout의 메서드를 호출
+        if hasattr(self, 'controls_layout'):
+            self.controls_layout.update_title_lock_button_state()
+        # 이전 호환성을 위해 유지
+        elif hasattr(self, 'ui_lock_ui'):
             self.ui_lock_ui.update_title_lock_button_state()
 
     # 초기 및 resizeEvent에서 동적으로 호출되는 커스텀 UI 설정 메서드
