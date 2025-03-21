@@ -1081,7 +1081,7 @@ class ImageViewer(QWidget):
         self.update_bookmark_button_state()
         
         # 북마크 메뉴 업데이트 추가 - 이미지 변경 시 메뉴 상태도 함께 업데이트
-        self.bookmark_manager.update_bookmark_menu()
+        self.controls_layout.update_bookmark_menu()
         
         # 비디오 미디어의 경우 음소거 버튼 상태 재설정
         if self.current_media_type == 'video' and hasattr(self, 'mute_button'):
@@ -2119,22 +2119,39 @@ class ImageViewer(QWidget):
     def update_bookmark_menu(self):
         """북마크 메뉴 업데이트: 북마크 관리자에 위임"""
         # 이 메서드는 controls_layout으로 이동했으므로 여기서는 controls_layout의 메서드를 호출
-        self.controls_layout.update_bookmark_menu()
+        # controls_layout이 초기화되어 있을 때만 호출
+        if hasattr(self, 'controls_layout'):
+            self.controls_layout.update_bookmark_menu()
+        else:
+            # controls_layout이 아직 초기화되지 않았다면 직접 북마크 매니저에 위임
+            self.bookmark_manager.update_bookmark_menu()
         
     def load_bookmarked_image(self, path):
         """북마크된 이미지 로드: 북마크 관리자에 위임"""
         # 이 메서드는 controls_layout으로 이동했으므로 여기서는 controls_layout의 메서드를 호출
-        self.controls_layout.load_bookmarked_image(path)
+        if hasattr(self, 'controls_layout'):
+            self.controls_layout.load_bookmarked_image(path)
+        else:
+            # controls_layout이 아직 초기화되지 않았다면 직접 북마크 매니저에 위임
+            self.bookmark_manager.load_bookmarked_image(path)
         
     def clear_bookmarks(self):
         """모든 북마크 삭제: 북마크 관리자에 위임"""
         # 이 메서드는 controls_layout으로 이동했으므로 여기서는 controls_layout의 메서드를 호출
-        self.controls_layout.clear_bookmarks()
+        if hasattr(self, 'controls_layout'):
+            self.controls_layout.clear_bookmarks()
+        else:
+            # controls_layout이 아직 초기화되지 않았다면 직접 북마크 매니저에 위임
+            self.bookmark_manager.clear_bookmarks()
         
     def update_bookmark_button_state(self):
         """북마크 버튼 상태 업데이트: 북마크 관리자에 위임"""
         # 이 메서드는 controls_layout으로 이동했으므로 여기서는 controls_layout의 메서드를 호출
-        self.controls_layout.update_bookmark_button_state()
+        if hasattr(self, 'controls_layout'):
+            self.controls_layout.update_bookmark_button_state()
+        else:
+            # controls_layout이 아직 초기화되지 않았다면 직접 북마크 매니저에 위임
+            self.bookmark_manager.update_bookmark_button_state()
     
     # 삭제할 메서드들 (이미 북마크 관리자로 기능이 이전됨)
     def add_bookmark(self):
