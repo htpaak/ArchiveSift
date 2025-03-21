@@ -300,7 +300,7 @@ class ImageViewer(QWidget):
 
         # 상단 UI 잠금 버튼 추가
         title_lock_btn = TitleLockButton(self)  # 타이틀 잠금 버튼 클래스 사용
-        title_lock_btn.connect_action(self.toggle_title_ui_lock)  # 제목표시줄 UI 잠금 토글 기능 연결
+        title_lock_btn.connect_action(self.toggle_title_ui_lock)  # toggle_title_ui_lock은 이제 controls_layout으로 호출을 위임합니다
         self.title_lock_btn = title_lock_btn  # 버튼 객체 저장
         
         # 창 컨트롤 버튼들 (최소화, 최대화, 닫기 - 윈도우 기본 버튼 대체)
@@ -2240,8 +2240,8 @@ class ImageViewer(QWidget):
 
     def toggle_title_ui_lock(self):
         """타이틀바 잠금을 토글합니다."""
-        # UILockManager를 사용하여 토글
-        self.ui_lock_manager.toggle_title_lock()
+        # 이 메서드는 controls_layout으로 이동했으므로 여기서는 controls_layout의 메서드를 호출
+        self.controls_layout.toggle_title_ui_lock()
 
     def update_ui_lock_button_state(self):
         """UI 잠금 버튼 상태 업데이트 - 이제 UILockUI 클래스에서 관리합니다."""
