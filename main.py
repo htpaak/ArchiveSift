@@ -863,7 +863,7 @@ class ImageViewer(QWidget):
         # 잠금 버튼과 북마크 버튼 상태 업데이트
         self.update_ui_lock_button_state()
         self.update_title_lock_button_state()
-        self.update_bookmark_button_state()
+        self.controls_layout.update_bookmark_button_state()
 
     def delayed_resize(self):
         """리사이징 완료 후 지연된 UI 업데이트 처리"""
@@ -919,7 +919,7 @@ class ImageViewer(QWidget):
             # 잠금 버튼과 북마크 버튼 상태 업데이트 (리사이징 후 스타일 복원)
             self.update_ui_lock_button_state()
             self.update_title_lock_button_state()
-            self.update_bookmark_button_state()
+            self.controls_layout.update_bookmark_button_state()
                     
         except Exception as e:
             print(f"지연된 리사이징 처리 중 오류 발생: {e}")
@@ -1078,7 +1078,7 @@ class ImageViewer(QWidget):
                 break
         
         # 책갈피 버튼 상태 업데이트
-        self.update_bookmark_button_state()
+        self.controls_layout.update_bookmark_button_state()
         
         # 북마크 메뉴 업데이트 추가 - 이미지 변경 시 메뉴 상태도 함께 업데이트
         self.controls_layout.update_bookmark_menu()
@@ -2707,7 +2707,7 @@ class ImageViewer(QWidget):
                     """)
             
             # 북마크 버튼 상태 업데이트 (별도로 호출)
-            self.update_bookmark_button_state()
+            self.controls_layout.update_bookmark_button_state()
 
     def load_key_settings(self):
         """키 설정을 로드합니다."""
