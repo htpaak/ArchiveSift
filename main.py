@@ -1260,44 +1260,28 @@ class ImageViewer(QWidget):
                 self.timers.remove(self.video_timer)
 
     def slider_clicked(self, value):
-        """슬라이더를 클릭하면 해당 위치로 이동"""
-        # 비디오 처리
-        if self.current_media_type == 'video':
-            # 슬라이더 값을 초 단위로 변환 (value는 밀리초 단위)
-            seconds = value / 1000.0  # 밀리초를 초 단위로 변환
-            self.video_handler.seek(seconds)
-        # 애니메이션 처리
-        elif self.current_media_type in ['gif_animation', 'webp_animation'] and hasattr(self, 'animation_handler'):
-            # AnimationHandler를 통해 프레임 이동
-            self.animation_handler.seek_to_frame(value)
-        
-        # 슬라이더 클릭 후 포커스를 다시 메인 창으로 설정
-        QTimer.singleShot(50, self.setFocus)
+        """슬라이더 클릭 이벤트 처리 - controls_layout으로 위임"""
+        # 이 메서드는 controls_layout으로 이동됨
+        if hasattr(self, 'controls_layout'):
+            self.controls_layout.slider_clicked(value)
+        else:
+            print("Controls layout not initialized")
 
     def slider_pressed(self):
-        """슬라이더를 드래그하기 시작할 때 호출됩니다."""
-        self.is_slider_dragging = True
+        """슬라이더 드래그 시작 이벤트 처리 - controls_layout으로 위임"""
+        # 이 메서드는 controls_layout으로 이동됨
+        if hasattr(self, 'controls_layout'):
+            self.controls_layout.slider_pressed()
+        else:
+            print("Controls layout not initialized")
 
     def slider_released(self):
-        """슬라이더 드래그 종료 처리"""
-        self.is_slider_dragging = False
-        
-        # 비디오 처리
-        if self.current_media_type == 'video':
-            try:
-                value = self.playback_slider.value()
-                seconds = value / 1000.0  # 밀리초를 초 단위로 변환
-                self.video_handler.seek(seconds)
-            except Exception as e:
-                print(f"비디오 Seek 오류: {e}")
-        
-        # 애니메이션 처리
-        elif self.current_media_type in ['gif_animation', 'webp_animation'] and hasattr(self, 'animation_handler'):
-            try:
-                value = self.playback_slider.value()
-                self.animation_handler.seek_to_frame(value)
-            except Exception as e:
-                print(f"애니메이션 Seek 오류: {e}")
+        """슬라이더 드래그 종료 이벤트 처리 - controls_layout으로 위임"""
+        # 이 메서드는 controls_layout으로 이동됨
+        if hasattr(self, 'controls_layout'):
+            self.controls_layout.slider_released()
+        else:
+            print("Controls layout not initialized")
 
     def seek_video(self, value):
         """슬라이더 값에 따라 비디오 재생 위치를 변경합니다."""

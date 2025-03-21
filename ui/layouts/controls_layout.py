@@ -270,4 +270,45 @@ class ControlsLayout(QWidget):
         # 버튼 클릭 후 약간의 지연을 두고 창에 포커스를 돌려줌
         self.parent.create_single_shot_timer(50, self.parent.setFocus)
 
+    def slider_clicked(self, value):
+        """슬라이더를 클릭하면 해당 위치로 이동"""
+        # 비디오 처리
+        if self.parent.current_media_type == 'video':
+            # 슬라이더 값을 초 단위로 변환 (value는 밀리초 단위)
+            seconds = value / 1000.0  # 밀리초를 초 단위로 변환
+            self.parent.video_handler.seek(seconds)
+        # 애니메이션 처리
+        elif self.parent.current_media_type in ['gif_animation', 'webp_animation'] and hasattr(self.parent, 'animation_handler'):
+            # AnimationHandler를 통해 프레임 이동
+            self.parent.animation_handler.seek_to_frame(value)
+        
+        # 슬라이더 클릭 후 포커스를 다시 메인 창으로 설정
+        from PyQt5.QtCore import QTimer
+        QTimer.singleShot(50, self.parent.setFocus)
+
+    def slider_pressed(self):
+        """슬라이더를 드래그하기 시작할 때 호출됩니다."""
+        self.parent.is_slider_dragging = True
+
+    def slider_released(self):
+        """슬라이더 드래그 종료 처리"""
+        self.parent.is_slider_dragging = False
+        
+        # 비디오 처리
+        if self.parent.current_media_type == 'video':
+            try:
+                value = self.parent.playback_slider.value()
+                seconds = value / 1000.0  # 밀리초를 초 단위로 변환
+                self.parent.video_handler.seek(seconds)
+            except Exception as e:
+                print(f"비디오 Seek 오류: {e}")
+        
+        # 애니메이션 처리
+        elif self.parent.current_media_type in ['gif_animation', 'webp_animation'] and hasattr(self.parent, 'animation_handler'):
+            try:
+                value = self.parent.playback_slider.value()
+                self.parent.animation_handler.seek_to_frame(value)
+            except Exception as e:
+                print(f"애니메이션 Seek 오류: {e}")
+
     # 여기에 main.py에서 옮겨올 메서드들이 추가될 예정 
