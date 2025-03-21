@@ -309,3 +309,91 @@ class WindowHandler(QObject):
         
         # 창 포커스 설정 (이벤트 처리 개선)
         QTimer.singleShot(50, self.parent.setFocus) 
+
+    def close_event(self, event):
+        """
+        애플리케이션 종료 시 필요한 정리 작업을 수행합니다.
+        """
+        print("프로그램 종료 처리 시작...")
+        
+        # 디버깅을 위한 초기 상태 확인
+        if hasattr(self.parent, 'debug_mode') and self.parent.debug_mode:
+            self.parent.debug_qmovie_before_cleanup()
+        
+        # 현재 미디어 리소스 정리
+        self.parent.cleanup_current_media()
+        
+        # PSD 핸들러 언로드
+        if hasattr(self.parent, 'psd_handler') and self.parent.psd_handler:
+            self.parent.psd_handler.unload()
+            
+        # 이미지 캐시 정리
+        if hasattr(self.parent, 'image_cache') and self.parent.image_cache:
+            print("이미지 캐시 정리 시작...")
+            self.parent.image_cache.clear()
+            print("이미지 캐시 정리 완료")
+            
+        # PSD 캐시 정리
+        if hasattr(self.parent, 'psd_cache') and self.parent.psd_cache:
+            print("PSD 캐시 정리 시작...")
+            self.parent.psd_cache.clear()
+            print("PSD 캐시 정리 완료")
+            
+        # GIF 캐시 정리
+        if hasattr(self.parent, 'gif_cache') and self.parent.gif_cache:
+            print("GIF 캐시 정리 시작...")
+            # 단순화된 QMovie 정리 과정
+            try:
+                from PyQt5.QtGui import QMovie
+                from PyQt5.QtWidgets import QApplication
+                
+                # 캐시에서 QMovie 객체 간단히 확인 및 정리
+                for key, item in list(self.parent.gif_cache.cache.items()):
+                    if isinstance(item, QMovie):
+                        # 기본적인 정리 단계만 수행
+                        item.stop()
+                        item.deleteLater()
+                
+                # 한 번의 이벤트 처리만 수행
+                QApplication.processEvents()
+                
+                # 캐시 비우기
+                self.parent.gif_cache.clear()
+                self.parent.gif_cache = None  # 참조 해제
+            except Exception as e:
+                print(f"GIF 캐시 정리 중 오류: {e}")
+            print("GIF 캐시 정리 완료")
+            
+        # 활성 타이머 정리
+        for timer in list(self.parent.timers):
+            try:
+                if timer.isActive():
+                    timer.stop()
+                timer.deleteLater()
+            except Exception as e:
+                print(f"타이머 정리 오류: {e}")
+        self.parent.timers.clear()  # 타이머 목록 비우기
+        
+        # 싱글샷 타이머 정리 추가
+        for timer in list(self.parent.singleshot_timers):
+            try:
+                if timer.isActive():
+                    timer.stop()
+                timer.deleteLater()
+            except Exception as e:
+                print(f"싱글샷 타이머 정리 오류: {e}")
+        self.parent.singleshot_timers.clear()
+                
+        # 책갈피 저장
+        self.parent.save_bookmarks()
+        
+        # 디버깅을 위한 정리 후 상태 확인
+        if hasattr(self.parent, 'debug_mode') and self.parent.debug_mode:
+            self.parent.debug_qmovie_after_cleanup()
+            
+        # 마지막 정리 작업 후 이벤트 처리를 강제로 수행하여 모든 정리 작업이 완료되도록 함
+        from PyQt5.QtWidgets import QApplication
+        QApplication.processEvents()
+        
+        # 이벤트 처리 계속 (창 닫기)
+        event.accept() 
