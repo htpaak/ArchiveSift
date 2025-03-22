@@ -42,3 +42,12 @@ rotate_image(clockwise):
 delete_current_image():
 책임 혼합: 파일 삭제와 UI 업데이트, 다음 이미지 표시를 모두 처리
 개선 방향: FileOperations에 위임하고 결과만 처리
+
+fix: 버그 수정
+feat: 새로운 기능 추가
+refactor: 코드 리팩토링 (기능 변경 없이 코드 개선)
+perf: 성능 개선
+docs: 문서 수정
+style: 코드 포맷팅, 세미콜론 추가 등 (코드 변경 없음)
+test: 테스트 추가 또는 수정
+chore: 빌드 프로세스, 라이브러리 업데이트 등

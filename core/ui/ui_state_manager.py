@@ -114,25 +114,64 @@ class UIStateManager(QObject):
         # 신호 발생
         self.ui_visibility_changed.emit(self._ui_visibility)
     
+    # UIStateManager 클래스 내 메서드 수정
     def show_ui_temporarily(self):
         """마우스 움직임에 따라 UI를 일시적으로 표시"""
-        # UI 잠금 상태에 상관없이 모든 UI 요소 표시
-        self._update_ui_visibility({
+        # 현재 상태 저장
+        old_visibility = self._ui_visibility.copy()
+        
+        # UI 요소 표시 상태 업데이트
+        new_visibility = {
             'title_bar': True,
             'controls': True,
             'sliders': True
-        })
+        }
+        
+        # 변경사항이 있는지 확인
+        has_changes = False
+        for key, value in new_visibility.items():
+            if key in old_visibility and old_visibility[key] != value:
+                has_changes = True
+                break
+        
+        # 변경사항이 있을 때만 업데이트
+        if has_changes:
+            # 디버깅용 메시지 추가
+            print(f"UI 표시 상태 변경: {old_visibility} → {new_visibility}")
+            self._update_ui_visibility(new_visibility)
+            return True
+        return False
     
     def hide_ui_conditionally(self):
         """UI 잠금 상태에 따라 UI 표시 여부 결정"""
         title_locked = self._get_title_locked()
         bottom_locked = self._get_bottom_locked()
         
-        self._update_ui_visibility({
+        # 현재 상태 저장
+        old_visibility = self._ui_visibility.copy()
+        
+        # 새로운 UI 상태 계산
+        new_visibility = {
             'title_bar': title_locked,
             'controls': bottom_locked,
             'sliders': bottom_locked
-        })
+        }
+        
+        # 변경사항이 있는지 확인 - 이전 로직 개선
+        has_changes = False
+        changed_keys = []
+        for key, value in new_visibility.items():
+            if key in old_visibility and old_visibility[key] != value:
+                has_changes = True
+                changed_keys.append(key)
+        
+        # 변경사항이 있을 때만 업데이트
+        if has_changes:
+            # 디버깅용 메시지 추가
+            print(f"UI 숨김 상태 변경: {old_visibility} → {new_visibility}, 변경된 키: {changed_keys}")
+            self._update_ui_visibility(new_visibility)
+            return True
+        return False
     
     def update_ui_for_media_type(self, media_type):
         """

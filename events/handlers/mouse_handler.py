@@ -115,14 +115,16 @@ class MouseHandler(QObject):
         
         Args:
             show_temporary: 일시적으로 UI를 표시할지 여부
+            
+        Returns:
+            bool: UI 상태가 실제로 변경되었으면 True, 아니면 False
         """
         # UI 상태 관리자가 있으면 위임
         if hasattr(self.parent, 'ui_state_manager'):
             if show_temporary:
-                self.parent.ui_state_manager.show_ui_temporarily()
+                return self.parent.ui_state_manager.show_ui_temporarily()
             else:
-                self.parent.ui_state_manager.hide_ui_conditionally()
-            return True
+                return self.parent.ui_state_manager.hide_ui_conditionally()
         return False
 
     def event_filter(self, obj, event):
