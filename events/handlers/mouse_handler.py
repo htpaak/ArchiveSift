@@ -35,22 +35,8 @@ class MouseHandler(QObject):
         Args:
             delta (int): 휠 스크롤 값 (양수: 위로, 음수: 아래로)
         """
-        # 현재 미디어 타입 확인
-        current_media_type = getattr(self.parent, 'current_media_type', 'unknown')
-        
-        # 애니메이션이나 비디오 재생 중인 경우 필요한 정리 작업 수행
-        if current_media_type in ['gif_animation', 'webp_animation', 'video']:
-            # 비디오 재생 중인 경우
-            if current_media_type == 'video':
-                # 비디오 중지
-                self.parent.stop_video()
-            
-            # 애니메이션 재생 중인 경우 (GIF/WEBP)
-            elif current_media_type in ['gif_animation', 'webp_animation']:
-                # 리소스 정리를 위해 먼저 cleanup_current_media 호출
-                self.parent.cleanup_current_media()
-        
-        # 방향 체크 후 이미지 전환
+        # 휠 방향 체크 후 이미지 전환
+        # 정리 작업은 show_image 내부에서 처리됩니다
         if delta > 0:
             # 휠을 위로 돌린 경우 - 이전 이미지
             self.parent.show_previous_image()
@@ -84,22 +70,8 @@ class MouseHandler(QObject):
             event.accept()  # 이벤트 처리됨으로 표시하고 무시
             return
         
-        # 현재 미디어 타입 확인
-        current_media_type = getattr(self.parent, 'current_media_type', 'unknown')
-        
-        # 애니메이션이나 비디오 재생 중인 경우 필요한 정리 작업 수행
-        if current_media_type in ['gif_animation', 'webp_animation', 'video']:
-            # 비디오 재생 중인 경우
-            if current_media_type == 'video':
-                # 비디오 중지
-                self.parent.stop_video()
-            
-            # 애니메이션 재생 중인 경우 (GIF/WEBP)
-            elif current_media_type in ['gif_animation', 'webp_animation']:
-                # 리소스 정리를 위해 먼저 cleanup_current_media 호출
-                self.parent.cleanup_current_media()
-        
         # 방향 체크 후 이미지 전환
+        # 정리 작업은 show_image 내부에서 처리됩니다
         if event.angleDelta().y() > 0:
             # 휠을 위로 돌린 경우 - 이전 이미지
             self.parent.show_previous_image()

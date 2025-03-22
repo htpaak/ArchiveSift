@@ -193,17 +193,10 @@ class KeyboardHandler:
             # 현재 미디어 타입 확인
             current_media_type = getattr(self.parent, 'current_media_type', 'unknown')
             
-            # 애니메이션이나 비디오 재생 중인 경우 필요한 정리 작업 수행
-            if current_media_type in ['gif_animation', 'webp_animation', 'video']:
-                # 비디오 재생 중인 경우
-                if current_media_type == 'video':
-                    # 비디오 중지
-                    self.parent.stop_video()
-                
-                # 애니메이션 재생 중인 경우 (GIF/WEBP)
-                elif current_media_type in ['gif_animation', 'webp_animation']:
-                    # 리소스 정리를 위해 먼저 cleanup_current_media 호출
-                    self.parent.cleanup_current_media()
+            # 비디오 플레이어 정지만 수행 (정리는 show_image 내부에서 처리)
+            if current_media_type == 'video':
+                # 비디오 중지
+                self.parent.stop_video()
             
             return True  # 준비 작업 수행됨
         

@@ -95,6 +95,9 @@ class ImageViewer(QWidget):
         if not os.path.exists(app_data_dir):
             os.makedirs(app_data_dir)
         
+        # 경계 내비게이션 플래그 초기화
+        self.is_boundary_navigation = False
+        
         # 변수 초기화
         self.image_files = []  # 이미지 파일 목록
         self.current_index = 0  # 현재 표시 중인 이미지 인덱스 (0으로 초기화)
@@ -677,36 +680,9 @@ class ImageViewer(QWidget):
         Args:
             delta (int): 휠 스크롤 값 (양수: 위로, 음수: 아래로)
         """
-        # 현재 미디어 타입 확인
-        current_media_type = getattr(self, 'current_media_type', 'unknown')
-        
-        # 애니메이션이나 비디오 재생 중인 경우 필요한 정리 작업 수행
-        if current_media_type in ['gif_animation', 'webp_animation', 'video']:
-            # 비디오 재생 중인 경우
-            if current_media_type == 'video':
-                # 비디오 중지
-                self.stop_video()
-            
-            # 애니메이션 재생 중인 경우 (GIF/WEBP)
-            elif current_media_type in ['gif_animation', 'webp_animation']:
-                # 리소스 정리를 위해 먼저 cleanup_current_media 호출
-                self.cleanup_current_media()
-                # 스크롤 방향에 따라 이미지 변경 위치 선택
-                if delta > 0:
-                    # 휠을 위로 돌린 경우 - 이전 이미지
-                    self.show_previous_image()
-                else:
-                    # 휠을 아래로 돌린 경우 - 다음 이미지
-                    self.show_next_image()
-                return
-        
-        # 일반 이미지인 경우 또는 다른 타입
-        if delta > 0:
-            # 휠을 위로 돌린 경우 - 이전 이미지
-            self.show_previous_image()
-        else:
-            # 휠을 아래로 돌린 경우 - 다음 이미지
-            self.show_next_image()
+        # 마우스 핸들러로 휠 이벤트 위임
+        # 경계 이동 처리 및 리소스 정리는 show_image 내부에서 처리됩니다
+        self.mouse_handler.handle_wheel_event(delta)
 
     def delete_current_image(self):
         """
@@ -907,8 +883,14 @@ class ImageViewer(QWidget):
         """미디어 로딩 전 준비 작업"""
         print(f"\n========= 이미지 로드 시작: {os.path.basename(image_path)} =========")
         
-        # 기존 미디어 리소스 정리
-        self.cleanup_current_media()
+        # 경계 내비게이션인 경우 리소스 정리를 건너뜁니다
+        if self.is_boundary_navigation:
+            print("경계 내비게이션으로 인한 리소스 정리 건너뛰기")
+            # 플래그 초기화
+            self.is_boundary_navigation = False
+        else:
+            # 일반적인 경우 리소스 정리 수행
+            self.cleanup_current_media()
 
         # 이미지 크기 확인
         image_size_mb = 0
@@ -1266,15 +1248,26 @@ class ImageViewer(QWidget):
     def show_next_image(self):
         """다음 이미지로 이동합니다."""
         print("\n=== 다음 이미지 로드 시작 ===")
-        self.handle_navigation('next')
+        success, next_image = self.file_navigator.next_file()
+        if success and next_image:
+            self.current_index = self.file_navigator.get_current_index()  # 인덱스 동기화
+            self.show_image(next_image)
+        else:
+            # 경계 도달 - 플래그 설정
+            self.is_boundary_navigation = True
+            print("다음 이미지 로드 실패 - 경계 도달")
         print("=== 다음 이미지 로드 종료 ===\n")
 
     def show_previous_image(self):
-        """이전 이미지로 이동합니다."""
-        print("\n=== 이전 이미지 로드 시작 ===")
-        self.handle_navigation('previous')
-        print("=== 이전 이미지 로드 종료 ===\n")
-        
+        success, prev_image = self.file_navigator.previous_file()
+        if success and prev_image:
+            self.current_index = self.file_navigator.get_current_index()  # 인덱스 동기화
+            self.show_image(prev_image)
+        else:
+            # 경계 도달 - 플래그 설정
+            self.is_boundary_navigation = True
+            print("이전 이미지 로드 실패 - 경계 도달")
+
     def handle_navigation(self, direction):
         """이미지 탐색 로직을 처리합니다.
         
@@ -1293,6 +1286,9 @@ class ImageViewer(QWidget):
             self.image_files = self.file_navigator.get_files()
             print(f"이미지 목록 동기화됨: {len(self.image_files)} 파일")
         
+        # 경계 내비게이션 플래그 초기화
+        self.is_boundary_navigation = False
+        
         # 탐색 방향에 따라 적절한 메서드 호출
         if direction == 'next':
             success, image_path = self.file_navigator.next_file()
@@ -1309,14 +1305,9 @@ class ImageViewer(QWidget):
             print(f"새 인덱스: {self.current_index}")
             self.show_image(image_path)
         else:
-            print(f"{direction_text} 이미지 로드 실패")
-
-    # 이전 이미지를 보여주는 메서드입니다.
-    def show_previous_image(self):
-        success, prev_image = self.file_navigator.previous_file()
-        if success and prev_image:
-            self.current_index = self.file_navigator.get_current_index()  # 인덱스 동기화
-            self.show_image(prev_image)
+            # 경계 도달 - 플래그 설정
+            self.is_boundary_navigation = True
+            print(f"{direction_text} 이미지 로드 실패 - 경계 도달")
 
     def show_message(self, message):
         if hasattr(self, 'message_label') and self.message_label.isVisible():
