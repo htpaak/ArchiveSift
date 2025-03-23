@@ -172,13 +172,13 @@ class KeyboardHandler:
             self.parent.toggle_fullscreen()
             return True  # 키 처리 완료
         
-        # Ctrl+D: 디버깅 모드 토글
-        if key == Qt.Key_D and modifiers == Qt.ControlModifier:
+        # Ctrl+D: 디버깅 모드 켜기/끄기
+        elif key == Qt.Key_D and modifiers == Qt.ControlModifier:
             self.parent.toggle_debug_mode()
             return True
             
         # Ctrl+G: QMovie 참조 그래프 생성
-        if key == Qt.Key_G and modifiers == Qt.ControlModifier:
+        elif key == Qt.Key_G and modifiers == Qt.ControlModifier:
             self.parent.generate_qmovie_reference_graph()
             return True
             

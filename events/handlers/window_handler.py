@@ -325,8 +325,8 @@ class WindowHandler(QObject):
         print("프로그램 종료 처리 시작...")
         
         # 디버깅을 위한 초기 상태 확인
-        if hasattr(self.parent, 'debug_mode') and self.parent.debug_mode:
-            self.parent.debug_qmovie_before_cleanup()
+        if hasattr(self.parent, 'qmovie_debugger') and self.parent.qmovie_debugger.is_debug_mode():
+            self.parent.qmovie_debugger.debug_qmovie_before_cleanup()
         
         # 현재 미디어 리소스 정리
         self.parent.cleanup_current_media()
@@ -402,8 +402,8 @@ class WindowHandler(QObject):
         self.parent.save_bookmarks()
         
         # 디버깅을 위한 정리 후 상태 확인
-        if hasattr(self.parent, 'debug_mode') and self.parent.debug_mode:
-            self.parent.debug_qmovie_after_cleanup()
+        if hasattr(self.parent, 'qmovie_debugger') and self.parent.qmovie_debugger.is_debug_mode():
+            self.parent.qmovie_debugger.debug_qmovie_after_cleanup()
             
         # 마지막 정리 작업 후 이벤트 처리를 강제로 수행하여 모든 정리 작업이 완료되도록 함
         from PyQt5.QtWidgets import QApplication

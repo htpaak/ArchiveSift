@@ -105,6 +105,9 @@ if os.path.exists(dll_path):
 # MPV 모듈 import (경로 설정 후에 가능)
 import mpv  # 비디오 재생 라이브러리 (고성능 미디어 플레이어)
 
+# 디버깅 모듈
+from core.debug import QMovieDebugger, MemoryProfiler
+
 # 메인 이미지 뷰어 클래스 정의
 class ImageViewer(QWidget):
     def __init__(self):
@@ -155,6 +158,12 @@ class ImageViewer(QWidget):
         
         # 북마크 관리자, 회전 관리자 및 UI 잠금 관리자 초기화
         self.bookmark_manager = BookmarkManager(self)
+        
+        # 디버깅 관련 인스턴스 생성
+        self.qmovie_debugger = QMovieDebugger(self)
+        self.memory_profiler = MemoryProfiler()
+        
+        # 회전 관리자 초기화
         self.rotation_manager = RotationManager()
         self.rotation_ui = RotationUI(self, self.rotation_manager)
         self.ui_lock_manager = UILockManager()
@@ -2090,165 +2099,88 @@ class ImageViewer(QWidget):
 
     def toggle_debug_mode(self):
         """디버깅 모드를 켜고 끕니다."""
-        import gc
-        import objgraph
-        
-        if not hasattr(self, 'debug_mode'):
-            self.debug_mode = False
-            
-        self.debug_mode = not self.debug_mode
-        print(f"디버깅 모드: {'켜짐' if self.debug_mode else '꺼짐'}")
-        
-        # 디버깅 모드가 켜진 경우 현재 QMovie 객체 상태 출력
-        if self.debug_mode:
-            self.debug_qmovie_status()
-            
-    def debug_qmovie_status(self):
-        """현재 QMovie 객체 상태를 출력합니다."""
-        import gc
-        import objgraph
-        from PyQt5.QtGui import QMovie
-        import types
-        
-        print("\n===== QMovie 객체 상태 =====")
-        # QMovie 객체 수 확인
-        try:
-            movie_count = objgraph.count('QMovie')
-            print(f"QMovie 객체 수: {movie_count}")
-        except Exception as e:
-            print(f"objgraph로 QMovie 객체 수 확인 중 오류: {e}")
-        
-        # 모든 객체에서 QMovie 인스턴스 찾기
-        qmovie_objects = []
-        for obj in gc.get_objects():
-            if isinstance(obj, QMovie):
-                qmovie_objects.append(obj)
-                
-        print(f"gc에서 찾은 QMovie 객체 수: {len(qmovie_objects)}")
-        
-        # 각 QMovie 객체에 대한 참조 출력
-        for i, movie in enumerate(qmovie_objects):
-            print(f"\nQMovie 객체 #{i+1}:")
-            try:
-                print(f"- 파일명: {movie.fileName() if movie.fileName() else '알 수 없음'}")
-                print(f"- 상태: {'실행 중' if movie.state() == QMovie.Running else '중지됨'}")
-            except Exception as e:
-                print(f"QMovie 속성 접근 중 오류: {e}")
-            
-            # 이 객체를 참조하는 객체들 찾기
-            try:
-                referrers = gc.get_referrers(movie)
-                print(f"- 참조하는 객체 수: {len(referrers)}")
-                
-                # 참조하는 객체 유형 분석
-                ref_types = {}
-                for ref in referrers:
-                    ref_type = type(ref).__name__
-                    if ref_type in ref_types:
-                        ref_types[ref_type] += 1
-                    else:
-                        ref_types[ref_type] = 1
-                        
-                print("- 참조 유형:")
-                for ref_type, count in ref_types.items():
-                    print(f"  - {ref_type}: {count}개")
-                
-                # 중요 참조 자세히 출력 (모듈, 함수, 클래스 외의 참조)
-                print("- 중요 참조 상세:")
-                for ref in referrers:
-                    # 함수, 모듈, 클래스, dict, list 등은 건너뛰기
-                    if (isinstance(ref, (types.ModuleType, types.FunctionType, type)) or 
-                            type(ref).__name__ in ['dict', 'list', 'tuple', 'set', 'frame']):
-                        continue
-                        
-                    # LRUCache 객체인지 확인
-                    if type(ref).__name__ == 'LRUCache' or 'Cache' in type(ref).__name__:
-                        print(f"  - 캐시 객체 발견: {type(ref).__name__}")
-                        if hasattr(ref, 'cache'):
-                            print(f"    - 캐시 항목 수: {len(ref.cache)}")
-                            # 캐시 내의 QMovie 객체 찾기
-                            for k, v in ref.cache.items():
-                                if v is movie:
-                                    print(f"    - 캐시 키: {k}")
-                                    
-                    elif hasattr(ref, 'image_label') and hasattr(ref, 'current_movie'):
-                        print(f"  - AnimationHandler 의심 객체: {type(ref).__name__}")
-                        print(f"    - current_movie: {ref.current_movie is movie}")
-                        print(f"    - image_label.movie(): {ref.image_label.movie() is movie if hasattr(ref.image_label, 'movie') else 'N/A'}")
-                    else:
-                        print(f"  - 기타 객체: {type(ref).__name__}")
-                        # 객체의 주요 속성 출력
-                        for attr_name in dir(ref):
-                            if attr_name.startswith('__'):
-                                continue
-                            try:
-                                attr = getattr(ref, attr_name)
-                                if attr is movie:
-                                    print(f"    - 속성: {attr_name} ({type(ref).__name__}.{attr_name} == QMovie)")
-                            except:
-                                pass
-            except Exception as e:
-                print(f"참조 분석 중 오류: {e}")
-        
-        print("\n===== 메모리 상위 객체 =====")
-        try:
-            objgraph.show_most_common_types(limit=10)
-        except Exception as e:
-            print(f"메모리 상위 객체 분석 중 오류: {e}")
-        
-    def debug_qmovie_before_cleanup(self):
-        """정리 전 QMovie 상태를 출력합니다."""
-        print("\n===== 정리 전 QMovie 상태 =====")
-        self.debug_qmovie_status()
-        
-    def debug_qmovie_after_cleanup(self):
-        """정리 후 QMovie 상태를 출력합니다."""
-        import gc
-        # 가비지 컬렉션 강제 실행
-        gc.collect()
-        print("\n===== 정리 후 QMovie 상태 =====")
-        self.debug_qmovie_status()
-        
+        return self.qmovie_debugger.toggle_debug_mode()
+    
+    def perform_garbage_collection(self):
+        """가비지 컬렉션 명시적 수행"""
+        return self.memory_profiler.perform_garbage_collection()
+    
     def generate_qmovie_reference_graph(self):
         """QMovie 객체의 참조 그래프를 생성합니다."""
-        import gc
-        import objgraph
-        from PyQt5.QtGui import QMovie
+        return self.qmovie_debugger.generate_qmovie_reference_graph()
+    
+    # 다른 디버깅 관련 메서드를 제거하고 대체합니다
+    
+    def cleanup_current_media(self):
+        """현재 로드된 미디어 리소스를 정리합니다."""
+        # 디버깅 모드가 활성화된 경우 정리 전 상태 출력
+        if self.qmovie_debugger.is_debug_mode():
+            self.qmovie_debugger.debug_qmovie_before_cleanup()
         
-        # 가비지 컬렉션 강제 실행
-        gc.collect()
+        print("미디어 리소스 정리 시작...")
         
-        # QMovie 객체 찾기
-        qmovie_objects = []
-        for obj in gc.get_objects():
-            if isinstance(obj, QMovie):
-                qmovie_objects.append(obj)
-                
-        if not qmovie_objects:
-            print("QMovie 객체를 찾을 수 없습니다.")
-            return
+        # 비디오 리소스 정리
+        self.cleanup_video_resources()
+        
+        # 애니메이션 리소스 정리
+        self.cleanup_animation_resources()
+        
+        # UI 컴포넌트 초기화
+        self.cleanup_ui_components()
+        
+        # 가비지 컬렉션 수행
+        self.perform_garbage_collection()
             
-        print(f"{len(qmovie_objects)}개의 QMovie 객체 발견, 참조 그래프 생성 중...")
-        
-        try:
-            # 첫 번째 QMovie 객체에 대한 참조 그래프 생성
-            objgraph.show_backrefs(
-                qmovie_objects[0], 
-                max_depth=5, 
-                filename='qmovie_refs.png',
-                filter=lambda x: not isinstance(x, dict)
-            )
-            print("참조 그래프가 'qmovie_refs.png' 파일로 저장되었습니다.")
-        except Exception as e:
-            print(f"참조 그래프 생성 중 오류: {e}")
+        print("미디어 리소스 정리 완료")
 
-        if self.parent.handle_window_management(key, modifiers):
-            return
+        # 디버깅을 위한 정리 후 상태 확인
+        if self.qmovie_debugger.is_debug_mode():
+            self.qmovie_debugger.debug_qmovie_after_cleanup()
         
-        # 7. 파일 관리 처리 (삭제 등)
-        if self.parent.handle_file_management(key):
-            return
+    def cleanup_video_resources(self):
+        """비디오 관련 리소스 정리"""
+        # 비디오 재생 중지
+        self.stop_video()
+        
+    def cleanup_animation_resources(self):
+        """애니메이션 관련 리소스 정리"""
+        # 애니메이션 핸들러 존재 여부 확인
+        animation_handler_exists = hasattr(self, 'animation_handler')
 
+        # 애니메이션 핸들러 리소스 정리 (current_movie 포함)
+        if animation_handler_exists:
+            print("애니메이션 핸들러 정리 시작...")
+            self.animation_handler.cleanup()
+            
+            # 이벤트 처리 루프 실행으로 UI 갱신 및 정리 작업 완료 유도
+            from PyQt5.QtWidgets import QApplication
+            QApplication.processEvents()
+            
+    def cleanup_ui_components(self):
+        """UI 컴포넌트 초기화"""
+        # 이미지 라벨 초기화 - MediaDisplay의 clear_media 메서드 사용
+        if hasattr(self, 'image_label'):
+            print("MediaDisplay 초기화...")
+            # MediaDisplay의 clear_media 메서드 호출
+            self.image_label.clear_media()
+            # 이벤트 프로세싱
+            QApplication.processEvents()
+        
+        # 슬라이더 신호 연결 해제 및 초기화
+        self.disconnect_all_slider_signals()
+        if hasattr(self, 'playback_slider'):
+            self.playback_slider.setRange(0, 0)
+            self.playback_slider.setValue(0)
+
+        # 재생 버튼 상태 초기화
+        if hasattr(self, 'play_button'):
+            self.play_button.set_play_state(True)  # 일시정지 아이콘으로 설정
+        
+        # 시간 레이블 초기화
+        if hasattr(self, 'time_label'):
+            self.time_label.setText("00:00 / 00:00")
+            self.time_label.show()
+            
     def on_ui_visibility_changed(self, visibility_dict):
         """
         UI 요소 가시성 변경 이벤트 처리
