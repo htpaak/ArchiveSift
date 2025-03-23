@@ -61,6 +61,10 @@ from features.ui_lock.ui_lock_manager import UILockManager
 from features.ui_lock.ui_lock_ui import UILockUI
 # UI 상태 관리
 from core.ui.ui_state_manager import UIStateManager  # UI 상태 관리 클래스 추가
+# 버전 정보
+from core.version import get_version_string, get_full_version_string, get_version_info
+# 로깅 시스템
+from core.logger import Logger
 
 # 파일 브라우저 추가
 from file import FileBrowser, FileNavigator
@@ -68,20 +72,33 @@ from file.operations import FileOperations
 
 # MPV DLL 경로를 환경 변수 PATH에 추가 (mpv 모듈 import 전에 필수)
 mpv_path = os.path.join(get_app_directory(), 'mpv')
-print(f"MPV 경로: {mpv_path}")
-dll_path = os.path.join(mpv_path, 'libmpv-2.dll')
-print(f"DLL 파일 존재 여부: {os.path.exists(dll_path)}")
-print(f"DLL 파일 크기: {os.path.getsize(dll_path) if os.path.exists(dll_path) else '파일 없음'}")
+# 로거 인스턴스 생성 (전역 로거)
+logger = Logger("main")
+logger.info(f"애플리케이션 시작 - 버전: {get_version_string()}")
+logger.debug(f"MPV 경로: {mpv_path}")
 
+# MPV 경로가 없으면 생성
 if not os.path.exists(mpv_path):
     os.makedirs(mpv_path, exist_ok=True)
-    print(f"MPV 폴더가 생성되었습니다: {mpv_path}")
+    logger.debug(f"MPV 디렉토리 생성됨: {mpv_path}")
 
-os.environ["PATH"] = mpv_path + os.pathsep + os.environ["PATH"]
+# DLL 파일 확인
+dll_path = os.path.join(mpv_path, 'libmpv-2.dll')
+if os.path.exists(dll_path):
+    dll_size = os.path.getsize(dll_path)
+    logger.debug(f"DLL 파일 존재 여부: True")
+    logger.debug(f"DLL 파일 크기: {dll_size}")
+else:
+    logger.warning(f"DLL 파일이 존재하지 않음: {dll_path}")
 
-# Windows에서는 os.add_dll_directory()가 PATH보다 더 확실한 방법입니다
-if os.path.exists(mpv_path):
-    os.add_dll_directory(mpv_path)
+if mpv_path not in os.environ['PATH']:
+    os.environ['PATH'] = mpv_path + os.pathsep + os.environ['PATH']
+    logger.debug(f"MPV 경로가 PATH 환경변수에 추가됨")
+
+print(f"MPV 경로: {mpv_path}")
+if os.path.exists(dll_path):
+    print(f"DLL 파일 존재 여부: True")
+    print(f"DLL 파일 크기: {os.path.getsize(dll_path)}")
 
 # MPV 모듈 import (경로 설정 후에 가능)
 import mpv  # 비디오 재생 라이브러리 (고성능 미디어 플레이어)
@@ -90,10 +107,17 @@ import mpv  # 비디오 재생 라이브러리 (고성능 미디어 플레이어
 class ImageViewer(QWidget):
     def __init__(self):
         super().__init__()  # 부모 클래스 생성자 호출
+        # 로거 초기화
+        self.logger = Logger("ImageViewer")
+        self.logger.info("ImageViewer 초기화 시작")
+        
         # 앱 데이터 디렉토리 확인 및 생성
         app_data_dir = get_user_data_directory()
         if not os.path.exists(app_data_dir):
-            os.makedirs(app_data_dir)
+            os.makedirs(app_data_dir, exist_ok=True)
+            self.logger.debug(f"애플리케이션 데이터 디렉토리 생성됨: {app_data_dir}")
+        else:
+            self.logger.debug(f"애플리케이션 데이터 디렉토리 확인: {app_data_dir}")
         
         # 경계 내비게이션 플래그 초기화
         self.is_boundary_navigation = False
@@ -2189,10 +2213,14 @@ class ImageViewer(QWidget):
 
 # 메인 함수
 def main():
+    logger.info("애플리케이션 메인 함수 시작")
     app = QApplication(sys.argv)  # Qt 애플리케이션 객체 생성
     viewer = ImageViewer()  # ImageViewer 클래스의 객체 생성
     viewer.show()  # 뷰어 창 표시
-    sys.exit(app.exec_())  # 이벤트 루프 실행
+    logger.info("이미지 뷰어 창 표시됨")
+    exit_code = app.exec_()  # 이벤트 루프 실행
+    logger.info(f"애플리케이션 종료 (코드: {exit_code})")
+    sys.exit(exit_code)
 
 # 프로그램 실행 시 main() 함수 실행
 if __name__ == "__main__":
