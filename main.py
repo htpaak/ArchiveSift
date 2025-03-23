@@ -65,6 +65,8 @@ from core.ui.ui_state_manager import UIStateManager  # UI 상태 관리 클래�
 from core.version import get_version_string, get_full_version_string, get_version_info
 # 로깅 시스템
 from core.logger import Logger
+# 상태 관리 시스템
+from core.state_manager import StateManager
 
 # 파일 브라우저 추가
 from file import FileBrowser, FileNavigator
@@ -119,13 +121,29 @@ class ImageViewer(QWidget):
         else:
             self.logger.debug(f"애플리케이션 데이터 디렉토리 확인: {app_data_dir}")
         
+        # 상태 관리자 초기화
+        self.state_manager = StateManager()
+        self.logger.debug("상태 관리자 초기화 완료")
+        
+        # 기본 상태 설정
+        self.state_manager.set_state("initialized", True)
+        self.state_manager.set_state("app_version", get_version_string())
+        self.state_manager.set_state("app_data_dir", app_data_dir)
+        self.state_manager.set_state("boundary_navigation", True)
+        
+        # 상태 옵저버 등록 (current_index와 current_image_path 상태 변경 감지)
+        self.state_manager.register_observer("current_index", self._on_current_index_changed)
+        self.state_manager.register_observer("current_image_path", self._on_current_image_path_changed)
+        
         # 경계 내비게이션 플래그 초기화
         self.is_boundary_navigation = False
+        self.current_index = 0  # 현재 표시 중인 이미지 인덱스 (0으로 초기화)
+        self.state_manager.set_state("current_index", self.current_index)  # 상태 관리자에도 설정
+        self.current_image_path = ""  # 현재 표시 중인 이미지 경로
+        self.state_manager.set_state("current_image_path", self.current_image_path)  # 상태 관리자에도 설정
         
         # 변수 초기화
         self.image_files = []  # 이미지 파일 목록
-        self.current_index = 0  # 현재 표시 중인 이미지 인덱스 (0으로 초기화)
-        self.current_image_path = ""  # 현재 이미지 경로
         self.base_folder = ""  # 기준 폴더 경로
         self.folder_buttons = []  # 폴더 버튼 목록
         
@@ -805,7 +823,9 @@ class ImageViewer(QWidget):
         folder_path = self.file_browser.open_folder_dialog()
         
         if folder_path:
+            # 파일 브라우저로 폴더 내 이미지 파일 찾기
             self.image_files, self.current_index = self.file_browser.process_folder(folder_path)
+            self.state_manager.set_state("current_index", self.current_index)  # 상태 관리자 업데이트
             
             # 파일 내비게이터에도 파일 목록 설정
             self.file_navigator.set_files(self.image_files, self.current_index)
@@ -1086,33 +1106,45 @@ class ImageViewer(QWidget):
                 print("GIF 애니메이션 크기 조정 실패")
 
     def play_video(self, video_path):
-        """MPV를 사용하여 비디오 재생"""
-        # 비디오 핸들러를 사용하여 비디오 로드
-        result = self.video_handler.load(video_path)
-        if result:
-            # 비디오 정보 업데이트
-            self.current_image_path = video_path
-            self.current_media_type = 'video'
+        """비디오 파일을 재생합니다."""
+        try:
+            # 비디오 핸들러에 로드
+            result = self.video_handler.load(video_path)
             
-            # 슬라이더 초기화 및 설정
-            self.playback_slider.setRange(0, 0)  # 슬라이더 범위를 0으로 설정
-            self.playback_slider.setValue(0)  # 슬라이더 초기값을 0으로 설정
-            
-            # ClickableSlider의 메서드로 비디오 컨트롤에 필요한 시그널 연결
-            self.playback_slider.connect_to_video_control(
-                self.seek_video,
-                self.slider_pressed,
-                self.slider_released,
-                self.slider_clicked
-            )
-            
-            # 재생 버튼 상태 업데이트
-            self.play_button.set_play_state(True)  # 일시정지 아이콘으로 설정
-            
-            # 비디오 재생 시작
-            self.video_handler.play()
-            
-        return result
+            if result:
+                # 현재 이미지 경로 및 미디어 타입 설정
+                self.current_image_path = video_path
+                self.state_manager.set_state("current_image_path", video_path)  # 상태 관리자 업데이트
+                self.current_media_type = 'video'
+                
+                # 슬라이더 초기화 및 설정
+                self.playback_slider.setRange(0, 0)  # 슬라이더 범위를 0으로 설정
+                self.playback_slider.setValue(0)  # 슬라이더 초기값을 0으로 설정
+                
+                # 재생 버튼 상태 업데이트
+                self.play_button.set_play_state(True)  # 일시정지 아이콘으로 설정
+                
+                # 슬라이더에 비디오 컨트롤 연결
+                self.playback_slider.connect_to_video_control(
+                    self.seek_video,
+                    self.slider_pressed,
+                    self.slider_released,
+                    self.slider_clicked
+                )
+                
+                # 비디오 재생
+                self.video_handler.play()
+                
+                # 진행 중 로딩 표시기 숨기기
+                self.hide_loading_indicator()
+                
+                return True
+            return False
+        except Exception as e:
+            print(f"비디오 재생 오류: {str(e)}")
+            self.hide_loading_indicator()
+            self.show_message(f"비디오를 재생할 수 없습니다: {str(e)}")
+            return False
 
     def on_video_end(self, name, value):
         """비디오가 종료될 때 호출되는 메서드입니다."""
@@ -1275,6 +1307,7 @@ class ImageViewer(QWidget):
         success, next_image = self.file_navigator.next_file()
         if success and next_image:
             self.current_index = self.file_navigator.get_current_index()  # 인덱스 동기화
+            self.state_manager.set_state("current_index", self.current_index)  # 상태 관리자 업데이트
             self.show_image(next_image)
         else:
             # 경계 도달 - 플래그 설정
@@ -1286,6 +1319,7 @@ class ImageViewer(QWidget):
         success, prev_image = self.file_navigator.previous_file()
         if success and prev_image:
             self.current_index = self.file_navigator.get_current_index()  # 인덱스 동기화
+            self.state_manager.set_state("current_index", self.current_index)  # 상태 관리자 업데이트
             self.show_image(prev_image)
         else:
             # 경계 도달 - 플래그 설정
@@ -1917,6 +1951,26 @@ class ImageViewer(QWidget):
         # 정보 다이얼로그 표시
         dialog = AboutDialog(self)
         dialog.exec_()
+        
+    def _on_current_index_changed(self, new_value, old_value):
+        """
+        current_index 상태 변경 시 호출되는 옵저버 콜백
+        
+        Args:
+            new_value: 새로운 인덱스 값
+            old_value: 이전 인덱스 값
+        """
+        self.logger.debug(f"현재 인덱스 변경됨: {old_value} → {new_value}")
+        
+    def _on_current_image_path_changed(self, new_value, old_value):
+        """
+        current_image_path a상태 변경 시 호출되는 옵저버 콜백
+        
+        Args:
+            new_value: 새로운 이미지 경로
+            old_value: 이전 이미지 경로
+        """
+        self.logger.debug(f"현재 이미지 경로 변경됨: {os.path.basename(old_value) if old_value else None} → {os.path.basename(new_value) if new_value else None}")
 
     def cleanup_current_media(self):
         """현재 미디어 정리 (이미지, 비디오, 애니메이션 등)"""
@@ -2210,6 +2264,63 @@ class ImageViewer(QWidget):
             # 일정 시간 후 지연 리사이징 실행
             if hasattr(self, 'resize_timer') and not self.resize_timer.isActive():
                 self.resize_timer.start(100)
+
+    def handle_image(self, image_path):
+        """이미지 표시"""
+        try:
+            print(f"\n========= 이미지 로드 시작: {os.path.basename(image_path)} =========")
+            
+            # 이전 미디어 리소스 정리
+            if not self.is_boundary_navigation:
+                self.cleanup_current_media()
+            else:
+                print("경계 내비게이션으로 인한 리소스 정리 건너뛰기")
+            
+            # 파일 형식 감지
+            media_type = self.format_detector.detect_format(image_path)
+            print(f"FormatDetector 감지 결과: {media_type}")
+            
+            # 미디어 타입에 따라 적절한 핸들러 사용
+            if media_type == "image":
+                self.image_handler.load_and_display(image_path)
+            elif media_type == "psd":
+                self.psd_handler.load_and_display(image_path)
+            elif media_type == "gif_animation":
+                self.cleanup_animation()
+                self.animation_handler.load_and_display(image_path, "gif")
+            elif media_type == "webp_animation":
+                self.cleanup_animation()
+                self.animation_handler.load_and_display(image_path, "webp")
+            elif media_type == "webp_image":
+                # WEBP 정적 이미지 처리
+                self.cleanup_animation()
+                result = self.animation_handler.analyze_webp(image_path)
+                
+                if result == "static":
+                    print("정적 WEBP 이미지 처리 시작")
+                    self.image_handler.load_and_display(image_path)
+                else:
+                    self.animation_handler.load_and_display(image_path, "webp")
+                
+                print(f"WEBP 미디어 타입 감지: {result}")
+            else:
+                # 알 수 없는 형식이거나 처리할 수 없는 형식
+                raise ValueError(f"지원하지 않는 파일 형식: {media_type}")
+            
+            # 현재 경로 업데이트
+            self.current_image_path = image_path
+            self.state_manager.set_state("current_image_path", image_path)  # 상태 관리자 업데이트
+            
+            # 진행 중 로딩 표시기 숨기기
+            self.hide_loading_indicator()
+            
+            return True
+        
+        except Exception as e:
+            print(f"이미지 표시 오류: {str(e)}")
+            self.hide_loading_indicator()
+            self.show_message(f"이미지를 표시할 수 없습니다: {str(e)}")
+            return False
 
 # 메인 함수
 def main():
