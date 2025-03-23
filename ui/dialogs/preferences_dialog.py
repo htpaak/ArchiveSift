@@ -7,7 +7,7 @@
 from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
                             QPushButton, QTableWidget, QTableWidgetItem, 
                             QHeaderView, QFrame, QStackedWidget, QWidget)
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QEvent
 from PyQt5.QtGui import QIcon, QKeySequence
 
 from events.handlers.keyboard_handler import KeyInputEdit
@@ -44,7 +44,6 @@ class PreferencesDialog(QDialog):
                 border: 1px solid #ccc;
                 border-radius: 5px;
                 gridline-color: #e0e0e0;
-                alternate-row-color: #f9f9f9;
                 selection-background-color: rgba(52, 73, 94, 1.0);
                 selection-color: white;
             }
@@ -436,13 +435,12 @@ class PreferencesDialog(QDialog):
         # KeyInputEdit 객체에 대한 이벤트 처리
         if obj == self.key_input:
             # 포커스를 잃었을 때만 처리 (Enter 키는 단축키로 등록할 수 있게 변경)
-            if event.type() == Qt.FocusOut:
+            if event.type() == QEvent.FocusOut:
                 
                 if self.editing and self.current_row != -1:
                     # 변경된 키 값 적용
                     key_name = self.table.item(self.current_row, 1).data(Qt.UserRole)
                     
-                    # KeyInputEdit에서 입력된 키 값을 가져와요
                     if self.key_input.key_value is not None:
                         # 키 설정에 새 값 저장
                         self.key_settings[key_name] = self.key_input.key_value
@@ -470,7 +468,7 @@ class PreferencesDialog(QDialog):
                 # 처리 완료
                 return True
             # 키 입력 상자가 보이는 상태에서 Escape 키를 누르면 취소
-            elif event.type() == Qt.KeyPress and event.key() == Qt.Key_Escape:
+            elif event.type() == QEvent.KeyPress and event.key() == Qt.Key_Escape:
                 # 키 입력 취소
                 self.key_input.hide()
                 self.editing = False

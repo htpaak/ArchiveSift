@@ -251,14 +251,45 @@ class KeyboardHandler:
 
     def handle_window_management(self, key, modifiers):
         """창 관리 관련 키를 처리합니다."""
-        if key == self.parent.key_settings.get("toggle_fullscreen", Qt.Key_F11):  # 전체화면 토글 키
+        # 전체화면 토글 - 설정된 단축키 사용
+        toggle_fullscreen_key = self.parent.key_settings.get("toggle_fullscreen", Qt.ControlModifier | Qt.Key_Return)
+        
+        # 단축키가 Ctrl+Enter 형태인지 확인
+        is_ctrl_key = (toggle_fullscreen_key & 0x04000000) > 0  # Qt.ControlModifier는 0x04000000
+        is_alt_key = (toggle_fullscreen_key & 0x08000000) > 0   # Qt.AltModifier는 0x08000000
+        is_shift_key = (toggle_fullscreen_key & 0x02000000) > 0 # Qt.ShiftModifier는 0x02000000
+        
+        # 실제 키 코드 (Ctrl, Alt, Shift 제외)
+        fullscreen_key_code = toggle_fullscreen_key & 0x01FFFFFF
+        
+        # 현재 입력된 모디파이어와 설정된 모디파이어가 일치하는지 확인
+        modifiers_match = True
+        if is_ctrl_key and not (modifiers & Qt.ControlModifier):
+            modifiers_match = False
+        if is_alt_key and not (modifiers & Qt.AltModifier):
+            modifiers_match = False
+        if is_shift_key and not (modifiers & Qt.ShiftModifier):
+            modifiers_match = False
+        if not is_ctrl_key and (modifiers & Qt.ControlModifier):
+            modifiers_match = False
+        if not is_alt_key and (modifiers & Qt.AltModifier):
+            modifiers_match = False
+        if not is_shift_key and (modifiers & Qt.ShiftModifier):
+            modifiers_match = False
+        
+        # 전체화면 단축키 확인
+        if key == fullscreen_key_code and modifiers_match:
             self.parent.toggle_fullscreen()  # 전체화면 모드 전환
             return True
-        elif key == Qt.Key_Escape and self.parent.isFullScreen():  # Escape 키로 전체화면 종료
+        
+        # ESC 키로 전체화면 종료
+        elif key == Qt.Key_Escape and self.parent.isFullScreen():
             self.parent.toggle_fullscreen()  # 전체화면 모드 종료
             return True
-        elif (key == Qt.Key_Return or key == Qt.Key_Enter) and modifiers == Qt.ControlModifier:  # Ctrl+Enter 키로 전체화면 전환
-            self.parent.toggle_fullscreen()  # 전체화면 모드 전환
+            
+        # 최대화 상태 토글 - 설정된 단축키 사용
+        elif key == self.parent.key_settings.get("toggle_maximize_state", Qt.Key_Return):
+            self.parent.toggle_maximize_state()  # 최대화 상태 전환
             return True
             
         return False  # 키 처리 안됨
