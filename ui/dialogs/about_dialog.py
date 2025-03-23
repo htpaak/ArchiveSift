@@ -7,6 +7,7 @@
 from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
                             QPushButton, QScrollArea, QWidget, QFrame)
 from PyQt5.QtCore import Qt
+from core.version import get_version_string, get_full_version_string, get_version_info
 
 class AboutDialog(QDialog):
     """
@@ -25,7 +26,10 @@ class AboutDialog(QDialog):
             parent: 이 창의 부모 창. 보통 메인 창이에요.
         """
         super().__init__(parent)
-        self.setWindowTitle("프로그램 정보")  # 창의 제목을 설정해요
+        # 버전 정보 가져오기
+        version_info = get_version_info()
+        
+        self.setWindowTitle(f"이미지 뷰어 {get_full_version_string()}")  # 창의 제목에 버전 표시
         self.setMinimumWidth(500)  # 창의 최소 너비를 설정해요
         self.setMinimumHeight(400)  # 창의 최소 높이를 설정해요
         
@@ -40,7 +44,7 @@ class AboutDialog(QDialog):
         layout.addWidget(title_label)
         
         # 버전 정보 - 프로그램의 버전과 만든 날짜를 보여줘요
-        version_label = QLabel("버전: 1.1.0 (빌드 날짜: 2025-03-12)")
+        version_label = QLabel(f"버전: {version_info['full_version']} (빌드 날짜: {version_info['build_date']})")
         version_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(version_label)
         
@@ -130,7 +134,9 @@ class AboutDialog(QDialog):
         copyright_label.setStyleSheet("font-size: 11pt;")
         scroll_layout.addWidget(copyright_label)
         
-        copyright_detail = QLabel("© 2025 저작권 소유자. 모든 권리 보유.")
+        # 버전 정보에서 빌드 날짜를 이용하여 연도 추출
+        year = version_info['build_date'].split('-')[0]
+        copyright_detail = QLabel(f"© {year} 저작권 소유자. 모든 권리 보유.")
         copyright_detail.setStyleSheet("margin-left: 15px;")
         copyright_detail.setWordWrap(True)
         scroll_layout.addWidget(copyright_detail)
