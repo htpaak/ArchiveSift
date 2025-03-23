@@ -107,6 +107,8 @@ import mpv  # 비디오 재생 라이브러리 (고성능 미디어 플레이어
 
 # 디버깅 모듈
 from core.debug import QMovieDebugger, MemoryProfiler
+# 메모리 관리 모듈
+from core.memory import ResourceCleaner, TimerManager
 
 # 메인 이미지 뷰어 클래스 정의
 class ImageViewer(QWidget):
@@ -162,6 +164,11 @@ class ImageViewer(QWidget):
         # 디버깅 관련 인스턴스 생성
         self.qmovie_debugger = QMovieDebugger(self)
         self.memory_profiler = MemoryProfiler()
+        
+        # 메모리 관리 인스턴스 생성
+        self.resource_cleaner = ResourceCleaner(self)
+        self.timer_manager = TimerManager(self)
+        self.singleshot_timers = self.timer_manager.singleshot_timers  # 호환성 유지
         
         # 회전 관리자 초기화
         self.rotation_manager = RotationManager()
@@ -1982,120 +1989,29 @@ class ImageViewer(QWidget):
         self.logger.debug(f"현재 이미지 경로 변경됨: {os.path.basename(old_value) if old_value else None} → {os.path.basename(new_value) if new_value else None}")
 
     def cleanup_current_media(self):
-        """현재 미디어 정리 (이미지, 비디오, 애니메이션 등)"""
-        # 디버깅을 위한 초기 상태 확인
-        if hasattr(self, 'debug_mode') and self.debug_mode:
-            self.debug_qmovie_before_cleanup()
-            
-        print("미디어 리소스 정리 시작...")
-        
-        # 비디오 리소스 정리
-        self.cleanup_video_resources()
-        
-        # 애니메이션 리소스 정리
-        self.cleanup_animation_resources()
-        
-        # UI 컴포넌트 초기화
-        self.cleanup_ui_components()
-        
-        # 가비지 컬렉션 수행
-        self.perform_garbage_collection()
-            
-        print("미디어 리소스 정리 완료")
-
-        # 디버깅을 위한 정리 후 상태 확인
-        if hasattr(self, 'debug_mode') and self.debug_mode:
-            self.debug_qmovie_after_cleanup()
-            
+        """현재 로드된 미디어 리소스를 정리합니다."""
+        return self.resource_cleaner.cleanup_current_media()
+    
     def cleanup_video_resources(self):
         """비디오 관련 리소스 정리"""
-        # 비디오 재생 중지
-        self.stop_video()
-        
+        return self.resource_cleaner.cleanup_video_resources()
+    
     def cleanup_animation_resources(self):
         """애니메이션 관련 리소스 정리"""
-        # 애니메이션 핸들러 존재 여부 확인
-        animation_handler_exists = hasattr(self, 'animation_handler')
-
-        # 애니메이션 핸들러 리소스 정리 (current_movie 포함)
-        if animation_handler_exists:
-            print("애니메이션 핸들러 정리 시작...")
-            self.animation_handler.cleanup()
-            
-            # 이벤트 처리 루프 실행으로 UI 갱신 및 정리 작업 완료 유도
-            from PyQt5.QtWidgets import QApplication
-            QApplication.processEvents()
-            
+        return self.resource_cleaner.cleanup_animation_resources()
+    
     def cleanup_ui_components(self):
         """UI 컴포넌트 초기화"""
-        # 이미지 라벨 초기화 - MediaDisplay의 clear_media 메서드 사용
-        if hasattr(self, 'image_label'):
-            print("MediaDisplay 초기화...")
-            # MediaDisplay의 clear_media 메서드 호출
-            self.image_label.clear_media()
-            # 이벤트 프로세싱
-            QApplication.processEvents()
-        
-        # 슬라이더 신호 연결 해제 및 초기화
-        self.disconnect_all_slider_signals()
-        if hasattr(self, 'playback_slider'):
-            self.playback_slider.setRange(0, 0)
-            self.playback_slider.setValue(0)
-
-        # 재생 버튼 상태 초기화
-        if hasattr(self, 'play_button'):
-            self.play_button.set_play_state(True)  # 일시정지 아이콘으로 설정
-        
-        # 시간 레이블 초기화
-        if hasattr(self, 'time_label'):
-            self.time_label.setText("00:00 / 00:00")
-            self.time_label.show()
-            
-    def perform_garbage_collection(self):
-        """가비지 컬렉션 명시적 수행"""
-        try:
-            import gc
-            gc.collect()
-            print("가비지 컬렉션 실행 완료")
-        except Exception as e:
-            print(f"가비지 컬렉션 호출 중 오류: {e}")
-            
+        return self.resource_cleaner.cleanup_ui_components()
+    
+    # 타이머 관련 메서드를 위임
     def create_single_shot_timer(self, timeout, callback):
-        """
-        싱글샷 타이머를 생성하고 추적합니다.
-        
-        Args:
-            timeout (int): 타이머 실행 지연 시간 (밀리초)
-            callback (callable): 타이머 만료 시 실행할 콜백 함수
-            
-        Returns:
-            QTimer: 생성된 타이머 객체
-        """
-        timer = QTimer(self)
-        timer.setSingleShot(True)
-        timer.timeout.connect(lambda: self._handle_single_shot_timeout(timer, callback))
-        timer.start(timeout)
-        
-        # 타이머 추적 리스트에 추가
-        self.singleshot_timers.append(timer)
-        return timer
+        """싱글샷 타이머를 생성하고 추적합니다."""
+        return self.timer_manager.create_single_shot_timer(timeout, callback)
     
     def _handle_single_shot_timeout(self, timer, callback):
-        """
-        싱글샷 타이머의 타임아웃을 처리합니다.
-        
-        Args:
-            timer (QTimer): 만료된 타이머
-            callback (callable): 실행할 콜백 함수
-        """
-        try:
-            # 콜백 실행
-            callback()
-        finally:
-            # 타이머 정리
-            if timer in self.singleshot_timers:
-                self.singleshot_timers.remove(timer)
-            timer.deleteLater()
+        """싱글샷 타이머의 타임아웃을 처리합니다."""
+        return self.timer_manager._handle_single_shot_timeout(timer, callback)
 
     def toggle_debug_mode(self):
         """디버깅 모드를 켜고 끕니다."""
@@ -2111,76 +2027,6 @@ class ImageViewer(QWidget):
     
     # 다른 디버깅 관련 메서드를 제거하고 대체합니다
     
-    def cleanup_current_media(self):
-        """현재 로드된 미디어 리소스를 정리합니다."""
-        # 디버깅 모드가 활성화된 경우 정리 전 상태 출력
-        if self.qmovie_debugger.is_debug_mode():
-            self.qmovie_debugger.debug_qmovie_before_cleanup()
-        
-        print("미디어 리소스 정리 시작...")
-        
-        # 비디오 리소스 정리
-        self.cleanup_video_resources()
-        
-        # 애니메이션 리소스 정리
-        self.cleanup_animation_resources()
-        
-        # UI 컴포넌트 초기화
-        self.cleanup_ui_components()
-        
-        # 가비지 컬렉션 수행
-        self.perform_garbage_collection()
-            
-        print("미디어 리소스 정리 완료")
-
-        # 디버깅을 위한 정리 후 상태 확인
-        if self.qmovie_debugger.is_debug_mode():
-            self.qmovie_debugger.debug_qmovie_after_cleanup()
-        
-    def cleanup_video_resources(self):
-        """비디오 관련 리소스 정리"""
-        # 비디오 재생 중지
-        self.stop_video()
-        
-    def cleanup_animation_resources(self):
-        """애니메이션 관련 리소스 정리"""
-        # 애니메이션 핸들러 존재 여부 확인
-        animation_handler_exists = hasattr(self, 'animation_handler')
-
-        # 애니메이션 핸들러 리소스 정리 (current_movie 포함)
-        if animation_handler_exists:
-            print("애니메이션 핸들러 정리 시작...")
-            self.animation_handler.cleanup()
-            
-            # 이벤트 처리 루프 실행으로 UI 갱신 및 정리 작업 완료 유도
-            from PyQt5.QtWidgets import QApplication
-            QApplication.processEvents()
-            
-    def cleanup_ui_components(self):
-        """UI 컴포넌트 초기화"""
-        # 이미지 라벨 초기화 - MediaDisplay의 clear_media 메서드 사용
-        if hasattr(self, 'image_label'):
-            print("MediaDisplay 초기화...")
-            # MediaDisplay의 clear_media 메서드 호출
-            self.image_label.clear_media()
-            # 이벤트 프로세싱
-            QApplication.processEvents()
-        
-        # 슬라이더 신호 연결 해제 및 초기화
-        self.disconnect_all_slider_signals()
-        if hasattr(self, 'playback_slider'):
-            self.playback_slider.setRange(0, 0)
-            self.playback_slider.setValue(0)
-
-        # 재생 버튼 상태 초기화
-        if hasattr(self, 'play_button'):
-            self.play_button.set_play_state(True)  # 일시정지 아이콘으로 설정
-        
-        # 시간 레이블 초기화
-        if hasattr(self, 'time_label'):
-            self.time_label.setText("00:00 / 00:00")
-            self.time_label.show()
-            
     def on_ui_visibility_changed(self, visibility_dict):
         """
         UI 요소 가시성 변경 이벤트 처리
