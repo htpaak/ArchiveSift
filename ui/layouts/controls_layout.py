@@ -67,18 +67,9 @@ class ControlsLayout(QWidget):
                 
         # 비디오 처리
         elif self.parent.current_media_type == 'video':
-            try:
-                # VideoHandler를 사용하여 재생 상태 확인 및 토글
-                is_playing = self.parent.video_handler.is_video_playing()
-                if is_playing:
-                    self.parent.video_handler.pause()  # 재생 중이면 일시정지
-                else:
-                    self.parent.video_handler.play()  # 일시정지 중이면 재생
-                # 버튼 상태 업데이트
-                self.update_play_button()
-            except Exception as e:
-                print(f"비디오 재생/일시정지 토글 오류: {e}")
-                pass  # 예외 발생 시 무시
+            if hasattr(self.parent, 'video_handler'):
+                # VideoHandler의 toggle_video_playback 메서드 사용
+                self.parent.video_handler.toggle_video_playback()
                 
     def toggle_bookmark(self):
         """북마크 토글: 북마크 관리자에 위임"""

@@ -544,3 +544,21 @@ class VideoHandler(MediaHandler):
         except Exception as e:
             print(f"볼륨 조절 오류: {e}")
             return False 
+            
+    def toggle_video_playback(self):
+        """비디오 재생/일시정지를 토글합니다."""
+        try:
+            is_playing = self.is_video_playing()
+            if is_playing:
+                self.pause()  # 재생 중이면 일시정지
+            else:
+                self.play()  # 일시정지 중이면 재생
+            
+            # 버튼 상태 업데이트
+            if self.parent and hasattr(self.parent, 'update_play_button'):
+                self.parent.update_play_button()
+                
+            return True
+        except Exception as e:
+            print(f"비디오 재생/일시정지 토글 오류: {e}")
+            return False 
