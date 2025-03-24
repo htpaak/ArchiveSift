@@ -340,15 +340,60 @@ class VideoHandler(MediaHandler):
         
     def is_muted(self):
         """
-        현재 음소거 상태인지 반환합니다.
+        현재 음소거 상태인지 확인합니다.
         
         Returns:
-            bool: 현재 음소거 상태 (True: 음소거, False: 음소거 해제)
+            bool: 음소거 상태 여부
         """
         if self.mpv_player:
-            try:
-                return self.mpv_player.mute
-            except Exception as e:
-                print(f"음소거 상태 확인 오류: {e}")
-                return None
-        return None 
+            return self.mpv_player.mute
+        return False
+        
+    def play_video(self, video_path):
+        """비디오 파일을 재생합니다."""
+        try:
+            # 비디오 로드
+            result = self.load(video_path)
+            
+            if result:
+                # 현재 이미지 경로 및 미디어 타입 설정
+                if self.parent:
+                    self.parent.current_image_path = video_path
+                    if hasattr(self.parent, 'state_manager') and self.parent.state_manager:
+                        self.parent.state_manager.set_state("current_image_path", video_path)  # 상태 관리자 업데이트
+                    self.parent.current_media_type = 'video'
+                
+                    # 슬라이더 초기화 및 설정
+                    if hasattr(self.parent, 'playback_slider'):
+                        self.parent.playback_slider.setRange(0, 0)  # 슬라이더 범위를 0으로 설정
+                        self.parent.playback_slider.setValue(0)  # 슬라이더 초기값을 0으로 설정
+                    
+                    # 재생 버튼 상태 업데이트
+                    if hasattr(self.parent, 'play_button'):
+                        self.parent.play_button.set_play_state(True)  # 일시정지 아이콘으로 설정
+                    
+                    # 슬라이더에 비디오 컨트롤 연결
+                    if hasattr(self.parent, 'playback_slider'):
+                        self.parent.playback_slider.connect_to_video_control(
+                            self.parent.seek_video,
+                            self.parent.slider_pressed,
+                            self.parent.slider_released,
+                            self.parent.slider_clicked
+                        )
+                
+                # 비디오 재생
+                self.play()
+                
+                # 진행 중 로딩 표시기 숨기기
+                if self.parent and hasattr(self.parent, 'hide_loading_indicator'):
+                    self.parent.hide_loading_indicator()
+                
+                return True
+            return False
+        except Exception as e:
+            print(f"비디오 재생 오류: {str(e)}")
+            if self.parent and hasattr(self.parent, 'hide_loading_indicator'):
+                self.parent.hide_loading_indicator()
+            if self.parent and hasattr(self.parent, 'show_message'):
+                self.parent.show_message(f"비디오를 재생할 수 없습니다: {str(e)}")
+            return False 

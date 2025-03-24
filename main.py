@@ -1055,44 +1055,9 @@ class ImageViewer(QWidget):
 
     def play_video(self, video_path):
         """비디오 파일을 재생합니다."""
-        try:
-            # 비디오 핸들러에 로드
-            result = self.video_handler.load(video_path)
-            
-            if result:
-                # 현재 이미지 경로 및 미디어 타입 설정
-                self.current_image_path = video_path
-                self.state_manager.set_state("current_image_path", video_path)  # 상태 관리자 업데이트
-                self.current_media_type = 'video'
-                
-                # 슬라이더 초기화 및 설정
-                self.playback_slider.setRange(0, 0)  # 슬라이더 범위를 0으로 설정
-                self.playback_slider.setValue(0)  # 슬라이더 초기값을 0으로 설정
-                
-                # 재생 버튼 상태 업데이트
-                self.play_button.set_play_state(True)  # 일시정지 아이콘으로 설정
-                
-                # 슬라이더에 비디오 컨트롤 연결
-                self.playback_slider.connect_to_video_control(
-                    self.seek_video,
-                    self.slider_pressed,
-                    self.slider_released,
-                    self.slider_clicked
-                )
-                
-                # 비디오 재생
-                self.video_handler.play()
-                
-                # 진행 중 로딩 표시기 숨기기
-                self.hide_loading_indicator()
-                
-                return True
-            return False
-        except Exception as e:
-            print(f"비디오 재생 오류: {str(e)}")
-            self.hide_loading_indicator()
-            self.show_message(f"비디오를 재생할 수 없습니다: {str(e)}")
-            return False
+        if self.video_handler:
+            return self.video_handler.play_video(video_path)
+        return False
 
     def on_video_end(self, name, value):
         """비디오가 종료될 때 호출되는 메서드입니다."""
