@@ -215,9 +215,8 @@ class VideoHandler(MediaHandler):
             self.video_duration = 0
             self.video_timer.stop()
             
-            # 부모 클래스(ImageViewer)의 on_video_end 메서드 호출
-            if hasattr(self.parent, 'on_video_end'):
-                self.parent.on_video_end(name, value)
+            # 비디오 종료 처리를 위한 on_video_end 메서드 호출
+            self.on_video_end(name, value)
 
     def play(self):
         """
@@ -397,3 +396,16 @@ class VideoHandler(MediaHandler):
             if self.parent and hasattr(self.parent, 'show_message'):
                 self.parent.show_message(f"비디오를 재생할 수 없습니다: {str(e)}")
             return False 
+            
+    def stop_video_timer(self):
+        """타이머를 중지하는 메서드입니다."""
+        if self.video_timer.isActive():
+            self.video_timer.stop()
+            # parent가 있고 timers 리스트가 있다면 거기서도 제거
+            if self.parent and hasattr(self.parent, 'timers') and self.video_timer in self.parent.timers:
+                self.parent.timers.remove(self.video_timer)
+                
+    def on_video_end(self, name, value):
+        """비디오가 종료될 때 호출되는 메서드입니다."""
+        # 메인 스레드에서 안전하게 타이머를 중지하기 위해 QTimer.singleShot 사용
+        QTimer.singleShot(0, self.stop_video_timer) 

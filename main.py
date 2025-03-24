@@ -1061,12 +1061,14 @@ class ImageViewer(QWidget):
 
     def on_video_end(self, name, value):
         """비디오가 종료될 때 호출되는 메서드입니다."""
-        # 메인 스레드에서 안전하게 타이머를 중지하기 위해 QTimer.singleShot 사용
-        QTimer.singleShot(0, self.stop_video_timer)
+        if self.video_handler:
+            self.video_handler.on_video_end(name, value)
 
     def stop_video_timer(self):
         """타이머를 중지하는 메서드입니다."""
-        if hasattr(self, 'video_timer') and self.video_timer.isActive():
+        if self.video_handler:
+            self.video_handler.stop_video_timer()
+        elif hasattr(self, 'video_timer') and self.video_timer.isActive():
             self.video_timer.stop()
             if self.video_timer in self.timers:
                 self.timers.remove(self.video_timer)
