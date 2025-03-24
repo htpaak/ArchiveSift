@@ -453,16 +453,8 @@ class VideoHandler(MediaHandler):
                 
                 # time_label이 있는 경우 시간 표시 업데이트
                 if hasattr(self.parent, 'time_label'):
-                    # format_time 메서드가 있으면 사용, 없으면 controls_layout에서 가져옴
-                    if hasattr(self.parent, 'format_time'):
-                        format_time_func = self.parent.format_time
-                    elif hasattr(self.parent, 'controls_layout') and hasattr(self.parent.controls_layout, 'format_time'):
-                        format_time_func = self.parent.controls_layout.format_time
-                    else:
-                        # 기본 형식 변환 함수
-                        from core.utils.time_utils import format_time as format_time_func
-                    
-                    self.parent.time_label.setText(f"{format_time_func(position)} / {format_time_func(duration)}")
+                    # self의 format_time 메서드 사용
+                    self.parent.time_label.setText(f"{self.format_time(position)} / {self.format_time(duration)}")
 
             # 현재 위치를 이전 위치로 저장
             if hasattr(self.parent, 'previous_position'):
@@ -473,3 +465,47 @@ class VideoHandler(MediaHandler):
             # 타이머가 활성화되어 있으면 중지
             if hasattr(self.parent, 'video_timer') and self.parent.video_timer.isActive():
                 self.parent.video_timer.stop()  # 타이머 중지 
+                
+    def format_time(self, seconds):
+        """
+        초를 'MM:SS' 형식으로 변환합니다.
+        
+        Args:
+            seconds (float): 변환할 시간(초)
+            
+        Returns:
+            str: 'MM:SS' 형식의 시간 문자열
+        """
+        # core.utils.time_utils의 format_time 함수 사용
+        from core.utils.time_utils import format_time as utils_format_time
+        return utils_format_time(seconds)
+        
+    def adjust_volume(self, volume):
+        """
+        비디오 볼륨을 조절합니다.
+        
+        Args:
+            volume: 볼륨 값 (0-100)
+            
+        Returns:
+            bool: 볼륨 설정 성공 여부
+        """
+        try:
+            # 부모 객체가 있고 볼륨 슬라이더가 있는 경우 현재 슬라이더 값을 사용
+            if self.parent and hasattr(self.parent, 'volume_slider'):
+                volume_value = self.parent.volume_slider.value()
+            else:
+                volume_value = volume
+                
+            # set_volume 메서드를 사용하여 볼륨 설정
+            success = self.set_volume(volume_value)
+            
+            if success:
+                print(f"볼륨 설정 완료: {volume_value}")
+            else:
+                print(f"볼륨 설정 실패: {volume_value}")
+                
+            return success
+        except Exception as e:
+            print(f"볼륨 조절 오류: {e}")
+            return False 
