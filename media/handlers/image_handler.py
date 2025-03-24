@@ -276,3 +276,30 @@ class ImageHandler(MediaHandler):
         # 스케일링된 이미지 표시
         self.display_label.setPixmap(scaled_pixmap)
         print(f"이미지 로드 완료: {os.path.basename(path)}, 크기: {size_mb:.2f}MB") 
+        
+    def handle_image_caching(self, path, image, size_mb):
+        """
+        이미지 캐싱을 처리하는 메서드
+        
+        Args:
+            path: 이미지 파일 경로
+            image: 캐싱할 QPixmap 이미지
+            size_mb: 이미지 크기 (MB)
+        """
+        # 이미지 크기 제한 (메모리 관리)
+        large_image_threshold = 50  # MB 단위
+        
+        # 너무 큰 이미지는 캐시하지 않음
+        if size_mb < large_image_threshold:
+            # 캐시에 이미지 저장 (파일 확장자에 따라 적절한 캐시 선택)
+            file_ext = os.path.splitext(path)[1].lower()
+            
+            if file_ext == '.psd':
+                self.parent.psd_cache.put(path, image, size_mb)
+            elif file_ext in ['.gif', '.webp']:
+                self.parent.gif_cache.put(path, image, size_mb)
+            else:
+                # 원본 이미지를 캐시 (회전하지 않은 상태)
+                self.parent.image_cache.put(path, image, size_mb)
+        else:
+            print(f"크기가 너무 큰 이미지는 캐시되지 않습니다: {os.path.basename(path)} ({size_mb:.2f}MB)") 

@@ -1602,23 +1602,7 @@ class ImageViewer(QWidget):
             
     def handle_image_caching(self, path, image, size_mb):
         """이미지 캐싱을 처리하는 메서드"""
-        # 이미지 크기 제한 (메모리 관리)
-        large_image_threshold = 50  # MB 단위
-        
-        # 너무 큰 이미지는 캐시하지 않음
-        if size_mb < large_image_threshold:
-            # 캐시에 이미지 저장 (파일 확장자에 따라 적절한 캐시 선택)
-            file_ext = os.path.splitext(path)[1].lower()
-            
-            if file_ext == '.psd':
-                self.psd_cache.put(path, image, size_mb)
-            elif file_ext in ['.gif', '.webp']:
-                self.gif_cache.put(path, image, size_mb)
-            else:
-                # 원본 이미지를 캐시 (회전하지 않은 상태)
-                self.image_cache.put(path, image, size_mb)
-        else:
-            print(f"크기가 너무 큰 이미지는 캐시되지 않습니다: {os.path.basename(path)} ({size_mb:.2f}MB)")
+        self.image_handler.handle_image_caching(path, image, size_mb)
     
     def prepare_image_for_display(self, image, size_mb):
         """이미지 변환(회전, 크기 조정)을 처리하는 메서드"""
