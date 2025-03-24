@@ -47,6 +47,16 @@ class AnimationHandler(QObject):
             self.parent.current_media_type = 'gif_animation'
             self.parent.current_image_path = image_path
     
+    def show_webp(self, image_path):
+        """WEBP 애니메이션을 표시합니다."""
+        # AnimationHandler를 통해 WEBP 로드
+        self.load_webp(image_path)
+        
+        # 미디어 타입 설정
+        if self.parent:
+            self.parent.current_media_type = 'webp_animation'
+            self.parent.current_image_path = image_path
+    
     def load_gif(self, file_path):
         """
         GIF 파일을 로드하고 표시합니다.

@@ -1041,12 +1041,7 @@ class ImageViewer(QWidget):
             if hasattr(self, 'controls_layout'):
                 self.controls_layout.connect_animation_handler(self.animation_handler)
         
-        # AnimationHandler를 통해 WEBP 로드
-        self.animation_handler.load_webp(image_path)
-        
-        # 미디어 타입 설정
-        self.current_media_type = 'webp_animation'
-        self.current_image_path = image_path
+        self.animation_handler.show_webp(image_path)
 
     def scale_webp(self):
         """WEBP 애니메이션 크기 조정"""
