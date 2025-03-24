@@ -409,3 +409,18 @@ class VideoHandler(MediaHandler):
         """비디오가 종료될 때 호출되는 메서드입니다."""
         # 메인 스레드에서 안전하게 타이머를 중지하기 위해 QTimer.singleShot 사용
         QTimer.singleShot(0, self.stop_video_timer) 
+        
+    def seek_video(self, value):
+        """슬라이더 값에 따라 비디오 재생 위치를 변경합니다.
+        
+        Args:
+            value: 슬라이더 값 (밀리초 단위)
+        """
+        try:
+            if self.mpv_player:
+                # 슬라이더 값을 초 단위로 변환 (value는 밀리초 단위)
+                seconds = value / 1000.0  # 밀리초를 초 단위로 변환
+                # seek 메서드를 사용하여 정확한 위치로 이동
+                self.seek(seconds)
+        except Exception as e:
+            print(f"비디오 위치 이동 오류: {str(e)}") 

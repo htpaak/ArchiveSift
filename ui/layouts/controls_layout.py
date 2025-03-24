@@ -315,10 +315,13 @@ class ControlsLayout(QWidget):
     def seek_video(self, value):
         """슬라이더 값에 따라 비디오 재생 위치를 변경합니다."""
         if self.parent.is_slider_dragging:
-            # 슬라이더 값을 초 단위로 변환 (value는 밀리초 단위)
-            seconds = value / 1000.0  # 밀리초를 초 단위로 변환
-            # VideoHandler의 seek 함수를 사용하여 정확한 위치로 이동
-            self.parent.video_handler.seek(seconds)
+            try:
+                # 슬라이더 값을 초 단위로 변환 (value는 밀리초 단위)
+                seconds = value / 1000.0  # 밀리초를 초 단위로 변환
+                # VideoHandler의 seek 함수를 사용하여 정확한 위치로 이동
+                self.parent.video_handler.seek(seconds)
+            except Exception as e:
+                print(f"비디오 위치 이동 오류: {str(e)}")
 
     def seek_animation(self, value):
         """슬라이더 값에 따라 애니메이션 재생 위치를 변경합니다."""
