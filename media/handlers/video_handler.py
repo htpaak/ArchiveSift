@@ -423,4 +423,53 @@ class VideoHandler(MediaHandler):
                 # seek 메서드를 사용하여 정확한 위치로 이동
                 self.seek(seconds)
         except Exception as e:
-            print(f"비디오 위치 이동 오류: {str(e)}") 
+            print(f"비디오 위치 이동 오류: {str(e)}")
+            
+    def update_video_playback(self):
+        """비디오의 재생 위치에 따라 슬라이더 값과 시간 표시를 업데이트합니다."""
+        if not self.parent or not hasattr(self.parent, 'is_slider_dragging') or self.parent.is_slider_dragging:
+            return
+            
+        try:
+            position = self.get_position()  # 현재 재생 위치
+            duration = self.get_duration()  # 총 길이
+            
+            # 재생 위치 값이 None인 경우 처리
+            if position is None:
+                return  # 슬라이더 업데이트를 건너뜁니다.
+
+            # 슬라이더 범위 설정
+            if duration is not None and duration > 0 and hasattr(self.parent, 'playback_slider'):
+                # 슬라이더 범위를 밀리초 단위로 설정 (1000으로 곱해서 더 세밀하게)
+                self.parent.playback_slider.setRange(0, int(duration * 1000))
+                
+                # 현재 위치가 duration을 초과하면 0으로 리셋
+                if position >= duration:
+                    self.parent.playback_slider.setValue(0)
+                    self.seek(0)
+                else:
+                    # 슬라이더 값을 밀리초 단위로 설정 (1000으로 곱해서 더 세밀하게)
+                    self.parent.playback_slider.setValue(int(position * 1000))
+                
+                # time_label이 있는 경우 시간 표시 업데이트
+                if hasattr(self.parent, 'time_label'):
+                    # format_time 메서드가 있으면 사용, 없으면 controls_layout에서 가져옴
+                    if hasattr(self.parent, 'format_time'):
+                        format_time_func = self.parent.format_time
+                    elif hasattr(self.parent, 'controls_layout') and hasattr(self.parent.controls_layout, 'format_time'):
+                        format_time_func = self.parent.controls_layout.format_time
+                    else:
+                        # 기본 형식 변환 함수
+                        from core.utils.time_utils import format_time as format_time_func
+                    
+                    self.parent.time_label.setText(f"{format_time_func(position)} / {format_time_func(duration)}")
+
+            # 현재 위치를 이전 위치로 저장
+            if hasattr(self.parent, 'previous_position'):
+                self.parent.previous_position = position
+
+        except Exception as e:
+            print(f"비디오 업데이트 에러: {e}")
+            # 타이머가 활성화되어 있으면 중지
+            if hasattr(self.parent, 'video_timer') and self.parent.video_timer.isActive():
+                self.parent.video_timer.stop()  # 타이머 중지 
