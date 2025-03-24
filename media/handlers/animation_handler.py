@@ -834,3 +834,23 @@ class AnimationHandler(QObject):
                 # 일반 QLabel인 경우 기존 방식으로 이미지 표시
                 self.image_label.setPixmap(scaled_pixmap)
     
+    def scale_webp(self):
+        """WEBP 애니메이션 크기 조정"""
+        if self.parent and self.parent.current_media_type == 'webp_animation':
+            success = self.scale_animation()
+            if success:
+                print("WEBP 애니메이션 크기 조정 완료")
+            else:
+                print("WEBP 애니메이션 크기 조정 실패")
+        return success
+    
+    def scale_gif(self):
+        """GIF 애니메이션 크기 조정"""
+        if self.parent and self.parent.current_media_type == 'gif_animation':
+            success = self.scale_animation()
+            if success:
+                print("GIF 애니메이션 크기 조정 완료")
+            else:
+                print("GIF 애니메이션 크기 조정 실패")
+        return success
+    

@@ -1046,20 +1046,12 @@ class ImageViewer(QWidget):
     def scale_webp(self):
         """WEBP 애니메이션 크기 조정"""
         if self.current_media_type == 'webp_animation' and hasattr(self, 'animation_handler'):
-            success = self.animation_handler.scale_animation()
-            if success:
-                print("WEBP 애니메이션 크기 조정 완료")
-            else:
-                print("WEBP 애니메이션 크기 조정 실패")
+            self.animation_handler.scale_webp()
 
     def scale_gif(self):
         """GIF 애니메이션 크기 조정"""
         if self.current_media_type == 'gif_animation' and hasattr(self, 'animation_handler'):
-            success = self.animation_handler.scale_animation()
-            if success:
-                print("GIF 애니메이션 크기 조정 완료")
-            else:
-                print("GIF 애니메이션 크기 조정 실패")
+            self.animation_handler.scale_gif()
 
     def play_video(self, video_path):
         """비디오 파일을 재생합니다."""
