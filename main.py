@@ -613,10 +613,6 @@ class ImageViewer(QWidget):
 
         self.setFocusPolicy(Qt.StrongFocus)  # 강한 포커스를 설정 (위젯이 포커스를 받을 수 있도록 설정 - 키보드 이벤트 처리용)
 
-        self.cap = None  # 비디오 캡처 객체 초기화 (OpenCV 비디오 캡처)
-        self.timer = QTimer(self)  # 타이머 객체 생성 (비디오 프레임 업데이트용)
-        self.timer.timeout.connect(self.update_video_frame)  # 타이머가 작동할 때마다 update_video_frame 메소드 호출
-
         # 마우스 트래킹 활성화 (마우스 움직임 감지를 위한 설정)
         self.setMouseTracking(True)
         self.image_label.setMouseTracking(True)
@@ -1127,37 +1123,9 @@ class ImageViewer(QWidget):
             return utils_format_time(seconds)
 
     def update_play_button(self):
-        """재생 상태에 따라 버튼 텍스트 업데이트"""
+        """재생 버튼 상태를 업데이트합니다."""
         # 이 메서드는 controls_layout으로 이동했으므로 여기서는 controls_layout의 메서드를 호출
         self.controls_layout.update_play_button()
-
-    def update_video_frame(self):
-        # 비디오에서 프레임을 읽어옵니다.
-        ret, frame = self.cap.read()  # 프레임을 하나 읽어와 ret과 frame에 저장
-
-        if ret:  # 비디오에서 정상적으로 프레임을 읽었으면
-            # OpenCV에서 읽은 BGR 형식을 RGB 형식으로 변환합니다.
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)  # OpenCV는 BGR 형식이므로 RGB로 변환
-
-            # numpy 배열을 QImage로 변환하여 PyQt에서 사용할 수 있도록 만듭니다.
-            height, width, channel = frame.shape  # 이미지의 높이, 너비, 채널 수를 가져옵니다.
-            bytes_per_line = 3 * width  # 한 줄에 필요한 바이트 수 (RGB는 3바이트)
-            qimg = QImage(frame.data, width, height, bytes_per_line, QImage.Format_RGB888)  # numpy 데이터를 QImage로 변환
-
-            # QImage를 QPixmap으로 변환
-            pixmap = QPixmap.fromImage(qimg)  # QImage를 QPixmap으로 변환
-            
-            # 회전 각도가 0이 아니면 회전 적용
-            if hasattr(self, 'current_rotation') and self.current_rotation != 0:
-                transform = QTransform().rotate(self.current_rotation)
-                pixmap = pixmap.transformed(transform, Qt.SmoothTransformation)
-            
-            # 라벨에 표시
-            self.image_label.setPixmap(pixmap.scaled(self.image_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))  
-            # 라벨에 표시된 크기를 라벨 크기에 맞춰 비율을 유지하면서 스무스하게 변환하여 표시
-        else:
-            # 비디오의 끝에 도달하면 첫 번째 프레임으로 돌아갑니다.
-            self.cap.set(cv2.CAP_PROP_POS_FRAMES, 0)  # 비디오의 첫 번째 프레임으로 돌아가기
 
     def update_image_info(self):
         """이미지 정보를 업데이트하고 레이블 크기를 조절합니다."""
