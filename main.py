@@ -856,13 +856,8 @@ class ImageViewer(QWidget):
 
     def stop_video(self):
         """비디오 재생 중지 및 관련 리소스 정리"""
-        self.video_handler.unload()
-        # 슬라이더 값 초기화
-        if hasattr(self, 'playback_slider'):
-            self.playback_slider.setValue(0)
-        # 시간 표시 초기화
-        if hasattr(self, 'time_label'):
-            self.time_label.setText("00:00 / 00:00")
+        if self.video_handler:
+            self.video_handler.stop_video()
 
     def disconnect_all_slider_signals(self):
         """슬라이더의 모든 신호 연결 해제 (이벤트 충돌 방지)"""

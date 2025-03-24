@@ -410,6 +410,16 @@ class VideoHandler(MediaHandler):
         # 메인 스레드에서 안전하게 타이머를 중지하기 위해 QTimer.singleShot 사용
         QTimer.singleShot(0, self.stop_video_timer) 
         
+    def stop_video(self):
+        """비디오 재생 중지 및 관련 리소스 정리"""
+        self.unload()
+        # 슬라이더 값 초기화
+        if self.parent and hasattr(self.parent, 'playback_slider'):
+            self.parent.playback_slider.setValue(0)
+        # 시간 표시 초기화
+        if self.parent and hasattr(self.parent, 'time_label'):
+            self.parent.time_label.setText("00:00 / 00:00")
+        
     def seek_video(self, value):
         """슬라이더 값에 따라 비디오 재생 위치를 변경합니다.
         
