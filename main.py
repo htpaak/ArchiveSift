@@ -975,23 +975,22 @@ class ImageViewer(QWidget):
 
     def load_animation_media(self, image_path, format_type):
         """GIF와 WEBP 애니메이션을 로드하고 표시합니다."""
+        # AnimationHandler가 없는 경우 초기화
+        if not hasattr(self, 'animation_handler'):
+            from media.handlers.animation_handler import AnimationHandler
+            self.animation_handler = AnimationHandler(self.image_label, self)
+            # 애니메이션 핸들러 시그널 연결
+            if hasattr(self, 'controls_layout'):
+                self.controls_layout.connect_animation_handler(self.animation_handler)
+                
+        # 미디어 타입에 따라 적절한 핸들러 메서드 호출
         if format_type == 'gif_image' or format_type == 'gif_animation':
-            # AnimationHandler로 GIF 처리
-            if hasattr(self, 'animation_handler'):
-                detected_type = self.animation_handler.load_gif(image_path)
-                self.current_media_type = detected_type
-            else:
-                # AnimationHandler가 없는 경우 기존 방식으로 처리
-                self.show_gif(image_path) 
+            detected_type = self.animation_handler.load_gif(image_path)
+            self.current_media_type = detected_type
         elif format_type == 'webp_image' or format_type == 'webp_animation':
-            # AnimationHandler로 WEBP 처리
-            if hasattr(self, 'animation_handler'):
-                detected_type = self.animation_handler.load_webp(image_path)
-                self.current_media_type = detected_type
-                print(f"WEBP 미디어 타입 감지: {detected_type}")
-            else:
-                # AnimationHandler가 없는 경우 기존 방식으로 처리
-                self.show_webp(image_path)
+            detected_type = self.animation_handler.load_webp(image_path)
+            self.current_media_type = detected_type
+            print(f"WEBP 미디어 타입 감지: {detected_type}")
 
     def load_static_image(self, image_path, format_type, file_ext):
         """일반 이미지와 PSD 이미지를 로드하고 표시합니다."""
@@ -1014,26 +1013,6 @@ class ImageViewer(QWidget):
         """이미지/미디어 파일 표시 및 관련 UI 업데이트"""
         self.image_handler.show_image(image_path)
 
-    def show_gif(self, image_path):
-        """GIF 애니메이션을 표시합니다."""
-        if not hasattr(self, 'animation_handler'):
-            self.animation_handler = AnimationHandler(self.image_label, self)
-            # 애니메이션 핸들러 시그널 연결
-            if hasattr(self, 'controls_layout'):
-                self.controls_layout.connect_animation_handler(self.animation_handler)
-                
-        self.animation_handler.show_gif(image_path)
-
-    def show_webp(self, image_path):
-        """WEBP 애니메이션을 표시합니다."""
-        if not hasattr(self, 'animation_handler'):
-            self.animation_handler = AnimationHandler(self.image_label, self)
-            # 애니메이션 핸들러 시그널 연결
-            if hasattr(self, 'controls_layout'):
-                self.controls_layout.connect_animation_handler(self.animation_handler)
-        
-        self.animation_handler.show_webp(image_path)
-
     def scale_webp(self):
         """WEBP 애니메이션 크기 조정"""
         if self.current_media_type == 'webp_animation' and hasattr(self, 'animation_handler'):
@@ -1046,14 +1025,13 @@ class ImageViewer(QWidget):
 
     def play_video(self, video_path):
         """비디오 파일을 재생합니다."""
-        if self.video_handler:
-            return self.video_handler.play_video(video_path)
-        return False
+        # VideoHandler에 비디오 재생 위임
+        self.video_handler.play_video(video_path)
 
     def on_video_end(self, name, value):
-        """비디오가 종료될 때 호출되는 메서드입니다."""
-        if self.video_handler:
-            self.video_handler.on_video_end(name, value)
+        """비디오 재생이 종료되면 호출되는 핸들러"""
+        # VideoHandler에 이벤트 위임
+        self.video_handler.on_video_end(name, value)
 
     def stop_video_timer(self):
         """타이머를 중지하는 메서드입니다."""
