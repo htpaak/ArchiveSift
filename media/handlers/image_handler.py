@@ -210,4 +210,69 @@ class ImageHandler(MediaHandler):
             self.parent.current_media_type = 'unknown'  # 미디어 타입 업데이트
         
         # 미디어 로딩 후 최종 처리
-        self.parent.finalize_media_loading(image_path) 
+        self.parent.finalize_media_loading(image_path)
+
+    def prepare_image_for_display(self, image, size_mb):
+        """
+        이미지 변환(회전, 크기 조정)을 처리하는 메서드
+        
+        Args:
+            image: 표시할 QPixmap 이미지
+            size_mb: 이미지 크기 (MB)
+            
+        Returns:
+            QPixmap: 크기 조정 및 회전이 적용된 이미지
+        """
+        # 회전 각도가 0이 아니면 이미지 회전 적용 (원본 이미지에 직접 적용)
+        display_image = image  # 기본적으로 원본 이미지 사용
+        if hasattr(self.parent, 'current_rotation') and self.parent.current_rotation != 0:
+            transform = QTransform().rotate(self.parent.current_rotation)
+            display_image = image.transformed(transform, Qt.SmoothTransformation)
+            print(f"이미지에 회전 적용됨: {self.parent.current_rotation}°")
+        
+        # 이미지 크기에 따라 스케일링 방식 결정
+        # 작은 이미지는 고품질 변환, 큰 이미지는 빠른 변환 사용
+        transform_method = Qt.SmoothTransformation if size_mb < 20 else Qt.FastTransformation
+        
+        # 화면 크기 얻기
+        label_size = self.display_label.size()
+        
+        # 이미지 크기가 화면보다 훨씬 크면 2단계 스케일링 적용
+        if size_mb > 30 and (display_image.width() > label_size.width() * 2 or display_image.height() > label_size.height() * 2):
+            # 1단계: 빠른 방식으로 대략적인 크기로 축소
+            # float 값을 int로 변환 (타입 오류 수정)
+            intermediate_pixmap = display_image.scaled(
+                int(label_size.width() * 1.2),  # float를 int로 변환
+                int(label_size.height() * 1.2),  # float를 int로 변환
+                Qt.KeepAspectRatio,
+                Qt.FastTransformation  # 빠른 변환 사용
+            )
+            
+            # 2단계: 고품질 방식으로 최종 크기로 조정
+            scaled_pixmap = intermediate_pixmap.scaled(
+                label_size,
+                Qt.KeepAspectRatio,
+                Qt.SmoothTransformation  # 고품질 변환 사용
+            )
+        else:
+            # 일반 크기 이미지는 바로 스케일링
+            scaled_pixmap = display_image.scaled(
+                label_size,
+                Qt.KeepAspectRatio,
+                transform_method  # 이미지 크기에 따라 결정된 변환 방식 사용
+            )
+            
+        return scaled_pixmap
+    
+    def display_image(self, scaled_pixmap, path, size_mb):
+        """
+        이미지를 화면에 표시하는 메서드
+        
+        Args:
+            scaled_pixmap: 표시할 스케일링된 QPixmap 이미지
+            path: 이미지 파일 경로
+            size_mb: 이미지 크기 (MB)
+        """
+        # 스케일링된 이미지 표시
+        self.display_label.setPixmap(scaled_pixmap)
+        print(f"이미지 로드 완료: {os.path.basename(path)}, 크기: {size_mb:.2f}MB") 

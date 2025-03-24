@@ -1626,9 +1626,7 @@ class ImageViewer(QWidget):
     
     def display_image(self, scaled_pixmap, path, size_mb):
         """이미지를 화면에 표시하는 메서드"""
-        # 스케일링된 이미지 표시
-        self.image_label.setPixmap(scaled_pixmap)
-        print(f"이미지 로드 완료: {os.path.basename(path)}, 크기: {size_mb:.2f}MB")
+        self.image_handler.display_image(scaled_pixmap, path, size_mb)
     
     def cleanup_image_loader(self, path):
         """로더 스레드 정리를 처리하는 메서드"""
