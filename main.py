@@ -1345,20 +1345,8 @@ class ImageViewer(QWidget):
 
     def restore_video_state(self, was_playing, position):
         """비디오 재생 상태를 복구합니다"""
-        if self.current_media_type == 'video':
-            try:
-                # 위치 복구
-                self.video_handler.seek(position)
-                
-                # 재생 상태 복구
-                if was_playing:
-                    self.video_handler.play()
-                    self.update_play_button()
-                
-                # 슬라이더 위치 업데이트 강제
-                QTimer.singleShot(50, self.update_video_playback)
-            except Exception as e:
-                print(f"비디오 상태 복구 실패: {e}")
+        if self.current_media_type == 'video' and hasattr(self, 'video_handler'):
+            self.video_handler.restore_video_state(was_playing, position)
 
     # toggle_maximize 메소드 추가 (이름을 toggle_maximize_state로 변경)
     def toggle_maximize_state(self):

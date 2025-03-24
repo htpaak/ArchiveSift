@@ -419,7 +419,26 @@ class VideoHandler(MediaHandler):
         # 시간 표시 초기화
         if self.parent and hasattr(self.parent, 'time_label'):
             self.parent.time_label.setText("00:00 / 00:00")
-        
+            
+    def restore_video_state(self, was_playing, position):
+        """비디오 재생 상태를 복구합니다"""
+        try:
+            # 위치 복구
+            self.seek(position)
+            
+            # 재생 상태 복구
+            if was_playing:
+                self.play()
+                if self.parent and hasattr(self.parent, 'update_play_button'):
+                    self.parent.update_play_button()
+            
+            # 슬라이더 위치 업데이트 강제
+            if self.parent and hasattr(self.parent, 'update_video_playback'):
+                from PyQt5.QtCore import QTimer
+                QTimer.singleShot(50, self.parent.update_video_playback)
+        except Exception as e:
+            print(f"비디오 상태 복구 실패: {e}")
+            
     def seek_video(self, value):
         """슬라이더 값에 따라 비디오 재생 위치를 변경합니다.
         
