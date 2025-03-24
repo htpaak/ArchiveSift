@@ -37,6 +37,27 @@ class ImageHandler(MediaHandler):
         self.current_pixmap = None
         self.original_pixmap = None
     
+    def load_static_image(self, image_path, format_type, file_ext):
+        """일반 이미지와 PSD 이미지를 로드하고 표시합니다."""
+        if format_type == 'psd':
+            # PSD 파일 처리
+            self.parent.current_media_type = 'image'  # 미디어 타입 업데이트
+            
+            # PSDHandler를 사용하여 PSD 파일 로드
+            self.parent.psd_handler.load(image_path)
+            
+            # 이미지 정보 업데이트
+            self.parent.update_image_info()
+        elif format_type == 'image' or file_ext in ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.ico', '.heic', '.heif']:
+            # 일반 이미지 파일 처리
+            self.parent.current_media_type = 'image'  # 미디어 타입 업데이트
+            
+            # ImageHandler를 사용하여 이미지 로드
+            self.load(image_path)
+            
+            # 이미지 정보 업데이트
+            self.parent.update_image_info()
+    
     def load(self, image_path):
         """
         이미지 파일을 로드합니다.
