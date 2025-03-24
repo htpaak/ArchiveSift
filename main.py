@@ -1873,63 +1873,6 @@ class ImageViewer(QWidget):
             if hasattr(self, 'resize_timer') and not self.resize_timer.isActive():
                 self.resize_timer.start(100)
 
-    def handle_image(self, image_path):
-        """이미지 표시"""
-        try:
-            print(f"\n========= 이미지 로드 시작: {os.path.basename(image_path)} =========")
-            
-            # 이전 미디어 리소스 정리
-            if not self.is_boundary_navigation:
-                self.cleanup_current_media()
-            else:
-                print("경계 내비게이션으로 인한 리소스 정리 건너뛰기")
-            
-            # 파일 형식 감지
-            media_type = self.format_detector.detect_format(image_path)
-            print(f"FormatDetector 감지 결과: {media_type}")
-            
-            # 미디어 타입에 따라 적절한 핸들러 사용
-            if media_type == "image":
-                self.image_handler.load_and_display(image_path)
-            elif media_type == "psd":
-                self.psd_handler.load_and_display(image_path)
-            elif media_type == "gif_animation":
-                self.cleanup_animation()
-                self.animation_handler.load_and_display(image_path, "gif")
-            elif media_type == "webp_animation":
-                self.cleanup_animation()
-                self.animation_handler.load_and_display(image_path, "webp")
-            elif media_type == "webp_image":
-                # WEBP 정적 이미지 처리
-                self.cleanup_animation()
-                result = self.animation_handler.analyze_webp(image_path)
-                
-                if result == "static":
-                    print("정적 WEBP 이미지 처리 시작")
-                    self.image_handler.load_and_display(image_path)
-                else:
-                    self.animation_handler.load_and_display(image_path, "webp")
-                
-                print(f"WEBP 미디어 타입 감지: {result}")
-            else:
-                # 알 수 없는 형식이거나 처리할 수 없는 형식
-                raise ValueError(f"지원하지 않는 파일 형식: {media_type}")
-            
-            # 현재 경로 업데이트
-            self.current_image_path = image_path
-            self.state_manager.set_state("current_image_path", image_path)  # 상태 관리자 업데이트
-            
-            # 진행 중 로딩 표시기 숨기기
-            self.hide_loading_indicator()
-            
-            return True
-        
-        except Exception as e:
-            print(f"이미지 표시 오류: {str(e)}")
-            self.hide_loading_indicator()
-            self.show_message(f"이미지를 표시할 수 없습니다: {str(e)}")
-            return False
-
 # 메인 함수
 def main():
     logger.info("애플리케이션 메인 함수 시작")
