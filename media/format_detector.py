@@ -10,6 +10,18 @@ class FormatDetector:
     """
     
     @staticmethod
+    def detect_media_format(image_path):
+        """파일 형식을 감지하고 적절한 형식을 반환합니다."""
+        # 파일 확장자 확인 (소문자로 변환)
+        file_ext = os.path.splitext(image_path)[1].lower()
+        
+        # FormatDetector를 사용하여 파일 형식 감지
+        file_format = FormatDetector.detect_format(image_path)
+        print(f"FormatDetector 감지 결과: {file_format}")
+        
+        return file_format, file_ext
+        
+    @staticmethod
     def detect_format(file_path):
         """
         파일 경로를 기반으로 미디어 파일의 형식을 감지합니다.
