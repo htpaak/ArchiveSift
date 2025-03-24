@@ -37,6 +37,16 @@ class AnimationHandler(QObject):
         self.is_dragging = False  # 슬라이더 드래그 상태
         self.current_frame_changed_handler = None  # 프레임 변경 핸들러 함수 저장
     
+    def show_gif(self, image_path):
+        """GIF 애니메이션을 표시합니다."""
+        # AnimationHandler를 통해 GIF 로드
+        self.load_gif(image_path)
+        
+        # 미디어 타입 설정
+        if self.parent:
+            self.parent.current_media_type = 'gif_animation'
+            self.parent.current_image_path = image_path
+    
     def load_gif(self, file_path):
         """
         GIF 파일을 로드하고 표시합니다.

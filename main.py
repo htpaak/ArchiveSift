@@ -1030,13 +1030,8 @@ class ImageViewer(QWidget):
             # 애니메이션 핸들러 시그널 연결
             if hasattr(self, 'controls_layout'):
                 self.controls_layout.connect_animation_handler(self.animation_handler)
-        
-        # AnimationHandler를 통해 GIF 로드
-        self.animation_handler.load_gif(image_path)
-        
-        # 미디어 타입 설정
-        self.current_media_type = 'gif_animation'
-        self.current_image_path = image_path
+                
+        self.animation_handler.show_gif(image_path)
 
     def show_webp(self, image_path):
         """WEBP 애니메이션을 표시합니다."""
