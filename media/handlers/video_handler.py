@@ -420,6 +420,12 @@ class VideoHandler(MediaHandler):
         if self.parent and hasattr(self.parent, 'time_label'):
             self.parent.time_label.setText("00:00 / 00:00")
             
+    def cleanup_video_resources(self):
+        """비디오 관련 리소스 정리"""
+        # 비디오 재생 중지
+        self.stop_video()
+        return True
+            
     def restore_video_state(self, was_playing, position):
         """비디오 재생 상태를 복구합니다"""
         try:

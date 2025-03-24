@@ -1876,7 +1876,9 @@ class ImageViewer(QWidget):
     
     def cleanup_video_resources(self):
         """비디오 관련 리소스 정리"""
-        return self.resource_cleaner.cleanup_video_resources()
+        if hasattr(self, 'video_handler'):
+            return self.video_handler.cleanup_video_resources()
+        return False
     
     def cleanup_animation_resources(self):
         """애니메이션 관련 리소스 정리"""
