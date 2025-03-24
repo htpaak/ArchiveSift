@@ -1021,33 +1021,7 @@ class ImageViewer(QWidget):
 
     def show_image(self, image_path):
         """이미지/미디어 파일 표시 및 관련 UI 업데이트"""
-        # 미디어 로딩 준비
-        image_size_mb = self.prepare_for_media_loading(image_path)
-        
-        # 현재 미디어 상태 업데이트
-        self.update_current_media_state(image_path)
-        
-        # 파일 형식 감지
-        file_format, file_ext = self.detect_media_format(image_path)
-        
-        # 파일 형식 감지 결과에 따라 적절한 핸들러 호출
-        if file_format == 'gif_image' or file_format == 'gif_animation':
-            # 애니메이션 미디어 (GIF) 처리
-            self.load_animation_media(image_path, file_format)
-        elif file_format == 'webp_image' or file_format == 'webp_animation':
-            # 애니메이션 미디어 (WEBP) 처리
-            self.load_animation_media(image_path, file_format)
-        elif file_format == 'psd' or file_format == 'image' or file_ext in ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.ico', '.heic', '.heif']:
-            # 정적 이미지 처리 (일반 이미지, PSD)
-            self.load_static_image(image_path, file_format, file_ext)
-        elif file_format == 'video':
-            # 비디오 미디어 처리
-            self.load_video_media(image_path)
-        else:
-            self.current_media_type = 'unknown'  # 미디어 타입 업데이트
-        
-        # 미디어 로딩 후 최종 처리
-        self.finalize_media_loading(image_path)
+        self.image_handler.show_image(image_path)
 
     def show_gif(self, image_path):
         """GIF 애니메이션을 표시합니다."""

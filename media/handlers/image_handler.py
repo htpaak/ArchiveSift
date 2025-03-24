@@ -180,4 +180,34 @@ class ImageHandler(MediaHandler):
         """
         if self.current_pixmap:
             return self.current_pixmap.size()
-        return QSize(0, 0) 
+        return QSize(0, 0)
+        
+    def show_image(self, image_path):
+        """이미지/미디어 파일 표시 및 관련 UI 업데이트"""
+        # 미디어 로딩 준비
+        image_size_mb = self.parent.prepare_for_media_loading(image_path)
+        
+        # 현재 미디어 상태 업데이트
+        self.parent.update_current_media_state(image_path)
+        
+        # 파일 형식 감지
+        file_format, file_ext = self.parent.detect_media_format(image_path)
+        
+        # 파일 형식 감지 결과에 따라 적절한 핸들러 호출
+        if file_format == 'gif_image' or file_format == 'gif_animation':
+            # 애니메이션 미디어 (GIF) 처리
+            self.parent.load_animation_media(image_path, file_format)
+        elif file_format == 'webp_image' or file_format == 'webp_animation':
+            # 애니메이션 미디어 (WEBP) 처리
+            self.parent.load_animation_media(image_path, file_format)
+        elif file_format == 'psd' or file_format == 'image' or file_ext in ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.ico', '.heic', '.heif']:
+            # 정적 이미지 처리 (일반 이미지, PSD)
+            self.parent.load_static_image(image_path, file_format, file_ext)
+        elif file_format == 'video':
+            # 비디오 미디어 처리
+            self.parent.load_video_media(image_path)
+        else:
+            self.parent.current_media_type = 'unknown'  # 미디어 타입 업데이트
+        
+        # 미디어 로딩 후 최종 처리
+        self.parent.finalize_media_loading(image_path) 
