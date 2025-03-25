@@ -35,49 +35,153 @@ class MouseHandler(QObject):
         Args:
             delta (int): 휠 스크롤 값 (양수: 위로, 음수: 아래로)
         """
-        # 휠 방향 체크 후 이미지 전환
-        # 정리 작업은 show_image 내부에서 처리됩니다
+        # 마우스 설정에서 wheel_up/wheel_down 액션 실행
         if delta > 0:
-            # 휠을 위로 돌린 경우 - 이전 이미지
-            self.parent.show_previous_image()
+            # 휠을 위로 돌린 경우 - 설정된 액션 실행
+            wheel_up_action = self.parent.mouse_settings.get("wheel_up", "prev_image")
+            self.execute_mouse_action(wheel_up_action)
         elif delta < 0:
-            # 휠을 아래로 돌린 경우 - 다음 이미지
-            self.parent.show_next_image()
+            # 휠을 아래로 돌린 경우 - 설정된 액션 실행
+            wheel_down_action = self.parent.mouse_settings.get("wheel_down", "next_image")
+            self.execute_mouse_action(wheel_down_action)
             
+    def handle_mouse_button(self, button):
+        """
+        마우스 버튼 클릭 이벤트를 처리합니다.
+        
+        Args:
+            button: 클릭된 마우스 버튼 (Qt.LeftButton, Qt.MiddleButton, Qt.RightButton)
+        """
+        print(f"[DEBUG] 마우스 버튼 클릭 처리: button={button}")
+        
+        # 마우스 설정이 없는 경우 기본값 사용
+        if not hasattr(self.parent, 'mouse_settings'):
+            print(f"[DEBUG] 부모 객체에 mouse_settings가 없음. 기본 액션 사용")
+            if button == Qt.MiddleButton:
+                print(f"[DEBUG] 중간 버튼 기본 액션: 'toggle_play'")
+                self.execute_mouse_action("toggle_play")
+            elif button == Qt.RightButton:
+                print(f"[DEBUG] 오른쪽 버튼 기본 액션: 'context_menu'")
+                self.execute_mouse_action("context_menu")
+            print(f"[DEBUG] 마우스 버튼 처리 완료")
+            return
+        
+        # 마우스 버튼에 따른 액션 결정 및 실행
+        if button == Qt.MiddleButton:
+            action = self.parent.mouse_settings.get("middle_click", "toggle_play")
+            print(f"[DEBUG] 중간 버튼 액션: '{action}'")
+            self.execute_mouse_action(action)
+        elif button == Qt.RightButton:
+            action = self.parent.mouse_settings.get("right_click", "context_menu")
+            print(f"[DEBUG] 오른쪽 버튼 액션: '{action}'")
+            self.execute_mouse_action(action)
+            
+        print(f"[DEBUG] 마우스 버튼 처리 완료")
+            
+    def execute_mouse_action(self, action):
+        """
+        설정된 마우스 액션을 실행합니다.
+        
+        Args:
+            action: 실행할 액션 ("prev_image", "next_image" 등)
+        """
+        print(f"[DEBUG] 마우스 액션 실행: '{action}'")
+        
+        # 액션 실행 전 미디어 전환 준비 (키보드 핸들러와 동일한 로직)
+        if action in ["prev_image", "next_image"]:
+            self.prepare_media_transition()
+        
+        # 액션 유형에 따른 처리
+        if action == "prev_image":
+            self.parent.show_previous_image()
+        elif action == "next_image":
+            self.parent.show_next_image()
+        elif action == "rotate_clockwise":
+            self.parent.rotate_image(True)
+        elif action == "rotate_counterclockwise":
+            self.parent.rotate_image(False)
+        elif action == "toggle_play" or action == "toggle_animation_playback":
+            # 재생/일시정지 전환 (이전 버전과의 호환성을 위해 두 이름 모두 지원)
+            print(f"[DEBUG] 마우스로 toggle_animation_playback 호출 시작")
+            self.parent.toggle_animation_playback()
+            print(f"[DEBUG] 마우스로 toggle_animation_playback 호출 완료")
+        elif action == "toggle_fullscreen":
+            self.parent.toggle_fullscreen()
+        elif action == "toggle_maximize_state":
+            self.parent.toggle_maximize_state()
+        elif action == "volume_up":
+            # 볼륨 증가 로직
+            if hasattr(self.parent, 'volume_slider'):
+                current_volume = self.parent.volume_slider.value()
+                new_volume = min(current_volume + 5, 100)
+                self.parent.volume_slider.setValue(new_volume)
+                self.parent.adjust_volume(new_volume)
+        elif action == "volume_down":
+            # 볼륨 감소 로직
+            if hasattr(self.parent, 'volume_slider'):
+                current_volume = self.parent.volume_slider.value()
+                new_volume = max(current_volume - 5, 0)
+                self.parent.volume_slider.setValue(new_volume)
+                self.parent.adjust_volume(new_volume)
+        elif action == "toggle_mute":
+            # 음소거 전환
+            if hasattr(self.parent, 'toggle_mute'):
+                self.parent.toggle_mute()
+        elif action == "delete_image":
+            # 현재 이미지 삭제
+            if hasattr(self.parent, 'delete_current_image'):
+                self.parent.delete_current_image()
+        elif action == "context_menu":
+            # 컨텍스트 메뉴 표시
+            if hasattr(self.parent, 'show_context_menu'):
+                self.parent.show_context_menu()
+        
+        print(f"[DEBUG] 마우스 액션 '{action}' 실행 완료")
+        
+    def prepare_media_transition(self):
+        """이미지 전환 전 미디어 상태를 정리합니다."""
+        # 현재 미디어 타입 확인
+        current_media_type = getattr(self.parent, 'current_media_type', 'unknown')
+        
+        # 비디오 플레이어 정지만 수행 (정리는 show_image 내부에서 처리)
+        if current_media_type == 'video':
+            # 비디오 중지
+            self.parent.stop_video()
+        
+        return True  # 준비 작업 수행됨
+        
     def handle_double_click(self, event=None):
         """
-        더블 클릭 시 전체화면 또는 최대화 상태 전환
+        더블 클릭 이벤트를 처리합니다.
         """
         # 이벤트 객체가 전달되었는지 확인 (디버깅)
         print(f"마우스 더블 클릭 처리: event={event}")
         
-        if self.parent.isFullScreen():
-            # 전체화면 모드에서는 전체화면 토글 함수 호출
-            self.parent.toggle_fullscreen()
-        else:
-            # 일반 모드에서는 최대화/일반 창 전환
-            self.parent.toggle_maximize_state()
+        # 마우스 설정에서 double_click 액션에 할당된 기능 실행
+        double_click_action = self.parent.mouse_settings.get("double_click", "toggle_fullscreen")
+        self.execute_mouse_action(double_click_action)
             
     def wheel_event(self, event):
         """휠 이벤트 처리"""
         current_time = time.time() * 1000  # 현재 시간(밀리초)
         
-        # 기본 쿨다운 값 설정 (일반적인 경우 500ms)
-        cooldown_ms = 500
+        # 설정된 쿨다운 값 사용 (기본값 500ms)
+        cooldown_ms = self.parent.mouse_settings.get("wheel_cooldown_ms", 500)
         
         # 쿨다운 체크 - 상수 시간 연산 O(1)
         if current_time - self.last_wheel_time < cooldown_ms:
             event.accept()  # 이벤트 처리됨으로 표시하고 무시
             return
         
-        # 방향 체크 후 이미지 전환
-        # 정리 작업은 show_image 내부에서 처리됩니다
+        # 방향 체크 후 설정에 따라 이미지 전환
         if event.angleDelta().y() > 0:
-            # 휠을 위로 돌린 경우 - 이전 이미지
-            self.parent.show_previous_image()
+            # 휠을 위로 돌린 경우 - 설정된 동작 실행
+            wheel_up_action = self.parent.mouse_settings.get("wheel_up", "prev_image")
+            self.execute_mouse_action(wheel_up_action)
         elif event.angleDelta().y() < 0:
-            # 휠을 아래로 돌린 경우 - 다음 이미지
-            self.parent.show_next_image()
+            # 휠을 아래로 돌린 경우 - 설정된 동작 실행
+            wheel_down_action = self.parent.mouse_settings.get("wheel_down", "next_image")
+            self.execute_mouse_action(wheel_down_action)
         
         self.last_wheel_time = current_time  # 마지막 처리 시간 업데이트
 

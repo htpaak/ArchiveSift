@@ -7,8 +7,10 @@ import re  # 정규표현식 처리 기능 제공 (패턴 검색 및 문자열 �
 import json  # JSON 파일 처리를 위한 모듈
 from collections import OrderedDict  # LRU 캐시 구현을 위한 정렬된 딕셔너리
 from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout, QPushButton, QFileDialog, QHBoxLayout, QSizePolicy, QSlider, QLayout, QSpacerItem, QStyle, QStyleOptionSlider, QMenu, QAction, QScrollArea, QListWidgetItem, QListWidget, QAbstractItemView, QInputDialog, QMessageBox, QDialog, QTableWidget, QTableWidgetItem, QHeaderView, QFrame, QLineEdit, QStackedWidget  # PyQt5 UI 위젯 (사용자 인터페이스 구성 요소)
-from PyQt5.QtGui import QPixmap, QImage, QImageReader, QFont, QMovie, QCursor, QIcon, QColor, QPalette, QFontMetrics, QTransform, QKeySequence, QWheelEvent  # 그래픽 요소 처리 (이미지, 폰트, 커서 등)
-from PyQt5.QtCore import Qt, QSize, QTimer, QEvent, QPoint, pyqtSignal, QRect, QMetaObject, QObject, QUrl, QThread, QBuffer  # Qt 코어 기능 (이벤트, 신호, 타이머 등)
+# main.py 파일의 임포트 부분에서
+from PyQt5.QtGui import QPixmap, QImage, QImageReader, QFont, QMovie, QCursor, QIcon, QColor, QPalette, QFontMetrics, QTransform, QKeySequence, QWheelEvent, QDesktopServices  # 그래픽 요소 처리
+from PyQt5.QtCore import Qt, QSize, QTimer, QEvent, QPoint, pyqtSignal, QRect, QMetaObject, QObject, QUrl, QThread, QBuffer  # Qt 코어 기능
+# QDesktopServices 관련 중복 임포트 제거 (PyQt5.QtCore에는 QDesktopServices가 없음)
 import cv2  # OpenCV 라이브러리 - 비디오 처리용 (프레임 추출, 이미지 변환 등)
 from PIL import Image, ImageCms  # Pillow 라이브러리 - 이미지 처리용 (다양한 이미지 포맷 지원)
 from io import BytesIO  # 바이트 데이터 처리용 (메모리 내 파일 스트림)
@@ -113,10 +115,26 @@ from core.memory import ResourceCleaner, TimerManager
 # 메인 이미지 뷰어 클래스 정의
 class ImageViewer(QWidget):
     def __init__(self):
-        super().__init__()  # 부모 클래스 생성자 호출
-        # 로거 초기화
+        super().__init__()  # 부모 클래스 초기화
+
+        # 앱 초기화 시작 로깅
+        # get_logger 함수가 없으므로 원래 코드로 되돌립니다
         self.logger = Logger("ImageViewer")
-        self.logger.info("ImageViewer 초기화 시작")
+        self.logger.info("이미지 뷰어 초기화 시작")
+        
+        self.setWindowTitle('이미지 뷰어')  # 창 제목 설정
+        self.setWindowIcon(QIcon('./icons/app_icon.png'))  # 앱 아이콘 설정
+        self.setGeometry(100, 100, 800, 600)  # 창 위치와 크기 설정
+        
+        # 키 설정 로드 - 키보드 단축키를 저장하는 사전
+        self.load_key_settings()
+        
+        # 마우스 설정 로드 - 마우스 버튼 액션을 저장하는 사전
+        self.load_mouse_settings()
+
+        # 폴더 및 파일 관련 변수 초기화
+        self.current_folder = ""  # 현재 폴더 경로
+        self.image_files = []     # 이미지 파일 리스트
         
         # 앱 데이터 디렉토리 확인 및 생성
         app_data_dir = get_user_data_directory()
@@ -148,15 +166,11 @@ class ImageViewer(QWidget):
         self.state_manager.set_state("current_image_path", self.current_image_path)  # 상태 관리자에도 설정
         
         # 변수 초기화
-        self.image_files = []  # 이미지 파일 목록
         self.base_folder = ""  # 기준 폴더 경로
         self.folder_buttons = []  # 폴더 버튼 목록
         
         # 키보드 핸들러 초기화
         self.keyboard_handler = KeyboardHandler(self)
-        
-        # 키 설정 로드
-        self.load_key_settings()
         
         # 북마크 관리자, 회전 관리자 및 UI 잠금 관리자 초기화
         self.bookmark_manager = BookmarkManager(self)
@@ -1724,15 +1738,22 @@ class ImageViewer(QWidget):
             print(f"키 설정 저장 오류: {e}")
     
     def show_preferences_dialog(self):
+        """환경 설정 대화상자를 표시합니다."""
         # 키 설정 다이얼로그 표시
-        dialog = PreferencesDialog(self, self.key_settings)
+        dialog = PreferencesDialog(self, self.key_settings, self.mouse_settings)
         if dialog.exec_() == QDialog.Accepted:
             # 변경된 키 설정 적용
             self.key_settings = dialog.get_key_settings()
             # 키 설정 저장
             self.save_key_settings()
+            
+            # 변경된 마우스 설정 적용
+            self.mouse_settings = dialog.get_mouse_settings()
+            # 마우스 설정 저장
+            self.save_mouse_settings()
+            
             # 메시지 표시
-            self.show_message("키 설정이 변경되었습니다.")
+            self.show_message("설정이 변경되었습니다.")
 
     def show_about_dialog(self):
         # 정보 다이얼로그 표시
@@ -1815,6 +1836,167 @@ class ImageViewer(QWidget):
             # 일정 시간 후 지연 리사이징 실행
             if hasattr(self, 'resize_timer') and not self.resize_timer.isActive():
                 self.resize_timer.start(100)
+
+    def mousePressEvent(self, event):
+        """마우스 버튼이 눌렸을 때 이벤트 처리
+
+        Args:
+            event: 마우스 이벤트 객체
+        """
+        # 마우스 버튼에 따른 처리
+        if event.button() == Qt.LeftButton:
+            # 왼쪽 버튼은 직접 처리 (주로 UI 클릭/드래그 용도로 사용)
+            # 기본 동작 유지 (Qt 이벤트 시스템에서 처리)
+            super().mousePressEvent(event)
+        else:
+            # 중간 버튼과 오른쪽 버튼은 MouseHandler로 위임
+            self.mouse_handler.handle_mouse_button(event.button())
+            event.accept()  # 이벤트가 처리됨을 표시
+
+    def show_context_menu(self):
+        """우클릭 컨텍스트 메뉴를 표시합니다."""
+        print(f"[DEBUG] 컨텍스트 메뉴 표시 요청됨")
+        
+        # 컨텍스트 메뉴 생성
+        context_menu = QMenu(self)
+        context_menu.setStyleSheet("""
+            QMenu {
+                background-color: #2c3e50;
+                color: #ecf0f1;
+                border: 1px solid #34495e;
+                padding: 5px;
+                min-width: 200px;
+            }
+            QMenu::item {
+                padding: 5px 20px;
+                border: 1px solid transparent;
+            }
+            QMenu::item:selected {
+                background-color: #34495e;
+            }
+            QMenu::separator {
+                height: 1px;
+                background: #34495e;
+                margin: 5px 0;
+            }
+        """)
+        
+        # 이미지/미디어 관련 메뉴 항목
+        # 재생/일시정지 (미디어 타입에 따라 다르게 표시)
+        if hasattr(self, 'current_media_type') and self.current_media_type in ['animation', 'video']:
+            is_playing = False
+            if self.current_media_type == 'animation' and hasattr(self, 'animation_handler'):
+                is_playing = self.animation_handler.is_playing()
+            elif self.current_media_type == 'video' and hasattr(self, 'video_handler'):
+                is_playing = self.video_handler.is_playing()
+                
+            play_pause_text = "일시정지" if is_playing else "재생"
+            play_pause_action = QAction(play_pause_text, self)
+            play_pause_action.triggered.connect(self.toggle_animation_playback)
+            context_menu.addAction(play_pause_action)
+            
+            # 구분선 추가
+            context_menu.addSeparator()
+        
+        # 북마크 관련 메뉴
+        if hasattr(self, 'bookmark_manager'):
+            # 북마크 추가/제거
+            is_bookmarked = False
+            if hasattr(self, 'current_image_path'):
+                is_bookmarked = self.bookmark_manager.is_bookmarked(self.current_image_path)
+                
+            bookmark_text = "북마크 제거" if is_bookmarked else "북마크 추가"
+            bookmark_action = QAction(bookmark_text, self)
+            bookmark_action.triggered.connect(self.toggle_bookmark)
+            context_menu.addAction(bookmark_action)
+        
+        # 이미지 회전
+        rotate_menu = QMenu("이미지 회전", self)
+        rotate_menu.setStyleSheet(context_menu.styleSheet())
+        
+        rotate_cw_action = QAction("시계 방향으로 회전", self)
+        rotate_cw_action.triggered.connect(lambda: self.rotate_image(True))
+        rotate_menu.addAction(rotate_cw_action)
+        
+        rotate_ccw_action = QAction("반시계 방향으로 회전", self)
+        rotate_ccw_action.triggered.connect(lambda: self.rotate_image(False))
+        rotate_menu.addAction(rotate_ccw_action)
+        
+        context_menu.addMenu(rotate_menu)
+        
+        # 구분선 추가
+        context_menu.addSeparator()
+        
+        # 파일 관련 메뉴
+        if hasattr(self, 'current_image_path') and self.current_image_path:
+            # 이미지 삭제
+            delete_action = QAction("삭제", self)
+            delete_action.triggered.connect(self.delete_current_image)
+            context_menu.addAction(delete_action)
+            
+            # 파일 탐색기에서 열기
+            open_in_explorer_action = QAction("탐색기에서 열기", self)
+            open_in_explorer_action.triggered.connect(lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(os.path.dirname(self.current_image_path))))
+            context_menu.addAction(open_in_explorer_action)
+        
+        # 화면 모드 관련 메뉴
+        fullscreen_action = QAction("전체 화면 전환", self)
+        fullscreen_action.triggered.connect(self.toggle_fullscreen)
+        context_menu.addAction(fullscreen_action)
+        
+        # 메뉴 표시
+        cursor_pos = QCursor.pos()
+        context_menu.popup(cursor_pos)
+        print(f"[DEBUG] 컨텍스트 메뉴 표시됨")
+
+    def load_mouse_settings(self):
+        """마우스 설정을 로드합니다."""
+        try:
+            # 기본 마우스 설정
+            default_settings = {
+                "middle_click": "toggle_play",         # 중간 버튼: 재생/일시정지
+                "right_click": "context_menu",         # 오른쪽 버튼: 컨텍스트 메뉴
+                "double_click": "toggle_fullscreen",   # 더블 클릭: 전체화면
+                "wheel_up": "prev_image",              # 휠 위로: 이전 이미지
+                "wheel_down": "next_image",            # 휠 아래로: 다음 이미지
+                "wheel_cooldown_ms": 500               # 휠 이벤트 쿨다운 (밀리초)
+            }
+            
+            # 설정 파일 로드
+            loaded_settings = load_settings("mouse_settings.json")
+            
+            # 기존 설정 파일에서 값을 불러와 기본 설정에 적용합니다
+            for key, value in loaded_settings.items():
+                if key in default_settings:
+                    # wheel_cooldown은 숫자로 변환, 나머지는 문자열로 사용
+                    if key == "wheel_cooldown_ms":
+                        try:
+                            default_settings[key] = int(value)
+                        except (ValueError, TypeError) as e:
+                            # 변환할 수 없는 경우 오류 메시지 출력하고 기본값 유지
+                            print(f"휠 쿨다운 설정을 변환할 수 없습니다: {e}")
+                    else:
+                        default_settings[key] = value
+            
+            # 최종 설정을 self.mouse_settings에 할당합니다
+            self.mouse_settings = default_settings
+            print("마우스 설정 로드 완료")
+            
+        except Exception as e:
+            # 로드 중 예외가 발생하면 기본 설정을 사용합니다
+            print(f"마우스 설정 로드 오류: {e}")
+            self.mouse_settings = default_settings
+
+    def save_mouse_settings(self):
+        """마우스 설정을 저장합니다."""
+        try:
+            # core.config 모듈의 save_settings 함수를 사용해 설정을 저장합니다
+            if save_settings(self.mouse_settings, "mouse_settings.json"):
+                print("마우스 설정이 저장되었습니다")
+            else:
+                print("마우스 설정 저장에 실패했습니다")
+        except Exception as e:
+            print(f"마우스 설정 저장 오류: {e}")
 
 # 메인 함수
 def main():

@@ -58,19 +58,27 @@ def save_settings(settings, filename):
         # 사용자 데이터 디렉토리가 없다면 만들어요
         os.makedirs(os.path.dirname(settings_path), exist_ok=True)
         
-        # JSON으로 직렬화할 수 있도록 설정 사전을 복사하고 값을 변환해요
+        # JSON으로 직렬화할 수 있도록 설정 사전을 복사해요
         serializable_settings = {}
         
         # 각 설정 값을 직렬화할 수 있는 형식으로 변환해요
         for key, value in settings.items():
-            # 모든 값을 문자열이 아닌 정수로 저장해요 (나중에 불러올 때 정수로 변환하기 쉽게)
-            serializable_settings[key] = int(value)
+            # 값의 타입에 따라 적절히 저장 (키보드 설정은 정수, 마우스 설정은 문자열 또는 정수)
+            if isinstance(value, (int, str, float, bool, list, dict, tuple)):
+                # 이미 JSON 직렬화 가능한 타입이면 그대로 사용
+                serializable_settings[key] = value
+            else:
+                # 다른 타입은 문자열로 변환하여 저장
+                try:
+                    serializable_settings[key] = int(value)  # 정수로 변환 시도
+                except (ValueError, TypeError):
+                    serializable_settings[key] = str(value)  # 정수 변환 실패 시 문자열로 저장
         
         # 파일을 열고 설정을 저장해요
         with open(settings_path, 'w', encoding='utf-8') as file:
             # 파이썬 사전을 JSON 형식으로 변환해서 저장해요
             # indent=4는 들여쓰기를 4칸 간격으로 예쁘게 저장한다는 뜻이에요
-            json.dump(serializable_settings, file, indent=4)
+            json.dump(serializable_settings, file, indent=4, ensure_ascii=False)
         return True  # 저장 성공
     except Exception as e:
         # 파일을 저장하는 중 오류가 발생하면 오류 메시지를 출력하고 False를 반환해요

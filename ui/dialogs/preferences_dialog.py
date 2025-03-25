@@ -11,6 +11,7 @@ from PyQt5.QtCore import Qt, QEvent
 from PyQt5.QtGui import QIcon, QKeySequence
 
 from events.handlers.keyboard_handler import KeyInputEdit
+from events.handlers.mouse_input import MouseButtonWidget
 
 class PreferencesDialog(QDialog):
     """
@@ -21,13 +22,14 @@ class PreferencesDialog(QDialog):
     지금은 키보드 단축키 설정만 있지만, 나중에 다른 설정들도 추가할 수 있어요.
     """
     
-    def __init__(self, parent=None, key_settings=None):
+    def __init__(self, parent=None, key_settings=None, mouse_settings=None):
         """
         환경 설정 대화상자를 초기화해요.
         
         매개변수:
             parent: 이 창의 부모 창
             key_settings: 현재 저장된 키보드 단축키 설정 (없으면 기본값 사용)
+            mouse_settings: 현재 저장된 마우스 설정 (없으면 기본값 사용)
         """
         super().__init__(parent)
         self.setWindowTitle("환경 설정")  # 창의 제목을 설정해요
@@ -92,7 +94,7 @@ class PreferencesDialog(QDialog):
         
         # 기본 키 설정 정의
         # 이 설정은 사용자가 아무것도 설정하지 않았을 때 사용해요
-        default_settings = {
+        default_key_settings = {
             "next_image": Qt.Key_Right,                        # 오른쪽 화살표: 다음 이미지
             "prev_image": Qt.Key_Left,                         # 왼쪽 화살표: 이전 이미지
             "rotate_clockwise": Qt.Key_R,                      # R: 시계 방향 회전
@@ -106,15 +108,33 @@ class PreferencesDialog(QDialog):
             "toggle_maximize_state": Qt.Key_Return             # Enter: 최대화 전환
         }
         
+        # 기본 마우스 설정 정의
+        default_mouse_settings = {
+            "middle_click": "toggle_play",         # 중간 버튼: 재생/일시정지
+            "right_click": "context_menu",         # 오른쪽 버튼: 컨텍스트 메뉴
+            "double_click": "toggle_fullscreen",   # 더블 클릭: 전체화면
+            "wheel_up": "prev_image",              # 휠 위로: 이전 이미지
+            "wheel_down": "next_image",            # 휠 아래로: 다음 이미지
+            "wheel_cooldown_ms": 500               # 휠 이벤트 쿨다운 (밀리초)
+        }
+        
         # 전달받은 키 설정이 있으면 사용, 없으면 기본값 사용
         # copy()를 사용하는 이유는 원래 설정을 변경하지 않기 위해서예요
-        self.key_settings = key_settings.copy() if key_settings else default_settings.copy()
+        self.key_settings = key_settings.copy() if key_settings else default_key_settings.copy()
+        
+        # 전달받은 마우스 설정이 있으면 사용, 없으면 기본값 사용
+        self.mouse_settings = mouse_settings.copy() if mouse_settings else default_mouse_settings.copy()
 
         # 누락된 키가 있으면 기본값에서 추가
         # 프로그램을 업데이트하면서 새로운 단축키가 추가될 수 있어요
-        for key, value in default_settings.items():
+        for key, value in default_key_settings.items():
             if key not in self.key_settings:
                 self.key_settings[key] = value
+                
+        # 누락된 마우스 설정이 있으면 기본값에서 추가
+        for key, value in default_mouse_settings.items():
+            if key not in self.mouse_settings:
+                self.mouse_settings[key] = value
         
         # 키 이름 매핑은 그대로 유지
         # 코드에서 사용하는 키 이름을 사용자에게 보여줄 때 이 이름으로 바꿔요
@@ -130,6 +150,15 @@ class PreferencesDialog(QDialog):
             "delete_image": "이미지 삭제",
             "toggle_fullscreen": "전체화면 전환",
             "toggle_maximize_state": "최대화 전환"
+        }
+        
+        # 마우스 버튼 이름 매핑
+        self.mouse_button_names = {
+            "middle_click": "중간 버튼 클릭",
+            "right_click": "오른쪽 버튼 클릭",
+            "double_click": "더블 클릭",
+            "wheel_up": "휠 위로 돌리기",
+            "wheel_down": "휠 아래로 돌리기"
         }
         
         # 메인 레이아웃 - 수평 레이아웃으로 변경
@@ -294,10 +323,92 @@ class PreferencesDialog(QDialog):
         keyboard_layout.addWidget(help_label)
         keyboard_layout.addLayout(button_layout)
         
-        # 테마 설정 페이지 (미구현 - 나중에 추가될 기능)
+        # 테마 설정 페이지 (마우스 설정으로 변경)
         theme_page = QWidget()
         theme_layout = QVBoxLayout(theme_page)
-        theme_layout.addWidget(QLabel("마우스 설정은 아직 개발 중입니다."))
+        
+        # 마우스 설정 제목
+        mouse_title = QLabel("마우스 버튼 설정")
+        mouse_title.setStyleSheet("font-size: 14pt; font-weight: bold; margin-bottom: 10px;")
+        theme_layout.addWidget(mouse_title)
+        
+        # 마우스 버튼별 액션 설정 위젯 생성
+        self.mouse_widgets = {}
+        
+        # 설정 가능한 마우스 버튼들에 대한 위젯 생성
+        for button_name, button_display_name in self.mouse_button_names.items():
+            # 현재 설정된 액션 가져오기
+            current_action = self.mouse_settings.get(button_name)
+            
+            # MouseButtonWidget 생성
+            button_widget = MouseButtonWidget(
+                button_name, 
+                button_display_name, 
+                current_action
+            )
+            
+            # 액션 변경 시그널 연결
+            button_widget.action_changed.connect(self.on_mouse_action_changed)
+            
+            # 레이아웃에 추가
+            theme_layout.addWidget(button_widget)
+            
+            # 위젯 참조 저장
+            self.mouse_widgets[button_name] = button_widget
+        
+        # 휠 쿨다운 설정 추가
+        cooldown_layout = QHBoxLayout()
+        cooldown_label = QLabel("휠 이벤트 쿨다운 (밀리초):")
+        cooldown_label.setStyleSheet("min-width: 120px; padding: 5px;")
+        
+        from PyQt5.QtWidgets import QSpinBox
+        self.cooldown_spinner = QSpinBox()
+        self.cooldown_spinner.setMinimum(0)
+        self.cooldown_spinner.setMaximum(2000)
+        self.cooldown_spinner.setSingleStep(50)
+        self.cooldown_spinner.setValue(self.mouse_settings.get("wheel_cooldown_ms", 500))
+        self.cooldown_spinner.valueChanged.connect(self.on_cooldown_changed)
+        
+        cooldown_layout.addWidget(cooldown_label)
+        cooldown_layout.addWidget(self.cooldown_spinner)
+        cooldown_layout.addStretch()
+        
+        theme_layout.addLayout(cooldown_layout)
+        
+        # 설명 추가
+        help_text = """
+        <p>마우스 버튼을 설정하여 다양한 기능을 수행할 수 있습니다.</p>
+        <p>각 버튼 옆의 드롭다운 메뉴에서 원하는 동작을 선택하세요.</p>
+        <p>휠 쿨다운은 휠 이벤트가 너무 빠르게 연속해서 발생하는 것을 방지합니다.</p>
+        """
+        help_label = QLabel(help_text)
+        help_label.setStyleSheet("color: #555; font-style: italic;")
+        help_label.setWordWrap(True)
+        theme_layout.addWidget(help_label)
+        
+        # 버튼 레이아웃 추가
+        mouse_button_layout = QHBoxLayout()
+        
+        # 기본값으로 초기화 버튼
+        self.mouse_reset_button = QPushButton("기본값으로 초기화")
+        self.mouse_reset_button.setObjectName("resetButton")
+        self.mouse_reset_button.clicked.connect(self.reset_mouse_to_default)
+        mouse_button_layout.addWidget(self.mouse_reset_button)
+        
+        # 취소 버튼 (키보드 설정 페이지와 동일하게 추가)
+        self.mouse_cancel_button = QPushButton("취소")
+        self.mouse_cancel_button.setObjectName("cancelButton")
+        self.mouse_cancel_button.clicked.connect(self.reject)  # 취소 버튼은 대화상자를 닫아요
+        mouse_button_layout.addWidget(self.mouse_cancel_button)
+        
+        # 저장 버튼 (키보드 설정 페이지와 동일하게 추가)
+        self.mouse_save_button = QPushButton("저장")
+        self.mouse_save_button.setObjectName("saveButton")
+        self.mouse_save_button.clicked.connect(self.accept)  # 저장 버튼은 대화상자를 수락하고 닫아요
+        mouse_button_layout.addWidget(self.mouse_save_button)
+        
+        theme_layout.addLayout(mouse_button_layout)
+        theme_layout.addStretch()
         
         # 일반 설정 페이지 (미구현 - 나중에 추가될 기능)
         general_page = QWidget()
@@ -544,3 +655,60 @@ class PreferencesDialog(QDialog):
             dictionary: 키 이름과 값이 담긴 사전 형태의 설정
         """
         return self.key_settings.copy()  # copy를 사용하여 원본이 변경되지 않도록 보호해요 
+
+    def on_mouse_action_changed(self, button_name, new_action):
+        """
+        마우스 액션이 변경되었을 때 호출되는 함수
+        
+        Args:
+            button_name: 버튼 이름 (예: "middle_click")
+            new_action: 새 액션 (예: "toggle_play")
+        """
+        # 설정 업데이트
+        self.mouse_settings[button_name] = new_action
+        print(f"마우스 설정 변경: {button_name} -> {new_action}")
+    
+    def on_cooldown_changed(self, value):
+        """
+        휠 쿨다운 값이 변경되었을 때 호출되는 함수
+        
+        Args:
+            value: 새 쿨다운 값 (밀리초)
+        """
+        # 설정 업데이트
+        self.mouse_settings["wheel_cooldown_ms"] = value
+        print(f"휠 쿨다운 설정 변경: {value} ms")
+    
+    def reset_mouse_to_default(self):
+        """
+        마우스 설정을 기본값으로 초기화
+        """
+        # 기본 마우스 설정
+        default_mouse_settings = {
+            "middle_click": "toggle_play",         # 중간 버튼: 재생/일시정지
+            "right_click": "context_menu",         # 오른쪽 버튼: 컨텍스트 메뉴
+            "double_click": "toggle_fullscreen",   # 더블 클릭: 전체화면
+            "wheel_up": "prev_image",              # 휠 위로: 이전 이미지
+            "wheel_down": "next_image",            # 휠 아래로: 다음 이미지
+            "wheel_cooldown_ms": 500               # 휠 이벤트 쿨다운 (밀리초)
+        }
+        
+        # 설정 업데이트
+        self.mouse_settings = default_mouse_settings.copy()
+        
+        # UI 업데이트
+        for button_name, widget in self.mouse_widgets.items():
+            if button_name in self.mouse_settings:
+                widget.action_combo.set_current_action(self.mouse_settings[button_name])
+        
+        # 쿨다운 값 업데이트
+        self.cooldown_spinner.setValue(self.mouse_settings["wheel_cooldown_ms"])
+
+    def get_mouse_settings(self):
+        """
+        현재 설정된 마우스 설정 값들을 반환하는 함수
+        
+        Returns:
+            dictionary: 마우스 설정 값이 담긴 사전
+        """
+        return self.mouse_settings.copy() 

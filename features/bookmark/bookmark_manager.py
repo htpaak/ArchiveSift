@@ -63,6 +63,18 @@ class BookmarkManager:
         """
         self.ui.show_menu_above_button()
     
+    def is_bookmarked(self, path):
+        """
+        주어진 경로가 북마크에 있는지 확인해요.
+        
+        매개변수:
+            path: 확인할 파일 경로
+            
+        반환값:
+            bool: 북마크에 있으면 True, 없으면 False
+        """
+        return path in self.bookmarks
+    
     def toggle_bookmark(self):
         """
         현재 이미지의 북마크 상태를 전환해요 (있으면 제거, 없으면 추가).
