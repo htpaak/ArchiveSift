@@ -293,7 +293,7 @@ class PreferencesDialog(QDialog):
         
         # 설명 라벨 추가
         help_label = QLabel("단축키를 변경하려면 해당 행을 클릭하세요. 그런 다음 원하는 키를 누르면 됩니다.")
-        help_label.setStyleSheet("color: #555; font-style: italic;")
+        help_label.setStyleSheet("color: #555;")
         
         # 버튼 생성
         button_layout = QHBoxLayout()
@@ -327,34 +327,77 @@ class PreferencesDialog(QDialog):
         theme_page = QWidget()
         theme_layout = QVBoxLayout(theme_page)
         
-        # 마우스 설정 제목
-        mouse_title = QLabel("마우스 버튼 설정")
-        mouse_title.setStyleSheet("font-size: 14pt; font-weight: bold; margin-bottom: 10px;")
-        theme_layout.addWidget(mouse_title)
+        # 마우스 설정 테이블 생성
+        self.mouse_table = QTableWidget()
+        self.mouse_table.setColumnCount(2)  # 2개 열: 기능, 단축키
+        self.mouse_table.setHorizontalHeaderLabels(["기능", "단축키"])  # 열 제목 설정
         
-        # 마우스 버튼별 액션 설정 위젯 생성
+        # 테이블 설정
+        self.mouse_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)  # 첫 번째 열 늘려서 채움
+        self.mouse_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)  # 두 번째 열 늘려서 채움
+        self.mouse_table.setSelectionBehavior(QTableWidget.SelectRows)  # 행 단위로 선택
+        self.mouse_table.setEditTriggers(QTableWidget.NoEditTriggers)  # 직접 편집 불가능
+        self.mouse_table.verticalHeader().setVisible(False)  # 세로 헤더(행 번호) 숨김
+        self.mouse_table.setAlternatingRowColors(True)  # 행마다 배경색 번갈아 설정
+        self.mouse_table.setMinimumHeight(300)  # 테이블 최소 높이 설정
+        
+        # 헤더 볼드체 제거
+        header_style = "QHeaderView::section { font-weight: normal; }"
+        self.mouse_table.horizontalHeader().setStyleSheet(header_style)
+        
+        # 마우스 버튼과 액션 매핑 설정
+        mouse_action_names = {
+            "prev_image": "이전 이미지",
+            "next_image": "다음 이미지",
+            "rotate_clockwise": "시계 방향 회전",
+            "rotate_counterclockwise": "반시계 방향 회전",
+            "toggle_play": "재생/일시정지",
+            "volume_up": "볼륨 증가",
+            "volume_down": "볼륨 감소",
+            "toggle_mute": "음소거 토글",
+            "toggle_fullscreen": "전체화면 전환",
+            "toggle_maximize_state": "최대화 전환",
+            "context_menu": "컨텍스트 메뉴",
+            "delete_image": "이미지 삭제"
+        }
+        
+        # 테이블 채우기
         self.mouse_widgets = {}
+        rows_to_add = len(self.mouse_button_names)
+        self.mouse_table.setRowCount(rows_to_add)
         
-        # 설정 가능한 마우스 버튼들에 대한 위젯 생성
+        row = 0
         for button_name, button_display_name in self.mouse_button_names.items():
             # 현재 설정된 액션 가져오기
             current_action = self.mouse_settings.get(button_name)
             
-            # MouseButtonWidget 생성
-            button_widget = MouseButtonWidget(
-                button_name, 
-                button_display_name, 
-                current_action
-            )
+            # 기능 이름 칸
+            name_item = QTableWidgetItem(button_display_name)
+            self.mouse_table.setItem(row, 0, name_item)
             
-            # 액션 변경 시그널 연결
-            button_widget.action_changed.connect(self.on_mouse_action_changed)
+            # 액션 칸
+            action_display_name = ""
+            for code, name in mouse_action_names.items():
+                if code == current_action:
+                    action_display_name = name
+                    break
             
-            # 레이아웃에 추가
-            theme_layout.addWidget(button_widget)
+            action_item = QTableWidgetItem(action_display_name)
+            action_item.setData(Qt.UserRole, button_name)  # 버튼 이름 저장
+            self.mouse_table.setItem(row, 1, action_item)
             
-            # 위젯 참조 저장
-            self.mouse_widgets[button_name] = button_widget
+            row += 1
+        
+        # 테이블 클릭 시 호출될 함수 연결
+        self.mouse_table.cellClicked.connect(self.mouse_cell_clicked)
+        
+        # 레이아웃에 테이블 추가
+        theme_layout.addWidget(self.mouse_table)
+        
+        # 설명 라벨 추가
+        help_label = QLabel("단축키를 변경하려면 해당 셀을 클릭하세요. 그런 다음 원하는 키를 누르면 됩니다.")
+        help_label.setStyleSheet("color: #555;")
+        theme_layout.addWidget(help_label)
         
         # 휠 쿨다운 설정 추가
         cooldown_layout = QHBoxLayout()
@@ -375,17 +418,6 @@ class PreferencesDialog(QDialog):
         
         theme_layout.addLayout(cooldown_layout)
         
-        # 설명 추가
-        help_text = """
-        <p>마우스 버튼을 설정하여 다양한 기능을 수행할 수 있습니다.</p>
-        <p>각 버튼 옆의 드롭다운 메뉴에서 원하는 동작을 선택하세요.</p>
-        <p>휠 쿨다운은 휠 이벤트가 너무 빠르게 연속해서 발생하는 것을 방지합니다.</p>
-        """
-        help_label = QLabel(help_text)
-        help_label.setStyleSheet("color: #555; font-style: italic;")
-        help_label.setWordWrap(True)
-        theme_layout.addWidget(help_label)
-        
         # 버튼 레이아웃 추가
         mouse_button_layout = QHBoxLayout()
         
@@ -395,16 +427,19 @@ class PreferencesDialog(QDialog):
         self.mouse_reset_button.clicked.connect(self.reset_mouse_to_default)
         mouse_button_layout.addWidget(self.mouse_reset_button)
         
-        # 취소 버튼 (키보드 설정 페이지와 동일하게 추가)
+        # 중간 여백 추가
+        mouse_button_layout.addStretch()
+        
+        # 취소 버튼
         self.mouse_cancel_button = QPushButton("취소")
         self.mouse_cancel_button.setObjectName("cancelButton")
-        self.mouse_cancel_button.clicked.connect(self.reject)  # 취소 버튼은 대화상자를 닫아요
+        self.mouse_cancel_button.clicked.connect(self.reject)
         mouse_button_layout.addWidget(self.mouse_cancel_button)
         
-        # 저장 버튼 (키보드 설정 페이지와 동일하게 추가)
+        # 저장 버튼
         self.mouse_save_button = QPushButton("저장")
         self.mouse_save_button.setObjectName("saveButton")
-        self.mouse_save_button.clicked.connect(self.accept)  # 저장 버튼은 대화상자를 수락하고 닫아요
+        self.mouse_save_button.clicked.connect(self.accept)
         mouse_button_layout.addWidget(self.mouse_save_button)
         
         theme_layout.addLayout(mouse_button_layout)
@@ -696,10 +731,36 @@ class PreferencesDialog(QDialog):
         # 설정 업데이트
         self.mouse_settings = default_mouse_settings.copy()
         
-        # UI 업데이트
-        for button_name, widget in self.mouse_widgets.items():
-            if button_name in self.mouse_settings:
-                widget.action_combo.set_current_action(self.mouse_settings[button_name])
+        # UI 업데이트 - 테이블 형식에 맞게 변경
+        # 마우스 버튼과 액션 매핑 설정
+        mouse_action_names = {
+            "prev_image": "이전 이미지",
+            "next_image": "다음 이미지",
+            "rotate_clockwise": "시계 방향 회전",
+            "rotate_counterclockwise": "반시계 방향 회전",
+            "toggle_play": "재생/일시정지",
+            "volume_up": "볼륨 증가",
+            "volume_down": "볼륨 감소",
+            "toggle_mute": "음소거 토글",
+            "toggle_fullscreen": "전체화면 전환",
+            "toggle_maximize_state": "최대화 전환",
+            "context_menu": "컨텍스트 메뉴",
+            "delete_image": "이미지 삭제"
+        }
+        
+        # 테이블 업데이트
+        for row in range(self.mouse_table.rowCount()):
+            item = self.mouse_table.item(row, 1)
+            if item:
+                button_name = item.data(Qt.UserRole)
+                if button_name in self.mouse_settings:
+                    action_code = self.mouse_settings[button_name]
+                    action_name = ""
+                    for code, name in mouse_action_names.items():
+                        if code == action_code:
+                            action_name = name
+                            break
+                    item.setText(action_name)
         
         # 쿨다운 값 업데이트
         self.cooldown_spinner.setValue(self.mouse_settings["wheel_cooldown_ms"])
@@ -712,3 +773,72 @@ class PreferencesDialog(QDialog):
             dictionary: 마우스 설정 값이 담긴 사전
         """
         return self.mouse_settings.copy() 
+
+    def mouse_cell_clicked(self, row, col):
+        """
+        마우스 설정 테이블의 셀을 클릭했을 때 호출되는 함수
+        
+        마우스 버튼 액션을 변경할 수 있도록 콤보박스 메뉴를 표시합니다.
+        
+        매개변수:
+            row: 클릭된 행 번호
+            col: 클릭된 열 번호
+        """
+        # 액션 열(1번 열)을 클릭했을 때만 메뉴 표시
+        if col == 1:
+            # 현재 버튼 이름 가져오기
+            button_name = self.mouse_table.item(row, 1).data(Qt.UserRole)
+            
+            # 콤보박스 메뉴 생성
+            from events.handlers.mouse_input import MouseActionCombo
+            combo = MouseActionCombo(self)
+            
+            # 현재 액션 설정
+            current_action = self.mouse_settings.get(button_name)
+            combo.set_current_action(current_action)
+            
+            # 위치 계산
+            rect = self.mouse_table.visualItemRect(self.mouse_table.item(row, col))
+            global_pos = self.mouse_table.viewport().mapToGlobal(rect.topLeft())
+            
+            # 위치 및 크기 설정
+            combo.setParent(self)
+            combo.setGeometry(
+                self.mapFromGlobal(global_pos).x(),
+                self.mapFromGlobal(global_pos).y(),
+                rect.width(),
+                rect.height()
+            )
+            
+            # 콤보박스 표시
+            combo.show()
+            combo.showPopup()  # 드롭다운 메뉴 바로 표시
+            
+            # 아이템 선택 시 처리
+            combo.currentIndexChanged.connect(lambda idx: self.on_mouse_action_selected(button_name, combo))
+    
+    def on_mouse_action_selected(self, button_name, combo):
+        """
+        마우스 액션 콤보박스에서 항목이 선택되었을 때 호출되는 함수
+        
+        Args:
+            button_name: 버튼 이름 (예: "middle_click")
+            combo: 선택이 발생한 콤보박스
+        """
+        # 선택된 액션 가져오기
+        new_action = combo.get_current_action()
+        
+        # 설정 업데이트
+        self.mouse_settings[button_name] = new_action
+        
+        # 테이블 업데이트
+        for row in range(self.mouse_table.rowCount()):
+            item = self.mouse_table.item(row, 1)
+            if item and item.data(Qt.UserRole) == button_name:
+                # 선택된 액션의 표시 이름 찾기
+                display_text = combo.currentText()
+                item.setText(display_text)
+                break
+        
+        # 콤보박스 닫기
+        combo.close() 
