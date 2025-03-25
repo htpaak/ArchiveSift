@@ -59,6 +59,24 @@ class MouseActionCombo(QComboBox):
             }
         """)
         
+    def hidePopup(self):
+        """
+        드롭다운 메뉴가 닫힐 때 호출되는 메서드
+        콤보박스도 함께 숨깁니다.
+        """
+        super().hidePopup()
+        self.hide()  # 콤보박스 자체도 숨김
+        
+    def focusOutEvent(self, event):
+        """
+        포커스를 잃을 때 호출되는 이벤트 핸들러
+        
+        Args:
+            event: 포커스 이벤트
+        """
+        super().focusOutEvent(event)
+        self.hide()  # 콤보박스 숨기기
+        
     def set_current_action(self, action_code):
         """
         현재 액션 설정

@@ -6,7 +6,7 @@
 
 from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
                             QPushButton, QTableWidget, QTableWidgetItem, 
-                            QHeaderView, QFrame, QStackedWidget, QWidget)
+                            QHeaderView, QFrame, QStackedWidget, QWidget, QComboBox)
 from PyQt5.QtCore import Qt, QEvent
 from PyQt5.QtGui import QIcon, QKeySequence
 
@@ -497,6 +497,11 @@ class PreferencesDialog(QDialog):
         이 함수는 왼쪽 버튼 패널에 있는 버튼이 클릭되면 호출돼요.
         클릭된 버튼을 확인하고 그에 맞는 설정 페이지를 보여줘요.
         """
+        # 열려있는 콤보박스 정리
+        for child in self.findChildren(QComboBox):
+            if isinstance(child, QComboBox) and child.isVisible():
+                child.hide()
+        
         # 모든 버튼의 체크 상태를 해제하고
         for button in self.left_buttons:
             button.setChecked(False)
