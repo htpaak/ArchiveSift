@@ -229,6 +229,7 @@ class TitleBarButton(QPushButton):
         self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         self.setFixedSize(30, 30)  # 타이틀바 버튼 크기 고정
         self.setup_style()
+        self.setToolTip("")  # 내장 툴팁을 비활성화
         
     def setup_style(self):
         """기본 타이틀바 버튼 스타일 설정"""

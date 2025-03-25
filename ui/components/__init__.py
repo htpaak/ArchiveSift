@@ -10,4 +10,5 @@ from ui.components.control_buttons import (
     MaximizeButton, FullscreenButton, CloseButton, 
     TitleBarButton, TitleLockButton
 )
-from ui.components.media_display import MediaDisplay 
+from ui.components.media_display import MediaDisplay
+from ui.components.custom_tooltip import CustomTooltip, TooltipManager

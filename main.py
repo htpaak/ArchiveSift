@@ -122,6 +122,12 @@ class ImageViewer(QWidget):
         self.logger = Logger("ImageViewer")
         self.logger.info("이미지 뷰어 초기화 시작")
         
+        # TooltipManager import
+        from ui.components.custom_tooltip import TooltipManager
+        
+        # 툴팁 매니저 초기화
+        self.tooltip_manager = TooltipManager(self)
+        
         self.setWindowTitle('이미지 뷰어')  # 창 제목 설정
         self.setWindowIcon(QIcon('./icons/app_icon.png'))  # 앱 아이콘 설정
         self.setGeometry(100, 100, 800, 600)  # 창 위치와 크기 설정
@@ -375,16 +381,31 @@ class ImageViewer(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
         
-        # 제목 표시줄 생성 (커스텀 - 기본 윈도우 타이틀바 대체)
-        self.title_bar = QWidget(self)
-        self.title_bar.setStyleSheet("background-color: rgba(52, 73, 94, 1.0);")  # 남색 배경
+        # 제목 표시줄 (커스텀 타이틀바)
+        self.title_bar = QWidget(self)  # 제목 표시줄 위젯 생성
+        self.title_bar.setFixedHeight(30)  # 높이 고정
+        self.title_bar.setObjectName("title_bar")  # CSS 선택자로 사용할 객체 이름 설정
+        # 제목 표시줄 배경색을 어둡게, 글자색을 흰색으로 설정
+        self.title_bar.setStyleSheet("""
+            QWidget#title_bar {
+                background-color: #34495e;  /* 남색 계열 배경 */
+            }
+            QLabel {
+                color: white;
+                font-size: 16px;
+                background-color: transparent;
+            }
+        """)  # 남색 배경
+        
+        # 타이틀바 컨트롤 저장을 위한 딕셔너리
+        self.title_bar.controls = {}
         
         title_layout = QHBoxLayout(self.title_bar)
         title_layout.setContentsMargins(10, 0, 10, 0)  # 좌우 여백만 설정
         
         # 제목 텍스트 레이블
         title_label = QLabel("Image Viewer")
-        title_label.setStyleSheet("color: white; font-size: 16px;")  # 흰색 텍스트, 16px 크기
+        # 스타일시트는 이미 title_bar에 적용된 것을 사용
         title_layout.addWidget(title_label)
         title_layout.addStretch()  # 가운데 빈 공간 추가 (창 컨트롤 버튼을 오른쪽으로 밀기 위함)
 
@@ -414,22 +435,30 @@ class ImageViewer(QWidget):
         new_button.setToolTip("피드백")  # 툴팁 설정
         new_button.clicked.connect(self.open_feedback)  # 클릭 이벤트 연결
         title_layout.addWidget(new_button)  # 레이아웃에 버튼 추가
+        self.title_bar.controls['feedback_button'] = new_button  # 컨트롤 등록
         
         # 창 컨트롤 버튼들 (최소화, 최대화, 닫기 - 윈도우 기본 버튼 대체)
         min_btn = MinimizeButton(self)  # 최소화 버튼
-        min_btn.connect_action(self.showMinimized)  # 최소화 기능 연결
+        min_btn.connect_action(self.showMinimized)
+        self.title_bar.controls['minimize_button'] = min_btn  # 컨트롤 등록
         
         max_btn = MaximizeButton(self)  # 최대화 버튼
         max_btn.connect_action(self.toggle_maximize_state)  # 최대화/복원 기능 연결
         self.max_btn = max_btn  # 버튼 객체 저장 (최대화 상태에 따라 아이콘 변경 위함)
+        self.title_bar.controls['maximize_button'] = max_btn  # 컨트롤 등록
 
         # 여기에 전체화면 버튼 추가
         fullscreen_btn = FullscreenButton(self)  # 전체화면 버튼
         fullscreen_btn.connect_action(self.toggle_fullscreen)  # 전체화면 토글 기능 연결
         self.fullscreen_btn = fullscreen_btn  # 버튼 객체 저장
+        self.title_bar.controls['fullscreen_button'] = fullscreen_btn  # 컨트롤 등록
         
         close_btn = CloseButton(self)  # 닫기 버튼
         close_btn.connect_action(self.close)  # 닫기 기능 연결
+        self.title_bar.controls['close_button'] = close_btn  # 컨트롤 등록
+        
+        # 잠금 버튼 컨트롤 등록
+        self.title_bar.controls['title_lock_button'] = title_lock_btn
         
         # 창 컨트롤 버튼들 레이아웃에 추가
         title_layout.addWidget(title_lock_btn)
@@ -937,6 +966,8 @@ class ImageViewer(QWidget):
         for child in self.title_bar.children():
             if isinstance(child, QLabel):
                 child.setText(title_text)
+                # 라벨 텍스트 색상을 흰색으로 설정 (제목 표시줄은 남색 배경 유지)
+                child.setStyleSheet("color: white; background-color: transparent;")
                 break
                 
     def update_bookmark_ui(self):
@@ -1508,7 +1539,58 @@ class ImageViewer(QWidget):
         # 이 메서드는 controls_layout으로 이동했으므로 여기서는 controls_layout의 메서드를 호출
         if hasattr(self, 'controls_layout'):
             self.controls_layout.setup_custom_ui()
+            
+            # 툴팁 등록 - UI 초기화 후 실행
+            self.setup_tooltips()
         # 이전 코드는 유지하지 않음 - controls_layout에서 모든 기능 처리
+        
+    def setup_tooltips(self):
+        """버튼 및 컨트롤 요소에 커스텀 툴팁 등록"""
+        # 제목 표시줄 버튼 툴팁 등록
+        if hasattr(self, 'title_bar') and hasattr(self.title_bar, 'controls'):
+            for control_name, control in self.title_bar.controls.items():
+                if control_name == 'close_button':
+                    self.tooltip_manager.register(control, "창 닫기")
+                elif control_name == 'minimize_button':
+                    self.tooltip_manager.register(control, "최소화")
+                elif control_name == 'maximize_button':
+                    self.tooltip_manager.register(control, "최대화/복원")
+                elif control_name == 'fullscreen_button':
+                    self.tooltip_manager.register(control, "전체화면 전환")
+                elif control_name == 'title_lock_button':
+                    self.tooltip_manager.register(control, "제목 표시줄 잠금/해제")
+                elif control_name == 'feedback_button':
+                    self.tooltip_manager.register(control, "피드백 보내기")
+                
+        # 하단 컨트롤 버튼 툴팁 등록
+        if hasattr(self, 'slider_controls'):
+            for control in self.slider_controls:
+                if control == self.open_button:
+                    self.tooltip_manager.register(control, "폴더 열기")
+                elif control == self.set_base_folder_button:
+                    self.tooltip_manager.register(control, "기본 폴더 설정")
+                elif control == self.play_button:
+                    self.tooltip_manager.register(control, "재생/일시정지")
+                elif control == self.rotate_ccw_button:
+                    self.tooltip_manager.register(control, "시계 반대 방향으로 회전")
+                elif control == self.rotate_cw_button:
+                    self.tooltip_manager.register(control, "시계 방향으로 회전")
+                elif control == self.mute_button:
+                    self.tooltip_manager.register(control, "음소거/음소거 해제")
+                elif control == self.menu_button:
+                    self.tooltip_manager.register(control, "메뉴")
+                elif control == self.slider_bookmark_btn:
+                    self.tooltip_manager.register(control, "북마크 추가/제거")
+                elif control == self.ui_lock_btn:
+                    self.tooltip_manager.register(control, "UI 잠금/해제")
+                elif control == self.time_label:
+                    self.tooltip_manager.register(control, "재생 시간 정보")
+                    
+        # 슬라이더 툴팁 등록
+        if hasattr(self, 'playback_slider'):
+            self.tooltip_manager.register(self.playback_slider, "재생 위치 조절")
+        if hasattr(self, 'volume_slider'):
+            self.tooltip_manager.register(self.volume_slider, "볼륨 조절")
 
     def show_loading_indicator(self):
         """로딩 인디케이터를 화면 중앙에 표시합니다."""

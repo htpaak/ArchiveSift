@@ -3,6 +3,7 @@ from PyQt5.QtCore import Qt, QTimer, pyqtSignal
 from PyQt5.QtGui import QIcon
 from media.handlers.animation_handler import AnimationHandler  # AnimationHandler 클래스 임포트
 from core.utils.time_utils import format_time  # format_time 함수 추가 임포트
+from ui.components.custom_tooltip import TooltipManager  # 툴팁 매니저 임포트
 
 class ControlsLayout(QWidget):
     """
@@ -12,6 +13,9 @@ class ControlsLayout(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.parent = parent
+        
+        # 부모 객체에서 툴팁 매니저 참조
+        self.tooltip_manager = self.parent.tooltip_manager if hasattr(self.parent, 'tooltip_manager') else None
         
     def update_play_button(self):
         """재생 상태에 따라 버튼 텍스트 업데이트"""
@@ -158,6 +162,45 @@ class ControlsLayout(QWidget):
         self.parent.volume_slider.connect_to_volume_control(self.adjust_volume)
         # AnimationHandler 초기화 (UI 설정 완료 후)
         self.parent.animation_handler = AnimationHandler(self.parent.image_label, self.parent)
+        
+        # 툴팁 매니저가 존재하면 컨트롤에 툴팁 등록
+        if self.tooltip_manager:
+            self.setup_control_tooltips()
+
+    def setup_control_tooltips(self):
+        """컨트롤 버튼 및 슬라이더에 툴팁 등록"""
+        if not self.tooltip_manager:
+            return
+            
+        # 슬라이더 컨트롤에 툴팁 등록
+        if hasattr(self.parent, 'slider_controls'):
+            for control in self.parent.slider_controls:
+                if control == self.parent.open_button:
+                    self.tooltip_manager.register(control, "폴더 열기")
+                elif control == self.parent.set_base_folder_button:
+                    self.tooltip_manager.register(control, "기본 폴더 설정")
+                elif control == self.parent.play_button:
+                    self.tooltip_manager.register(control, "재생/일시정지")
+                elif control == self.parent.rotate_ccw_button:
+                    self.tooltip_manager.register(control, "시계 반대 방향으로 회전")
+                elif control == self.parent.rotate_cw_button:
+                    self.tooltip_manager.register(control, "시계 방향으로 회전")
+                elif control == self.parent.mute_button:
+                    self.tooltip_manager.register(control, "음소거/음소거 해제")
+                elif control == self.parent.menu_button:
+                    self.tooltip_manager.register(control, "메뉴")
+                elif control == self.parent.slider_bookmark_btn:
+                    self.tooltip_manager.register(control, "북마크 추가/제거")
+                elif control == self.parent.ui_lock_btn:
+                    self.tooltip_manager.register(control, "UI 잠금/해제")
+                elif control == self.parent.time_label:
+                    self.tooltip_manager.register(control, "재생 시간 정보")
+                  
+        # 슬라이더에 툴팁 등록
+        if hasattr(self.parent, 'playback_slider'):
+            self.tooltip_manager.register(self.parent.playback_slider, "재생 위치 조절")
+        if hasattr(self.parent, 'volume_slider'):
+            self.tooltip_manager.register(self.parent.volume_slider, "볼륨 조절")
 
     def update_button_sizes(self):
         """버튼 및 컨트롤 요소의 크기를 창 크기에 맞게 업데이트"""
