@@ -393,6 +393,28 @@ class ImageViewer(QWidget):
         title_lock_btn.connect_action(self.toggle_title_ui_lock)  # toggle_title_ui_lock은 이제 controls_layout으로 호출을 위임합니다
         self.title_lock_btn = title_lock_btn  # 버튼 객체 저장
         
+        # 새로운 버튼 추가 (UI 잠금 버튼 왼쪽)
+        new_button = QPushButton(self)
+        new_button.setStyleSheet("""
+            QPushButton {
+                background-color: rgba(52, 73, 94, 0.9);
+                color: white;
+                border: none;
+                padding: 5px;
+                border-radius: 3px;
+                min-width: 30px;
+                min-height: 30px;
+                font-size: 16px;  /* 이모지 크기 조정 */
+            }
+            QPushButton:hover {
+                background-color: rgba(52, 73, 94, 1.0);
+            }
+        """)
+        new_button.setText("💬")  # 대화 이모지로 변경
+        new_button.setToolTip("피드백")  # 툴팁 설정
+        new_button.clicked.connect(self.open_feedback)  # 클릭 이벤트 연결
+        title_layout.addWidget(new_button)  # 레이아웃에 버튼 추가
+        
         # 창 컨트롤 버튼들 (최소화, 최대화, 닫기 - 윈도우 기본 버튼 대체)
         min_btn = MinimizeButton(self)  # 최소화 버튼
         min_btn.connect_action(self.showMinimized)  # 최소화 기능 연결
@@ -1940,6 +1962,14 @@ class ImageViewer(QWidget):
         fullscreen_action.triggered.connect(self.toggle_fullscreen)
         context_menu.addAction(fullscreen_action)
         
+        # 구분선 추가
+        context_menu.addSeparator()
+        
+        # 환경설정 메뉴 추가
+        settings_action = QAction("환경 설정", self)
+        settings_action.triggered.connect(self.show_preferences_dialog)
+        context_menu.addAction(settings_action)
+        
         # 메뉴 표시
         cursor_pos = QCursor.pos()
         context_menu.popup(cursor_pos)
@@ -1997,6 +2027,11 @@ class ImageViewer(QWidget):
                 print("마우스 설정 저장에 실패했습니다")
         except Exception as e:
             print(f"마우스 설정 저장 오류: {e}")
+
+    def open_feedback(self):
+        """GitHub Discussions 페이지를 웹 브라우저에서 엽니다."""
+        feedback_url = "https://github.com/htpaak/ArchiveSift/discussions"
+        QDesktopServices.openUrl(QUrl(feedback_url))
 
 # 메인 함수
 def main():
