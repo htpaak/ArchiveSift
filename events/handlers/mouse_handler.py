@@ -35,15 +35,44 @@ class MouseHandler(QObject):
         Args:
             delta (int): 휠 스크롤 값 (양수: 위로, 음수: 아래로)
         """
-        # 마우스 설정에서 wheel_up/wheel_down 액션 실행
-        if delta > 0:
-            # 휠을 위로 돌린 경우 - 설정된 액션 실행
-            wheel_up_action = self.parent.mouse_settings.get("wheel_up", "prev_image")
-            self.execute_mouse_action(wheel_up_action)
-        elif delta < 0:
-            # 휠을 아래로 돌린 경우 - 설정된 액션 실행
-            wheel_down_action = self.parent.mouse_settings.get("wheel_down", "next_image")
-            self.execute_mouse_action(wheel_down_action)
+        # 수정자 키 확인
+        modifiers = QApplication.keyboardModifiers()
+        is_ctrl_pressed = bool(modifiers & Qt.ControlModifier)
+        is_shift_pressed = bool(modifiers & Qt.ShiftModifier)
+        
+        print(f"[DEBUG] handle_wheel_event: delta={delta}, Ctrl={is_ctrl_pressed}, Shift={is_shift_pressed}")
+        
+        # 방향 체크 후 설정에 따라 동작 실행
+        if delta > 0:  # 휠 위로
+            if is_ctrl_pressed:
+                # Ctrl + 휠 위로
+                action = self.parent.mouse_settings.get("ctrl_wheel_up", "volume_up")
+                print(f"[DEBUG] Ctrl+휠 위로 => {action}")
+                self.execute_mouse_action(action)
+            elif is_shift_pressed:
+                # Shift + 휠 위로
+                action = self.parent.mouse_settings.get("shift_wheel_up", "rotate_counterclockwise")
+                print(f"[DEBUG] Shift+휠 위로 => {action}")
+                self.execute_mouse_action(action)
+            else:
+                # 일반 휠 위로
+                wheel_up_action = self.parent.mouse_settings.get("wheel_up", "prev_image")
+                self.execute_mouse_action(wheel_up_action)
+        elif delta < 0:  # 휠 아래로
+            if is_ctrl_pressed:
+                # Ctrl + 휠 아래로
+                action = self.parent.mouse_settings.get("ctrl_wheel_down", "volume_down")
+                print(f"[DEBUG] Ctrl+휠 아래로 => {action}")
+                self.execute_mouse_action(action)
+            elif is_shift_pressed:
+                # Shift + 휠 아래로
+                action = self.parent.mouse_settings.get("shift_wheel_down", "rotate_clockwise")
+                print(f"[DEBUG] Shift+휠 아래로 => {action}")
+                self.execute_mouse_action(action)
+            else:
+                # 일반 휠 아래로
+                wheel_down_action = self.parent.mouse_settings.get("wheel_down", "next_image")
+                self.execute_mouse_action(wheel_down_action)
             
     def handle_mouse_button(self, button):
         """
@@ -110,21 +139,35 @@ class MouseHandler(QObject):
         elif action == "toggle_maximize_state":
             self.parent.toggle_maximize_state()
         elif action == "volume_up":
-            # 볼륨 증가 로직
+            # 볼륨 증가 로직 - 모든 미디어 타입에서 작동하도록 함
             if hasattr(self.parent, 'volume_slider'):
                 current_volume = self.parent.volume_slider.value()
                 new_volume = min(current_volume + 5, 100)
                 self.parent.volume_slider.setValue(new_volume)
-                self.parent.adjust_volume(new_volume)
+                
+                # 직접 비디오 핸들러의 set_volume 호출 (있는 경우)
+                if hasattr(self.parent, 'video_handler'):
+                    print(f"[DEBUG] 볼륨 증가: {new_volume}% (직접 비디오 핸들러 호출)")
+                    self.parent.video_handler.set_volume(new_volume)
+                else:
+                    # 비디오 핸들러가 없으면 adjust_volume 사용
+                    self.parent.adjust_volume(new_volume)
         elif action == "volume_down":
-            # 볼륨 감소 로직
+            # 볼륨 감소 로직 - 모든 미디어 타입에서 작동하도록 함
             if hasattr(self.parent, 'volume_slider'):
                 current_volume = self.parent.volume_slider.value()
                 new_volume = max(current_volume - 5, 0)
                 self.parent.volume_slider.setValue(new_volume)
-                self.parent.adjust_volume(new_volume)
+                
+                # 직접 비디오 핸들러의 set_volume 호출 (있는 경우)
+                if hasattr(self.parent, 'video_handler'):
+                    print(f"[DEBUG] 볼륨 감소: {new_volume}% (직접 비디오 핸들러 호출)")
+                    self.parent.video_handler.set_volume(new_volume)
+                else:
+                    # 비디오 핸들러가 없으면 adjust_volume 사용
+                    self.parent.adjust_volume(new_volume)
         elif action == "toggle_mute":
-            # 음소거 전환
+            # 음소거 전환 - 모든 미디어 타입에서 작동하도록 함
             if hasattr(self.parent, 'toggle_mute'):
                 self.parent.toggle_mute()
         elif action == "delete_image":
@@ -173,15 +216,44 @@ class MouseHandler(QObject):
             event.accept()  # 이벤트 처리됨으로 표시하고 무시
             return
         
+        # 수정자 키 확인
+        modifiers = QApplication.keyboardModifiers()
+        is_ctrl_pressed = bool(modifiers & Qt.ControlModifier)
+        is_shift_pressed = bool(modifiers & Qt.ShiftModifier)
+        
+        print(f"[DEBUG] 휠 이벤트: Ctrl={is_ctrl_pressed}, Shift={is_shift_pressed}")
+        
         # 방향 체크 후 설정에 따라 이미지 전환
-        if event.angleDelta().y() > 0:
-            # 휠을 위로 돌린 경우 - 설정된 동작 실행
-            wheel_up_action = self.parent.mouse_settings.get("wheel_up", "prev_image")
-            self.execute_mouse_action(wheel_up_action)
-        elif event.angleDelta().y() < 0:
-            # 휠을 아래로 돌린 경우 - 설정된 동작 실행
-            wheel_down_action = self.parent.mouse_settings.get("wheel_down", "next_image")
-            self.execute_mouse_action(wheel_down_action)
+        if event.angleDelta().y() > 0:  # 휠 위로
+            if is_ctrl_pressed:
+                # Ctrl + 휠 위로
+                action = self.parent.mouse_settings.get("ctrl_wheel_up", "volume_up")
+                print(f"[DEBUG] Ctrl+휠 위로 => {action}")
+                self.execute_mouse_action(action)
+            elif is_shift_pressed:
+                # Shift + 휠 위로
+                action = self.parent.mouse_settings.get("shift_wheel_up", "rotate_counterclockwise")
+                print(f"[DEBUG] Shift+휠 위로 => {action}")
+                self.execute_mouse_action(action)
+            else:
+                # 일반 휠 위로
+                action = self.parent.mouse_settings.get("wheel_up", "prev_image")
+                self.execute_mouse_action(action)
+        elif event.angleDelta().y() < 0:  # 휠 아래로
+            if is_ctrl_pressed:
+                # Ctrl + 휠 아래로
+                action = self.parent.mouse_settings.get("ctrl_wheel_down", "volume_down")
+                print(f"[DEBUG] Ctrl+휠 아래로 => {action}")
+                self.execute_mouse_action(action)
+            elif is_shift_pressed:
+                # Shift + 휠 아래로
+                action = self.parent.mouse_settings.get("shift_wheel_down", "rotate_clockwise")
+                print(f"[DEBUG] Shift+휠 아래로 => {action}")
+                self.execute_mouse_action(action)
+            else:
+                # 일반 휠 아래로
+                action = self.parent.mouse_settings.get("wheel_down", "next_image")
+                self.execute_mouse_action(action)
         
         self.last_wheel_time = current_time  # 마지막 처리 시간 업데이트
 

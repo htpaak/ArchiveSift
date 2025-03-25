@@ -379,6 +379,13 @@ class VideoHandler(MediaHandler):
                             self.parent.slider_released,
                             self.parent.slider_clicked
                         )
+                    
+                    # 현재 볼륨 슬라이더 값 적용
+                    if hasattr(self.parent, 'volume_slider'):
+                        current_volume = self.parent.volume_slider.value()
+                        # 비디오 로드 직후 볼륨 설정
+                        print(f"[DEBUG] 비디오 로드 시 볼륨 적용: {current_volume}")
+                        self.set_volume(current_volume)
                 
                 # 비디오 재생
                 self.play()

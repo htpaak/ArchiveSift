@@ -1959,6 +1959,10 @@ class ImageViewer(QWidget):
                 "double_click": "toggle_fullscreen",   # 더블 클릭: 전체화면
                 "wheel_up": "prev_image",              # 휠 위로: 이전 이미지
                 "wheel_down": "next_image",            # 휠 아래로: 다음 이미지
+                "ctrl_wheel_up": "volume_up",          # Ctrl + 휠 위로: 볼륨 증가
+                "ctrl_wheel_down": "volume_down",      # Ctrl + 휠 아래로: 볼륨 감소
+                "shift_wheel_up": "rotate_counterclockwise",  # Shift + 휠 위로: 반시계방향 회전
+                "shift_wheel_down": "rotate_clockwise",  # Shift + 휠 아래로: 시계방향 회전
                 "wheel_cooldown_ms": 500               # 휠 이벤트 쿨다운 (밀리초)
             }
             

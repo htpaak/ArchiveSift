@@ -115,6 +115,10 @@ class PreferencesDialog(QDialog):
             "double_click": "toggle_fullscreen",   # 더블 클릭: 전체화면
             "wheel_up": "prev_image",              # 휠 위로: 이전 이미지
             "wheel_down": "next_image",            # 휠 아래로: 다음 이미지
+            "ctrl_wheel_up": "volume_up",          # Ctrl + 휠 위로: 볼륨 증가
+            "ctrl_wheel_down": "volume_down",      # Ctrl + 휠 아래로: 볼륨 감소
+            "shift_wheel_up": "rotate_counterclockwise",  # Shift + 휠 위로: 반시계방향 회전
+            "shift_wheel_down": "rotate_clockwise",  # Shift + 휠 아래로: 시계방향 회전
             "wheel_cooldown_ms": 500               # 휠 이벤트 쿨다운 (밀리초)
         }
         
@@ -157,8 +161,12 @@ class PreferencesDialog(QDialog):
             "middle_click": "중간 버튼 클릭",
             "right_click": "오른쪽 버튼 클릭",
             "double_click": "더블 클릭",
-            "wheel_up": "휠 위로 돌리기",
-            "wheel_down": "휠 아래로 돌리기"
+            "wheel_up": "휠 위로",
+            "wheel_down": "휠 아래로",
+            "ctrl_wheel_up": "Ctrl + 휠 위로",
+            "ctrl_wheel_down": "Ctrl + 휠 아래로",
+            "shift_wheel_up": "Shift + 휠 위로",
+            "shift_wheel_down": "Shift + 휠 아래로"
         }
         
         # 메인 레이아웃 - 수평 레이아웃으로 변경
@@ -253,6 +261,14 @@ class PreferencesDialog(QDialog):
         self.table.verticalHeader().setVisible(False)  # 세로 헤더(행 번호)는 숨겨요
         self.table.setAlternatingRowColors(True)  # 행마다 배경색을 번갈아 가며 설정해요
         
+        # 테이블 높이 강제 적용 (여러 방법 시도)
+        self.table.setMinimumHeight(400)  # 최소 높이 설정
+        self.table.setFixedHeight(400)    # 고정 높이 설정
+        
+        # 스크롤 정책 설정
+        self.table.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.table.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        
         # 테이블 채우기
         self.table.setRowCount(len(self.key_settings))  # 설정 개수만큼 행 생성
         
@@ -291,12 +307,13 @@ class PreferencesDialog(QDialog):
         # 주석 처리: 아래 라인은 타입 에러를 유발하기 때문에 제거했어요
         # self.table.setItemDelegateForColumn(1, self.key_input)
         
-        # 설명 라벨 추가
+        # 설명 라벨 추가 - 여백 추가
         help_label = QLabel("단축키를 변경하려면 해당 행을 클릭하세요. 그런 다음 원하는 키를 누르면 됩니다.")
-        help_label.setStyleSheet("color: #555;")
+        help_label.setStyleSheet("color: #555; margin-top: 15px;")
         
-        # 버튼 생성
+        # 버튼 생성 - 여백 추가
         button_layout = QHBoxLayout()
+        button_layout.setContentsMargins(0, 15, 0, 0)  # 위쪽 여백 15픽셀 추가
         
         # 기본값으로 초기화 버튼
         self.reset_button = QPushButton("기본값으로 초기화")
@@ -339,7 +356,7 @@ class PreferencesDialog(QDialog):
         self.mouse_table.setEditTriggers(QTableWidget.NoEditTriggers)  # 직접 편집 불가능
         self.mouse_table.verticalHeader().setVisible(False)  # 세로 헤더(행 번호) 숨김
         self.mouse_table.setAlternatingRowColors(True)  # 행마다 배경색 번갈아 설정
-        self.mouse_table.setMinimumHeight(300)  # 테이블 최소 높이 설정
+        self.mouse_table.setMinimumHeight(400)  # 테이블 최소 높이 설정 (300에서 400으로 늘림)
         
         # 헤더 볼드체 제거
         header_style = "QHeaderView::section { font-weight: normal; }"
@@ -396,11 +413,13 @@ class PreferencesDialog(QDialog):
         
         # 설명 라벨 추가
         help_label = QLabel("단축키를 변경하려면 해당 셀을 클릭하세요. 그런 다음 원하는 키를 누르면 됩니다.")
-        help_label.setStyleSheet("color: #555;")
+        help_label.setStyleSheet("color: #555; margin-top: 15px;")
         theme_layout.addWidget(help_label)
         
         # 휠 쿨다운 설정 추가
         cooldown_layout = QHBoxLayout()
+        cooldown_layout.setContentsMargins(0, 15, 0, 0)  # 위쪽 여백 15픽셀 추가
+        
         cooldown_label = QLabel("휠 이벤트 쿨다운 (밀리초):")
         cooldown_label.setStyleSheet("min-width: 120px; padding: 5px;")
         
@@ -420,6 +439,7 @@ class PreferencesDialog(QDialog):
         
         # 버튼 레이아웃 추가
         mouse_button_layout = QHBoxLayout()
+        mouse_button_layout.setContentsMargins(0, 15, 0, 0)  # 위쪽 여백 15픽셀 추가
         
         # 기본값으로 초기화 버튼
         self.mouse_reset_button = QPushButton("기본값으로 초기화")
@@ -725,6 +745,10 @@ class PreferencesDialog(QDialog):
             "double_click": "toggle_fullscreen",   # 더블 클릭: 전체화면
             "wheel_up": "prev_image",              # 휠 위로: 이전 이미지
             "wheel_down": "next_image",            # 휠 아래로: 다음 이미지
+            "ctrl_wheel_up": "volume_up",          # Ctrl + 휠 위로: 볼륨 증가
+            "ctrl_wheel_down": "volume_down",      # Ctrl + 휠 아래로: 볼륨 감소
+            "shift_wheel_up": "rotate_counterclockwise",  # Shift + 휠 위로: 반시계방향 회전
+            "shift_wheel_down": "rotate_clockwise",  # Shift + 휠 아래로: 시계방향 회전
             "wheel_cooldown_ms": 500               # 휠 이벤트 쿨다운 (밀리초)
         }
         
