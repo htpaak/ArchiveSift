@@ -35,6 +35,13 @@ class MouseHandler(QObject):
         Args:
             delta (int): 휠 스크롤 값 (양수: 위로, 음수: 아래로)
         """
+        # 쿨다운 체크
+        current_time = time.time() * 1000  # 현재 시간(밀리초)
+        cooldown_ms = self.parent.mouse_settings.get("wheel_cooldown_ms", 500)
+        
+        if current_time - self.last_wheel_time < cooldown_ms:
+            return  # 쿨다운 중이면 이벤트 무시
+        
         # 수정자 키 확인
         modifiers = QApplication.keyboardModifiers()
         is_ctrl_pressed = bool(modifiers & Qt.ControlModifier)
@@ -73,7 +80,10 @@ class MouseHandler(QObject):
                 # 일반 휠 아래로
                 wheel_down_action = self.parent.mouse_settings.get("wheel_down", "next_image")
                 self.execute_mouse_action(wheel_down_action)
-            
+        
+        # 마지막 휠 이벤트 시간 업데이트
+        self.last_wheel_time = current_time
+        
     def handle_mouse_button(self, button):
         """
         마우스 버튼 클릭 이벤트를 처리합니다.

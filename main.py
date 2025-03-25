@@ -1289,10 +1289,6 @@ class ImageViewer(QWidget):
         # 키보드 핸들러로 이벤트 처리 위임
         self.keyboard_handler.handle_key_press(event)
 
-    def wheelEvent(self, event):
-        """휠 이벤트 처리"""
-        self.mouse_handler.wheel_event(event)
-
     def eventFilter(self, obj, event):
         """모든 마우스 이벤트를 필터링"""
         # MouseHandler로 이벤트 필터링 위임
