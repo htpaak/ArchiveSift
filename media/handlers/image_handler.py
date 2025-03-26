@@ -81,7 +81,7 @@ class ImageHandler(MediaHandler):
             
             # 이미지 정보 업데이트
             self.parent.update_image_info()
-        elif format_type == 'image' or file_ext in ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.ico', '.heic', '.heif', '.jpe', '.jps', '.jfif', '.jp2']:
+        elif format_type == 'image' or file_ext in ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.ico', '.heic', '.heif', '.jpe', '.jps', '.jfif', '.jp2', '.tga']:
             # 일반 이미지 파일 처리
             self.parent.current_media_type = 'image'  # 미디어 타입 업데이트
             

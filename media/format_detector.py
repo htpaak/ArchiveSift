@@ -59,7 +59,7 @@ class FormatDetector:
             return FormatDetector._analyze_webp(file_path)
         
         # 일반 이미지 파일 반환
-        if ext in ['jpg', 'jpeg', 'png', 'bmp', 'tiff', 'tif', 'jpe', 'jps', 'jfif', 'jp2']:
+        if ext in ['jpg', 'jpeg', 'png', 'bmp', 'tiff', 'tif', 'jpe', 'jps', 'jfif', 'jp2', 'tga']:
             return 'image'
             
         # 확장자로 판단 불가능한 경우 파일 내용 분석 시도

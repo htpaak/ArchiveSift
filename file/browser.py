@@ -34,7 +34,7 @@ class FileBrowser:
             # 이미지 형식
             '.jpg', '.jpeg', '.png', '.webp', '.psd', '.gif', '.bmp', 
             '.tiff', '.tif', '.ico', '.heic', '.heif', '.avif',
-            '.jpe', '.jps', '.jfif', '.jp2',
+            '.jpe', '.jps', '.jfif', '.jp2', '.tga',
             # RAW 이미지 형식
             '.cr2', '.nef', '.arw',
             # 비디오 형식

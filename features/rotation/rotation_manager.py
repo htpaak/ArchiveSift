@@ -127,7 +127,7 @@ class RotationManager(QObject):
                 # PSD 파일은 PSDHandler를 통해 다시 로드
                 if hasattr(self.viewer, 'psd_handler'):
                     self.viewer.psd_handler.load(self.viewer.current_image_path)
-            elif file_ext in ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.ico', '.heic', '.heif']:
+            elif file_ext in ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.ico', '.heic', '.heif', '.tga']:
                 # 일반 이미지는 ImageHandler를 통해 다시 로드
                 if hasattr(self.viewer, 'image_handler'):
                     self.viewer.image_handler.load(self.viewer.current_image_path)
