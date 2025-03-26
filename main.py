@@ -418,17 +418,19 @@ class ArchiveSift(QWidget):
         new_button = QPushButton(self)
         new_button.setStyleSheet("""
             QPushButton {
-                background-color: rgba(52, 73, 94, 0.9);
+                background-color: transparent;
                 color: white;
                 border: none;
                 padding: 5px;
-                border-radius: 3px;
+                font-size: 16px;
                 min-width: 30px;
                 min-height: 30px;
-                font-size: 16px;  /* 이모지 크기 조정 */
             }
             QPushButton:hover {
-                background-color: rgba(52, 73, 94, 1.0);
+                background-color: rgba(0, 0, 0, 0.2);
+            }
+            QPushButton:pressed {
+                background-color: rgba(0, 0, 0, 0.3);
             }
         """)
         new_button.setText("💬")  # 대화 이모지로 변경
