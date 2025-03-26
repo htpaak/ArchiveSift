@@ -22,7 +22,7 @@ class QMovieDebugger:
         QMovieDebugger 클래스를 초기화합니다.
         
         Args:
-            parent: ImageViewer 인스턴스 또는 None
+            parent: ArchiveSift 인스턴스 또는 None
         """
         self.parent = parent
         self.debug_utils = DebugUtils()

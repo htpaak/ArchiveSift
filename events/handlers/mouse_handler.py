@@ -2,7 +2,7 @@
 마우스 이벤트 처리 모듈
 
 이 모듈은 마우스 이벤트(클릭, 더블클릭, 휠, 이동 등)를 처리하는 MouseHandler 클래스를 정의합니다.
-ImageViewer 클래스에서 마우스 이벤트 처리 코드를 분리하여 모듈화했습니다.
+ArchiveSift 클래스에서 마우스 이벤트 처리 코드를 분리하여 모듈화했습니다.
 """
 
 import time
@@ -14,7 +14,7 @@ class MouseHandler(QObject):
     """
     마우스 이벤트 처리 클래스
     
-    이 클래스는 ImageViewer의 마우스 이벤트 처리를 담당합니다.
+    이 클래스는 ArchiveSift의 마우스 이벤트 처리를 담당합니다.
     """
     
     def __init__(self, parent=None):
@@ -22,7 +22,7 @@ class MouseHandler(QObject):
         MouseHandler 초기화
         
         Args:
-            parent: 부모 객체 (ImageViewer 인스턴스)
+            parent: 부모 객체 (ArchiveSift 인스턴스)
         """
         super().__init__(parent)
         self.parent = parent

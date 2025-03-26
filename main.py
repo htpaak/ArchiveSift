@@ -113,13 +113,13 @@ from core.debug import QMovieDebugger, MemoryProfiler
 from core.memory import ResourceCleaner, TimerManager
 
 # 메인 이미지 뷰어 클래스 정의
-class ImageViewer(QWidget):
+class ArchiveSift(QWidget):
     def __init__(self):
         super().__init__()  # 부모 클래스 초기화
 
         # 앱 초기화 시작 로깅
         # get_logger 함수가 없으므로 원래 코드로 되돌립니다
-        self.logger = Logger("ImageViewer")
+        self.logger = Logger("ArchiveSift")
         self.logger.info("이미지 뷰어 초기화 시작")
         
         # TooltipManager import
@@ -404,7 +404,7 @@ class ImageViewer(QWidget):
         title_layout.setContentsMargins(10, 0, 10, 0)  # 좌우 여백만 설정
         
         # 제목 텍스트 레이블
-        title_label = QLabel("Image Viewer")
+        title_label = QLabel("ArchiveSift")
         # 스타일시트는 이미 title_bar에 적용된 것을 사용
         title_layout.addWidget(title_label)
         title_layout.addStretch()  # 가운데 빈 공간 추가 (창 컨트롤 버튼을 오른쪽으로 밀기 위함)
@@ -960,8 +960,8 @@ class ImageViewer(QWidget):
     def update_window_title(self, image_path):
         """창 제목과 제목표시줄 업데이트"""
         # 파일 이름을 제목표시줄에 표시
-        file_name = os.path.basename(image_path) if image_path else "Image Viewer"
-        title_text = f"Image Viewer - {file_name}" if image_path else "Image Viewer"
+        file_name = os.path.basename(image_path) if image_path else "ArchiveSift"
+        title_text = f"ArchiveSift - {file_name}" if image_path else "ArchiveSift"
         # 제목표시줄 라벨 찾아서 텍스트 업데이트
         for child in self.title_bar.children():
             if isinstance(child, QLabel):
@@ -2119,7 +2119,8 @@ class ImageViewer(QWidget):
 def main():
     logger.info("애플리케이션 메인 함수 시작")
     app = QApplication(sys.argv)  # Qt 애플리케이션 객체 생성
-    viewer = ImageViewer()  # ImageViewer 클래스의 객체 생성
+    app.setApplicationName("ArchiveSift")  # 애플리케이션 이름 설정
+    viewer = ArchiveSift()  # ArchiveSift 클래스의 객체 생성
     viewer.show()  # 뷰어 창 표시
     logger.info("이미지 뷰어 창 표시됨")
     exit_code = app.exec_()  # 이벤트 루프 실행

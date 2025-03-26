@@ -19,7 +19,7 @@ class ResourceCleaner:
         ResourceCleaner 클래스를 초기화합니다.
         
         Args:
-            viewer: ImageViewer 인스턴스
+            viewer: ArchiveSift 인스턴스
         """
         self.viewer = viewer
     

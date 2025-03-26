@@ -38,7 +38,7 @@ class VideoHandler(MediaHandler):
     비디오 파일을 로드하고 재생하는 기능을 제공합니다.
     
     Attributes:
-        parent: 부모 위젯 (ImageViewer 클래스의 인스턴스)
+        parent: 부모 위젯 (ArchiveSift 클래스의 인스턴스)
         display_label: 비디오를 표시할 QLabel 위젯
         mpv_player: libmpv 기반 비디오 플레이어
         is_playing: 현재 재생 중인지 여부
@@ -49,7 +49,7 @@ class VideoHandler(MediaHandler):
         VideoHandler 클래스 초기화
         
         Args:
-            parent: 부모 위젯 (ImageViewer 클래스의 인스턴스)
+            parent: 부모 위젯 (ArchiveSift 클래스의 인스턴스)
             display_label: 비디오를 표시할 QLabel 위젯
         """
         super().__init__(parent, display_label)

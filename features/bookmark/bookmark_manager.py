@@ -27,7 +27,7 @@ class BookmarkManager:
         북마크 관리자를 초기화해요.
         
         매개변수:
-            viewer: 부모 위젯 (보통 ImageViewer 클래스)
+            viewer: 부모 위젯 (보통 ArchiveSift 클래스)
         """
         self.viewer = viewer
         self.bookmarks = set()
@@ -171,7 +171,7 @@ class BookmarkManager:
             
             # 파일 이름을 제목표시줄에 표시
             file_name = os.path.basename(path)
-            title_text = f"Image Viewer - {file_name}"
+            title_text = f"ArchiveSift - {file_name}"
             
             # 제목표시줄 라벨 찾아서 텍스트 업데이트
             if hasattr(self.viewer, 'title_bar'):

@@ -2,7 +2,7 @@
 창 관련 이벤트 처리 모듈
 
 이 모듈은 창 이벤트(리사이징, 전체화면, 최대화 등)를 처리하는 WindowHandler 클래스를 정의합니다.
-ImageViewer 클래스에서 창 이벤트 처리 코드를 분리하여 모듈화했습니다.
+ArchiveSift 클래스에서 창 이벤트 처리 코드를 분리하여 모듈화했습니다.
 """
 
 from PyQt5.QtCore import QObject, QTimer, Qt
@@ -14,7 +14,7 @@ class WindowHandler(QObject):
     """
     창 이벤트 처리 클래스
     
-    이 클래스는 ImageViewer의 창 이벤트 처리를 담당합니다.
+    이 클래스는 ArchiveSift의 창 이벤트 처리를 담당합니다.
     """
     
     def __init__(self, parent=None):
@@ -22,7 +22,7 @@ class WindowHandler(QObject):
         WindowHandler 초기화
         
         Args:
-            parent: 부모 객체 (ImageViewer 인스턴스)
+            parent: 부모 객체 (ArchiveSift 인스턴스)
         """
         super().__init__(parent)
         self.parent = parent

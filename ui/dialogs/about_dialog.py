@@ -29,7 +29,7 @@ class AboutDialog(QDialog):
         # 버전 정보 가져오기
         version_info = get_version_info()
         
-        self.setWindowTitle(f"이미지 뷰어 {get_full_version_string()}")  # 창의 제목에 버전 표시
+        self.setWindowTitle(f"ArchiveSift {get_full_version_string()}")  # 창의 제목에 버전 표시
         self.setMinimumWidth(500)  # 창의 최소 너비를 설정해요
         self.setMinimumHeight(400)  # 창의 최소 높이를 설정해요
         
@@ -38,7 +38,7 @@ class AboutDialog(QDialog):
         layout = QVBoxLayout(self)
         
         # 프로그램 제목 - 맨 위에 큰 글씨로 표시해요
-        title_label = QLabel("이미지 뷰어")
+        title_label = QLabel("ArchiveSift")
         title_label.setAlignment(Qt.AlignCenter)  # 가운데 정렬해요
         title_label.setStyleSheet("font-size: 24px; font-weight: bold; color: rgba(52, 73, 94, 1.0);")  # 글씨 스타일을 설정해요
         layout.addWidget(title_label)

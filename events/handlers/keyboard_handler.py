@@ -124,9 +124,9 @@ class KeyboardHandler:
         KeyboardHandler 초기화
         
         매개변수:
-            parent: 부모 객체 (ImageViewer 인스턴스)
+            parent: 부모 객체 (ArchiveSift 인스턴스)
         """
-        self.parent = parent  # ImageViewer 인스턴스 참조
+        self.parent = parent  # ArchiveSift 인스턴스 참조
     
     def handle_key_press(self, event):
         """

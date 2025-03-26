@@ -25,7 +25,7 @@ class AnimationHandler(QObject):
         
         Args:
             image_label (QLabel): 애니메이션을 표시할 레이블
-            parent: 부모 객체 (일반적으로 ImageViewer)
+            parent: 부모 객체 (일반적으로 ArchiveSift)
         """
         super(AnimationHandler, self).__init__(parent)
         self.image_label = image_label

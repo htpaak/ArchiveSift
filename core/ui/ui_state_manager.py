@@ -22,7 +22,7 @@ class UIStateManager(QObject):
         UIStateManager 초기화
         
         Args:
-            parent: 부모 객체 (ImageViewer 인스턴스)
+            parent: 부모 객체 (ArchiveSift 인스턴스)
         """
         super().__init__(parent)
         self.parent = parent
