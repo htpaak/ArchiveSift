@@ -132,7 +132,9 @@ class RotationManager(QObject):
                 if hasattr(self.viewer, 'image_handler'):
                     self.viewer.image_handler.load(self.viewer.current_image_path)
                     print(f"일반 이미지 회전 적용: {self._rotation_angle}°")
-            elif file_ext in ['.cr2', '.nef', '.arw', '.orf', '.rw2', '.dng', '.pef', '.raf', '.srw']:
+            elif file_ext in ['.cr2', '.nef', '.arw', '.orf', '.rw2', '.dng', '.pef', '.raf', '.srw',
+                              '.crw', '.raw', '.kdc', '.mrw', '.dcr', '.sr2', '.3fr', '.mef', '.erf',
+                              '.rwl', '.mdc', '.mos', '.x3f', '.bay', '.nrw']:
                 # RAW 이미지는 ImageHandler를 통해 다시 로드
                 if hasattr(self.viewer, 'image_handler'):
                     self.viewer.image_handler.load(self.viewer.current_image_path)
