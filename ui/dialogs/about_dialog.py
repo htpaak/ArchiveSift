@@ -77,8 +77,9 @@ class AboutDialog(QDialog):
         scroll_layout.addWidget(formats_label)
         
         formats_detail = QLabel(
-            "• 이미지: JPG, PNG, GIF, WEBP, BMP, TIFF, ICO, PSD 등\n"  # • 는 점 모양의 기호예요
-            "• 비디오: MP4, AVI, MKV, MOV, WMV 등\n"
+            "• 이미지: JPG, JPEG, PNG, GIF, WEBP, BMP, TIFF, TIF, ICO, PSD, HEIC, HEIF\n"  # • 는 점 모양의 기호예요
+            "• 비디오: MP4, AVI, MKV, MOV, WMV, TS, M2TS, FLV, WEBM, 3GP, M4V, MPG, MPEG, VOB\n"
+            "• 오디오: WAV, FLAC, MP3, AAC, M4A, OGG\n"
             "• 애니메이션: GIF, WEBP"
         )
         formats_detail.setStyleSheet("margin-left: 15px;")  # 왼쪽에 여백을 줘서 들여쓰기 효과를 줘요
