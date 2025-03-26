@@ -49,7 +49,7 @@ class FormatDetector:
             return FormatDetector._handle_heic_heif(file_path)
         elif ext == 'avif':
             return 'avif'
-        elif ext in ['cr2', 'nef', 'arw']:
+        elif ext in ['cr2', 'nef', 'arw', 'orf', 'rw2', 'dng', 'pef', 'raf', 'srw']:
             return 'raw_image'
         
         # GIF 및 WEBP 파일 상세 분석

@@ -36,7 +36,7 @@ class FileBrowser:
             '.tiff', '.tif', '.ico', '.heic', '.heif', '.avif',
             '.jpe', '.jps', '.jfif', '.jp2', '.tga',
             # RAW 이미지 형식
-            '.cr2', '.nef', '.arw',
+            '.cr2', '.nef', '.arw', '.orf', '.rw2', '.dng', '.pef', '.raf', '.srw',
             # 비디오 형식
             '.mp4', '.avi', '.wav', '.ts', '.m2ts', '.mov', '.qt', 
             '.mkv', '.flv', '.webm', '.3gp', '.m4v', '.mpg', '.mpeg', 

@@ -132,6 +132,11 @@ class RotationManager(QObject):
                 if hasattr(self.viewer, 'image_handler'):
                     self.viewer.image_handler.load(self.viewer.current_image_path)
                     print(f"일반 이미지 회전 적용: {self._rotation_angle}°")
+            elif file_ext in ['.cr2', '.nef', '.arw', '.orf', '.rw2', '.dng', '.pef', '.raf', '.srw']:
+                # RAW 이미지는 ImageHandler를 통해 다시 로드
+                if hasattr(self.viewer, 'image_handler'):
+                    self.viewer.image_handler.load(self.viewer.current_image_path)
+                    print(f"RAW 이미지 회전 적용: {self._rotation_angle}°")
             elif file_ext == '.webp':
                 # WEBP 일반 이미지 (AnimationHandler를 통해 처리)
                 if hasattr(self.viewer, 'animation_handler'):

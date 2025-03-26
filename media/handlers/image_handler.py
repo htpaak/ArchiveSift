@@ -161,8 +161,8 @@ class ImageHandler(MediaHandler):
                     print(f"AVIF 이미지 처리 중 오류 발생: {e}")
                     # 오류 발생 시 일반 이미지 로드 방식으로 진행
             
-            # RAW 이미지 파일 처리 (CR2, NEF, ARW)
-            if file_ext in ['.cr2', '.nef', '.arw']:
+            # RAW 이미지 파일 처리 (CR2, NEF, ARW, ORF, RW2, DNG, PEF, RAF, SRW)
+            if file_ext in ['.cr2', '.nef', '.arw', '.orf', '.rw2', '.dng', '.pef', '.raf', '.srw']:
                 try:
                     # 로딩 인디케이터 표시
                     if hasattr(self.parent, 'show_loading_indicator'):
