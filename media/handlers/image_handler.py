@@ -81,7 +81,7 @@ class ImageHandler(MediaHandler):
             
             # 이미지 정보 업데이트
             self.parent.update_image_info()
-        elif format_type == 'image' or file_ext in ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.ico', '.heic', '.heif']:
+        elif format_type == 'image' or file_ext in ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.ico', '.heic', '.heif', '.jpe', '.jps', '.jfif', '.jp2']:
             # 일반 이미지 파일 처리
             self.parent.current_media_type = 'image'  # 미디어 타입 업데이트
             
@@ -400,8 +400,8 @@ class ImageHandler(MediaHandler):
         elif file_format == 'webp_image' or file_format == 'webp_animation':
             # 애니메이션 미디어 (WEBP) 처리
             self.parent.load_animation_media(image_path, file_format)
-        elif file_format == 'psd' or file_format == 'raw_image' or file_format == 'avif' or file_format == 'image' or file_ext in ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.ico', '.heic', '.heif', '.cr2', '.nef', '.arw', '.avif']:
-            # 정적 이미지 처리 (일반 이미지, PSD, RAW, AVIF)
+        elif file_format == 'psd' or file_format == 'raw_image' or file_format == 'avif' or file_format == 'image' or file_ext in ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.ico', '.heic', '.heif', '.cr2', '.nef', '.arw', '.avif', '.jpe', '.jps', '.jfif', '.jp2']:
+            # 정적 이미지 처리 (일반 이미지, PSD, RAW, AVIF, JPEG 계열)
             self.parent.load_static_image(image_path, file_format, file_ext)
         elif file_format == 'video':
             # 비디오 미디어 처리
