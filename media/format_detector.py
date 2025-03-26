@@ -45,6 +45,8 @@ class FormatDetector:
             return 'video'
         elif ext == 'psd':
             return 'psd'
+        elif ext in ['heic', 'heif']:
+            return FormatDetector._handle_heic_heif(file_path)
         
         # GIF 및 WEBP 파일 상세 분석
         if ext == 'gif':
@@ -61,6 +63,33 @@ class FormatDetector:
             with Image.open(file_path) as img:
                 return 'image'
         except:
+            return None
+    
+    @staticmethod
+    def _handle_heic_heif(file_path):
+        """
+        HEIC/HEIF 파일을 처리합니다.
+        
+        Args:
+            file_path (str): HEIC/HEIF 파일 경로
+            
+        Returns:
+            str: 'image' 또는 None (오류 발생 시)
+        """
+        try:
+            # pillow-heif 라이브러리를 사용하여 HEIC/HEIF 파일 읽기 시도
+            try:
+                from pillow_heif import register_heif_opener
+                register_heif_opener()
+                
+                # 등록 후 Image.open으로 열기 시도
+                with Image.open(file_path) as img:
+                    return 'image'
+            except ImportError:
+                print("pillow-heif 라이브러리가 설치되지 않았습니다.")
+                return None
+        except Exception as e:
+            print(f"HEIC/HEIF 파일 처리 중 오류 발생: {e}")
             return None
     
     @staticmethod

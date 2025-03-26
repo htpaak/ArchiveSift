@@ -9,6 +9,8 @@ import os
 import time
 from PyQt5.QtGui import QPixmap, QImage, QTransform
 from PyQt5.QtCore import Qt, QSize
+from PIL import Image
+from io import BytesIO
 
 from media.handlers.base_handler import MediaHandler
 
@@ -59,70 +61,78 @@ class ImageHandler(MediaHandler):
             self.parent.update_image_info()
     
     def load(self, image_path):
-        """
-        이미지 파일을 로드합니다.
-        
-        Args:
-            image_path: 로드할 이미지 파일 경로
-            
-        Returns:
-            bool: 로드 성공 여부
-        """
-        if not os.path.exists(image_path):
-            self.parent.show_message(f"파일을 찾을 수 없습니다: {image_path}")
-            return False
-        
-        # 파일 확장자 추출
-        filename = os.path.basename(image_path)
-        extension = os.path.splitext(filename)[1].upper().lstrip('.')
-        
-        # 이미지 로딩 시작 메시지
-        self.parent.show_message(f"{extension} 이미지 로딩 시작: {filename}")
-        
-        # 로딩 인디케이터 표시
-        self.parent.show_loading_indicator()
-        
-        # 이미지 로딩 시도
+        """이미지 파일을 로드하고 화면에 표시합니다."""
         try:
-            # 이미지를 QPixmap으로 로드
+            # 이미지 경로 확인
+            if not os.path.exists(image_path):
+                raise FileNotFoundError(f"파일을 찾을 수 없습니다: {image_path}")
+            
+            # 이미지 크기 확인
+            file_size_bytes = os.path.getsize(image_path)
+            file_size_mb = file_size_bytes / (1024 * 1024)
+            
+            # 파일 확장자 확인
+            _, file_ext = os.path.splitext(image_path.lower())
+            
+            # HEIC/HEIF 파일 처리
+            if file_ext in ['.heic', '.heif']:
+                try:
+                    # pillow-heif 라이브러리를 사용
+                    from pillow_heif import register_heif_opener
+                    register_heif_opener()
+                    
+                    # PIL로 이미지 로드
+                    with Image.open(image_path) as pil_image:
+                        # QImage로 변환
+                        img_data = BytesIO()
+                        pil_image.save(img_data, format='PNG')
+                        qimg = QImage()
+                        qimg.loadFromData(img_data.getvalue())
+                        
+                        if qimg.isNull():
+                            raise ValueError("이미지 변환 실패")
+                        
+                        # QPixmap으로 변환
+                        pixmap = QPixmap.fromImage(qimg)
+                        self.display_image(pixmap, image_path, file_size_mb)
+                        return
+                except ImportError:
+                    raise ImportError("HEIC/HEIF 파일을 처리하기 위한 pillow-heif 라이브러리가 필요합니다")
+                except Exception as e:
+                    raise Exception(f"HEIC/HEIF 이미지 처리 중 오류 발생: {e}")
+            
+            # 일반 이미지 파일 처리
             pixmap = QPixmap(image_path)
             
             if pixmap.isNull():
-                self.parent.show_message(f"이미지 로드 실패: {filename}")
-                self.parent.hide_loading_indicator()
-                return False
+                # QPixmap으로 직접 로드 실패 시 PIL 시도
+                try:
+                    # PIL을 사용하여 이미지 로드
+                    with Image.open(image_path) as pil_image:
+                        # QImage로 변환
+                        img_data = BytesIO()
+                        pil_image.save(img_data, format='PNG')
+                        qimg = QImage()
+                        qimg.loadFromData(img_data.getvalue())
+                        
+                        if qimg.isNull():
+                            raise ValueError("이미지 변환 실패")
+                        
+                        # QPixmap으로 변환
+                        pixmap = QPixmap.fromImage(qimg)
+                except Exception as pil_error:
+                    # 모든 방법 실패 시 오류 발생
+                    raise ValueError(f"이미지 로드 실패: {pil_error}")
             
-            # 회전 적용 (parent의 current_rotation 값 사용)
-            if hasattr(self.parent, 'current_rotation') and self.parent.current_rotation != 0:
-                # 회전 변환 적용
-                transform = QTransform().rotate(self.parent.current_rotation)
-                pixmap = pixmap.transformed(transform, Qt.SmoothTransformation)
-                print(f"이미지에 회전 적용됨: {self.parent.current_rotation}°")
-            
-            # 이미지 로드 성공
-            self.original_pixmap = pixmap
-            self.current_pixmap = pixmap
-            self.current_media_path = image_path
-            
-            # 이미지 크기 조정 및 표시
-            self._resize_and_display()
-            
-            # 로딩 인디케이터 숨김
-            self.parent.hide_loading_indicator()
-            
-            # 이미지 정보 업데이트
-            file_size_mb = os.path.getsize(image_path) / (1024 * 1024)
-            self.parent.show_message(f"{extension} 이미지 로드 완료: {filename}, 크기: {file_size_mb:.2f}MB")
-            
-            # 현재 미디어 타입 설정
-            self.parent.current_media_type = 'image'
-            
-            return True
+            # 이미지 표시
+            self.display_image(pixmap, image_path, file_size_mb)
             
         except Exception as e:
-            self.parent.show_message(f"이미지 로드 중 오류 발생: {str(e)}")
-            self.parent.hide_loading_indicator()
-            return False
+            # 에러 핸들링
+            self.on_error(image_path, str(e))
+            # 오류가 발생한 경우 클라이언트에게 알림
+            if hasattr(self.parent, 'show_message'):
+                self.parent.show_message(f"이미지 로드 중 오류 발생: {e}")
     
     def unload(self):
         """현재 로드된 이미지를 언로드합니다."""
@@ -264,19 +274,68 @@ class ImageHandler(MediaHandler):
             
         return scaled_pixmap
     
-    def display_image(self, scaled_pixmap, path, size_mb):
+    def display_image(self, pixmap, image_path, file_size_mb):
         """
-        이미지를 화면에 표시하는 메서드
+        이미지를 화면에 표시합니다.
         
         Args:
-            scaled_pixmap: 표시할 스케일링된 QPixmap 이미지
-            path: 이미지 파일 경로
-            size_mb: 이미지 크기 (MB)
+            pixmap (QPixmap): 표시할 이미지 픽스맵
+            image_path (str): 이미지 파일 경로
+            file_size_mb (float): 파일 크기 (MB)
         """
-        # 스케일링된 이미지 표시
-        self.display_label.setPixmap(scaled_pixmap)
-        print(f"이미지 로드 완료: {os.path.basename(path)}, 크기: {size_mb:.2f}MB") 
+        try:
+            # 회전 적용 (parent의 current_rotation 값 사용)
+            if hasattr(self.parent, 'current_rotation') and self.parent.current_rotation != 0:
+                # 회전 변환 적용
+                transform = QTransform().rotate(self.parent.current_rotation)
+                pixmap = pixmap.transformed(transform, Qt.SmoothTransformation)
+                print(f"이미지에 회전 적용됨: {self.parent.current_rotation}°")
+            
+            # 이미지 로드 성공
+            self.original_pixmap = pixmap
+            self.current_pixmap = pixmap
+            self.current_media_path = image_path
+            
+            # 이미지 크기 조정 및 표시
+            self._resize_and_display()
+            
+            # 로딩 인디케이터 숨김
+            if hasattr(self.parent, 'hide_loading_indicator'):
+                self.parent.hide_loading_indicator()
+            
+            # 이미지 정보 업데이트
+            filename = os.path.basename(image_path)
+            extension = os.path.splitext(filename)[1].upper().lstrip('.')
+            
+            # 스케일링된 이미지 표시
+            if hasattr(self, 'display_label') and self.display_label:
+                self.display_label.setPixmap(self.current_pixmap)
+            
+            if hasattr(self.parent, 'show_message'):
+                self.parent.show_message(f"{extension} 이미지 로드 완료: {filename}, 크기: {file_size_mb:.2f}MB")
+            
+            # 현재 미디어 타입 설정
+            self.parent.current_media_type = 'image'
+            
+        except Exception as e:
+            if hasattr(self.parent, 'show_message'):
+                self.parent.show_message(f"이미지 표시 중 오류 발생: {str(e)}")
+            raise e
+    
+    def on_error(self, image_path, error_message):
+        """
+        이미지 로드 오류 처리
         
+        Args:
+            image_path (str): 실패한 이미지 파일 경로
+            error_message (str): 오류 메시지
+        """
+        print(f"이미지 로드 오류: {error_message}")
+        
+        # 로딩 인디케이터 숨김
+        if hasattr(self.parent, 'hide_loading_indicator'):
+            self.parent.hide_loading_indicator()
+    
     def handle_image_caching(self, path, image, size_mb):
         """
         이미지 캐싱을 처리하는 메서드
