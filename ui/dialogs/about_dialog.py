@@ -77,7 +77,8 @@ class AboutDialog(QDialog):
         scroll_layout.addWidget(formats_label)
         
         formats_detail = QLabel(
-            "• 이미지: JPG, JPEG, PNG, GIF, WEBP, BMP, TIFF, TIF, ICO, PSD, HEIC, HEIF\n"  # • 는 점 모양의 기호예요
+            "• 이미지: JPG, JPEG, PNG, GIF, WEBP, BMP, TIFF, TIF, ICO, PSD, HEIC, HEIF, AVIF\n"  # • 는 점 모양의 기호예요
+            "• 카메라 RAW: CR2 (Canon), NEF (Nikon), ARW (Sony)\n"
             "• 비디오: MP4, AVI, MKV, MOV, WMV, TS, M2TS, FLV, WEBM, 3GP, M4V, MPG, MPEG, VOB\n"
             "• 오디오: WAV, FLAC, MP3, AAC, M4A, OGG\n"
             "• 애니메이션: GIF, WEBP"

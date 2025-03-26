@@ -12,6 +12,19 @@ from PyQt5.QtCore import Qt, QSize
 from PIL import Image
 from io import BytesIO
 
+# RAW 이미지 처리를 위한 라이브러리 추가
+import rawpy
+import numpy as np
+
+# AVIF 이미지 처리를 위한 플러그인 등록
+try:
+    from pillow_avif import register_avif_opener
+    register_avif_opener()
+    AVIF_SUPPORT = True
+except ImportError:
+    AVIF_SUPPORT = False
+    print("pillow-avif-plugin이 설치되지 않았습니다. AVIF 지원이 제한적일 수 있습니다.")
+
 from media.handlers.base_handler import MediaHandler
 
 class ImageHandler(MediaHandler):
@@ -50,6 +63,24 @@ class ImageHandler(MediaHandler):
             
             # 이미지 정보 업데이트
             self.parent.update_image_info()
+        elif format_type == 'raw_image':
+            # RAW 이미지 파일 처리
+            self.parent.current_media_type = 'image'  # 미디어 타입 업데이트
+            
+            # RAW 이미지 로드
+            self.load(image_path)
+            
+            # 이미지 정보 업데이트
+            self.parent.update_image_info()
+        elif format_type == 'avif':
+            # AVIF 이미지 파일 처리
+            self.parent.current_media_type = 'image'  # 미디어 타입 업데이트
+            
+            # AVIF 이미지 로드
+            self.load(image_path)
+            
+            # 이미지 정보 업데이트
+            self.parent.update_image_info()
         elif format_type == 'image' or file_ext in ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.ico', '.heic', '.heif']:
             # 일반 이미지 파일 처리
             self.parent.current_media_type = 'image'  # 미디어 타입 업데이트
@@ -73,6 +104,165 @@ class ImageHandler(MediaHandler):
             
             # 파일 확장자 확인
             _, file_ext = os.path.splitext(image_path.lower())
+            
+            # AVIF 이미지 파일 처리
+            if file_ext == '.avif':
+                try:
+                    # 로딩 인디케이터 표시
+                    if hasattr(self.parent, 'show_loading_indicator'):
+                        self.parent.show_loading_indicator()
+                    
+                    # 로딩 메시지 표시
+                    if hasattr(self.parent, 'show_message'):
+                        self.parent.show_message(f"AVIF 이미지 로딩 중... {os.path.basename(image_path)}")
+                    
+                    # pillow-avif-plugin이 설치되었는지 확인
+                    if not AVIF_SUPPORT:
+                        self.parent.show_message("AVIF 파일을 처리하기 위해 pillow-avif-plugin이 필요합니다.")
+                    
+                    # PIL로 AVIF 이미지 로드
+                    with Image.open(image_path) as pil_image:
+                        # 이미지 메타데이터 출력 (디버깅 용도)
+                        print(f"AVIF 이미지 정보: {pil_image.format}, {pil_image.mode}, {pil_image.size}")
+                        
+                        # RGBA 모드로 변환 (투명도 유지)
+                        if pil_image.mode != 'RGBA':
+                            pil_image = pil_image.convert('RGBA')
+                        
+                        # QImage로 변환 (PNG로 변환하여 메모리에 저장)
+                        img_data = BytesIO()
+                        pil_image.save(img_data, format='PNG')
+                        qimg = QImage()
+                        qimg.loadFromData(img_data.getvalue())
+                        
+                        if qimg.isNull():
+                            raise ValueError("AVIF 이미지 변환 실패")
+                        
+                        # QPixmap으로 변환
+                        pixmap = QPixmap.fromImage(qimg)
+                        
+                        # 이미지 표시
+                        self.display_image(pixmap, image_path, file_size_mb)
+                        
+                        # 로딩 인디케이터 숨김
+                        if hasattr(self.parent, 'hide_loading_indicator'):
+                            self.parent.hide_loading_indicator()
+                        
+                        # 로딩 완료 메시지
+                        if hasattr(self.parent, 'show_message'):
+                            self.parent.show_message(f"AVIF 이미지 로드 완료: {os.path.basename(image_path)}, 크기: {file_size_mb:.2f}MB")
+                        
+                        return
+                except Exception as e:
+                    if hasattr(self.parent, 'hide_loading_indicator'):
+                        self.parent.hide_loading_indicator()
+                    if hasattr(self.parent, 'show_message'):
+                        self.parent.show_message(f"AVIF 이미지 처리 중 오류 발생: {e}")
+                    print(f"AVIF 이미지 처리 중 오류 발생: {e}")
+                    # 오류 발생 시 일반 이미지 로드 방식으로 진행
+            
+            # RAW 이미지 파일 처리 (CR2, NEF, ARW)
+            if file_ext in ['.cr2', '.nef', '.arw']:
+                try:
+                    # 로딩 인디케이터 표시
+                    if hasattr(self.parent, 'show_loading_indicator'):
+                        self.parent.show_loading_indicator()
+                        
+                    # 로딩 메시지 표시
+                    if hasattr(self.parent, 'show_message'):
+                        self.parent.show_message(f"RAW 이미지 로딩 중... {os.path.basename(image_path)}")
+                    
+                    # rawpy 라이브러리를 사용하여 RAW 파일 로드
+                    with rawpy.imread(image_path) as raw:
+                        if hasattr(self.parent, 'show_message'):
+                            self.parent.show_message(f"RAW 이미지 처리 중... {os.path.basename(image_path)}")
+                        
+                        # 이미지 처리 및 변환 (대용량 파일 처리를 위한 최적화)
+                        # 파일 크기에 따라 처리 옵션 조정
+                        if file_size_mb > 30:  # 30MB 이상의 대용량 RAW 파일
+                            # 절반 크기로 처리하여 메모리 사용량과 처리 시간 감소
+                            rgb = raw.postprocess(
+                                use_camera_wb=True,  # 카메라 화이트밸런스 사용
+                                half_size=True,      # 절반 크기로 처리 (빠른 로딩)
+                                no_auto_bright=True, # 자동 밝기 조정 비활성화
+                                output_bps=8,        # 8비트 출력 (기본)
+                                demosaic_algorithm=rawpy.DemosaicAlgorithm.AHD  # 빠른 알고리즘
+                            )
+                        else:  # 일반 크기 RAW 파일
+                            # 고품질 처리 (기본 크기 유지)
+                            rgb = raw.postprocess(
+                                use_camera_wb=True,      # 카메라 화이트밸런스 사용
+                                half_size=False,         # 원본 크기 유지
+                                no_auto_bright=False,    # 자동 밝기 조정 활성화
+                                output_bps=8,            # 8비트 출력
+                                demosaic_algorithm=rawpy.DemosaicAlgorithm.DCB,  # 고품질 알고리즘
+                                bright=1.0,              # 기본 밝기
+                                median_filter_passes=0    # 미디안 필터 패스 수
+                            )
+                        
+                        # RGB 배열을 QImage로 변환
+                        height, width, channel = rgb.shape
+                        bytes_per_line = 3 * width
+                        
+                        # NumPy 배열을 QImage로 변환 (RGB888 형식)
+                        qimg = QImage(rgb.data, width, height, bytes_per_line, QImage.Format_RGB888)
+                        
+                        if qimg.isNull():
+                            raise ValueError("RAW 이미지 변환 실패")
+                        
+                        # QImage의 깊은 복사본 생성 (원본 데이터에 대한 참조 제거)
+                        qimg_copy = qimg.copy()
+                        
+                        # 메모리 정리
+                        del rgb  # NumPy 배열 명시적 해제
+                        
+                        # QPixmap으로 변환
+                        pixmap = QPixmap.fromImage(qimg_copy)
+                        
+                        # QImage 객체 해제 (명시적 메모리 관리)
+                        del qimg
+                        del qimg_copy
+                        
+                        # 가비지 컬렉션 요청 (선택적)
+                        import gc
+                        gc.collect()
+                        
+                        # 이미지 표시
+                        self.display_image(pixmap, image_path, file_size_mb)
+                        
+                        # 로딩 인디케이터 숨김
+                        if hasattr(self.parent, 'hide_loading_indicator'):
+                            self.parent.hide_loading_indicator()
+                        
+                        # 로딩 완료 메시지
+                        if hasattr(self.parent, 'show_message'):
+                            self.parent.show_message(f"RAW 이미지 로드 완료: {os.path.basename(image_path)}, 크기: {file_size_mb:.2f}MB")
+                        
+                        return
+                        
+                except ImportError:
+                    self.parent.show_message("RAW 이미지 처리를 위한 rawpy 라이브러리가 필요합니다.")
+                    # rawpy가 없을 경우 PIL 폴백 사용
+                    try:
+                        with Image.open(image_path) as pil_image:
+                            img_data = BytesIO()
+                            pil_image.save(img_data, format='PNG')
+                            qimg = QImage()
+                            qimg.loadFromData(img_data.getvalue())
+                            
+                            if qimg.isNull():
+                                raise ValueError("RAW 이미지 변환 실패")
+                            
+                            pixmap = QPixmap.fromImage(qimg)
+                            self.display_image(pixmap, image_path, file_size_mb)
+                            return
+                    except Exception as pil_error:
+                        self.parent.show_message(f"RAW 이미지 처리 실패: {pil_error}")
+                        # 계속 진행하여 일반 이미지 로드 방식 시도
+                except Exception as e:
+                    self.parent.show_message(f"RAW 이미지 처리 중 오류 발생: {e}")
+                    print(f"RAW 이미지 처리 중 오류 발생: {e}")
+                    # 오류 발생 시 일반 이미지 로드 방식으로 진행
             
             # HEIC/HEIF 파일 처리
             if file_ext in ['.heic', '.heif']:
@@ -210,8 +400,8 @@ class ImageHandler(MediaHandler):
         elif file_format == 'webp_image' or file_format == 'webp_animation':
             # 애니메이션 미디어 (WEBP) 처리
             self.parent.load_animation_media(image_path, file_format)
-        elif file_format == 'psd' or file_format == 'image' or file_ext in ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.ico', '.heic', '.heif']:
-            # 정적 이미지 처리 (일반 이미지, PSD)
+        elif file_format == 'psd' or file_format == 'raw_image' or file_format == 'avif' or file_format == 'image' or file_ext in ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.ico', '.heic', '.heif', '.cr2', '.nef', '.arw', '.avif']:
+            # 정적 이미지 처리 (일반 이미지, PSD, RAW, AVIF)
             self.parent.load_static_image(image_path, file_format, file_ext)
         elif file_format == 'video':
             # 비디오 미디어 처리

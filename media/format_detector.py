@@ -31,7 +31,7 @@ class FormatDetector:
             
         Returns:
             str: 감지된 파일 형식 ('image', 'gif_image', 'gif_animation', 
-                'webp_image', 'webp_animation', 'video', 'psd' 등)
+                'webp_image', 'webp_animation', 'video', 'psd', 'raw_image', 'avif' 등)
         """
         if not os.path.exists(file_path):
             return None
@@ -47,6 +47,10 @@ class FormatDetector:
             return 'psd'
         elif ext in ['heic', 'heif']:
             return FormatDetector._handle_heic_heif(file_path)
+        elif ext == 'avif':
+            return 'avif'
+        elif ext in ['cr2', 'nef', 'arw']:
+            return 'raw_image'
         
         # GIF 및 WEBP 파일 상세 분석
         if ext == 'gif':

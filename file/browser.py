@@ -33,7 +33,9 @@ class FileBrowser:
         self.valid_extensions = [
             # 이미지 형식
             '.jpg', '.jpeg', '.png', '.webp', '.psd', '.gif', '.bmp', 
-            '.tiff', '.tif', '.ico', '.heic', '.heif', 
+            '.tiff', '.tif', '.ico', '.heic', '.heif', '.avif',
+            # RAW 이미지 형식
+            '.cr2', '.nef', '.arw',
             # 비디오 형식
             '.mp4', '.avi', '.wav', '.ts', '.m2ts', '.mov', '.qt', 
             '.mkv', '.flv', '.webm', '.3gp', '.m4v', '.mpg', '.mpeg', 
