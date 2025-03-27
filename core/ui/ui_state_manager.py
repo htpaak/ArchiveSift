@@ -105,14 +105,22 @@ class UIStateManager(QObject):
         
         Args:
             visibility_dict: 각 UI 요소의 표시 여부를 담은 사전
+                             None 값은 기존 상태 유지
         """
-        # 입력된 값으로 상태 업데이트
+        # 입력된 값으로 상태 업데이트 (None이 아닌 경우만)
+        updated = False
         for key, value in visibility_dict.items():
-            if key in self._ui_visibility:
-                self._ui_visibility[key] = value
+            if key in self._ui_visibility and value is not None:
+                if self._ui_visibility[key] != value:
+                    self._ui_visibility[key] = value
+                    updated = True
         
-        # 신호 발생
-        self.ui_visibility_changed.emit(self._ui_visibility)
+        # 변경이 있을 때만 신호 발생
+        if updated:
+            print(f"UI 표시 상태 업데이트: {self._ui_visibility}")
+            self.ui_visibility_changed.emit(self._ui_visibility)
+            return True
+        return False
     
     # UIStateManager 클래스 내 메서드 수정
     def show_ui_temporarily(self):

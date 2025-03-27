@@ -285,26 +285,72 @@ class MouseHandler(QObject):
                 return self.parent.ui_state_manager.hide_ui_conditionally()
         return False
 
+    def handle_top_ui_visibility(self, show):
+        """
+        상단 UI(타이틀바)의 표시 여부만 관리하는 메서드
+        
+        Args:
+            show: 타이틀바를 표시할지 여부
+            
+        Returns:
+            bool: UI 상태가 실제로 변경되었으면 True, 아니면 False
+        """
+        # UI 상태 관리자가 있으면 위임
+        if hasattr(self.parent, 'ui_state_manager'):
+            # 현재 UI 상태 가져오기
+            title_locked = self.parent.ui_state_manager._get_title_locked()
+            # 잠금 상태가 아닐 때만 UI 숨김
+            if not title_locked:
+                new_visibility = {'title_bar': show, 'controls': None, 'sliders': None}
+                return self.parent.ui_state_manager._update_ui_visibility(new_visibility)
+        return False
+        
+    def handle_bottom_ui_visibility(self, show):
+        """
+        하단 UI(컨트롤, 슬라이더)의 표시 여부만 관리하는 메서드
+        
+        Args:
+            show: 하단 컨트롤을 표시할지 여부
+            
+        Returns:
+            bool: UI 상태가 실제로 변경되었으면 True, 아니면 False
+        """
+        # UI 상태 관리자가 있으면 위임
+        if hasattr(self.parent, 'ui_state_manager'):
+            # 현재 UI 상태 가져오기
+            bottom_locked = self.parent.ui_state_manager._get_bottom_locked()
+            # 잠금 상태가 아닐 때만 UI 숨김
+            if not bottom_locked:
+                new_visibility = {'title_bar': None, 'controls': show, 'sliders': show}
+                return self.parent.ui_state_manager._update_ui_visibility(new_visibility)
+        return False
+        
     def event_filter(self, obj, event):
         """모든 마우스 이벤트를 필터링"""
         if event.type() == QEvent.MouseMove:
             global_pos = event.globalPos()
             local_pos = self.parent.mapFromGlobal(global_pos)
             
-            # 변수를 조건문 외부에서 정의 (이 부분이 중요합니다)
+            # 변수를 조건문 외부에서 정의
             title_bar_area_height = 50  # 마우스가 상단 50px 이내일 때 타이틀바 표시
             bottom_area_height = 250  # 마우스가 하단 250px 이내일 때 컨트롤 표시
 
             # UI 상태 변경 여부를 추적하기 위한 변수
             ui_state_changed = False
 
-            # 마우스가 상단 영역에 있는 경우 (타이틀바 영역)
-            if local_pos.y() <= title_bar_area_height or local_pos.y() >= self.parent.height() - bottom_area_height:
-                # UI 일시적으로 표시
-                ui_state_changed = self.handle_ui_visibility(show_temporary=True)
+            # 마우스가 상단 영역에 있는 경우 (타이틀바 영역) - 타이틀바만 표시
+            if local_pos.y() <= title_bar_area_height:
+                # 상단 UI만 표시
+                ui_state_changed = self.handle_top_ui_visibility(True)
+            # 마우스가 하단 영역에 있는 경우 (컨트롤 영역) - 컨트롤만 표시
+            elif local_pos.y() >= self.parent.height() - bottom_area_height:
+                # 하단 UI만 표시
+                ui_state_changed = self.handle_bottom_ui_visibility(True)
             else:
-                # 마우스가 상/하단 영역을 벗어난 경우 UI 조건부 숨김
-                ui_state_changed = self.handle_ui_visibility(show_temporary=False)
+                # 마우스가 중앙 영역에 있는 경우 - 모든 UI 숨김
+                ui_state_changed_top = self.handle_top_ui_visibility(False)
+                ui_state_changed_bottom = self.handle_bottom_ui_visibility(False)
+                ui_state_changed = ui_state_changed_top or ui_state_changed_bottom
             
             # UI 상태가 변경되었으면 이미지 크기 조정
             if ui_state_changed:
