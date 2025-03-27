@@ -226,4 +226,18 @@ class UIStateManager(QObject):
                 self.parent.image_info_label.show()
                 self.parent.image_info_label.raise_()
             else:
-                self.parent.image_info_label.hide() 
+                self.parent.image_info_label.hide()
+                
+    def get_ui_visibility(self, component_name):
+        """
+        UI 요소의 현재 가시성 상태를 반환합니다.
+        
+        Args:
+            component_name (str): UI 요소 이름 ('title_bar', 'controls', 'sliders', 'info_label')
+            
+        Returns:
+            bool: UI 요소 가시성 상태
+        """
+        if component_name in self._ui_visibility:
+            return self._ui_visibility[component_name]
+        return True  # 기본값: 표시 

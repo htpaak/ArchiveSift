@@ -35,6 +35,7 @@ from media.handlers.image_handler import ImageHandler  # 이미지 처리 클래
 from media.handlers.psd_handler import PSDHandler  # PSD 처리 클래스
 from media.handlers.video_handler import VideoHandler  # 비디오 처리 클래스
 from media.handlers.animation_handler import AnimationHandler  # 애니메이션 처리 클래스 추가
+from media.handlers.image_handler import RAW_EXTENSIONS
 # 사용자 정의 UI 위젯
 from ui.components.slider import ClickableSlider
 from ui.components.scrollable_menu import ScrollableMenu
@@ -1961,9 +1962,33 @@ class ArchiveSift(QWidget):
         
         # UI 변경 후 리사이징 적용이 필요한 경우 
         if hasattr(self, 'current_image_path') and self.current_image_path:
-            # 일정 시간 후 지연 리사이징 실행
-            if hasattr(self, 'resize_timer') and not self.resize_timer.isActive():
-                self.resize_timer.start(100)
+            file_ext = os.path.splitext(self.current_image_path)[1].lower()
+ 
+            # RAW 파일인 경우 즉시 리사이징 적용 (문제 해결을 위해)
+            if file_ext in RAW_EXTENSIONS:
+                print(f"RAW 파일({file_ext}) UI 가시성 변경 감지: 즉시 리사이징 적용 ({self.width()}x{self.height()})")
+                
+                # 즉시 여러 번 리사이징 시도 (강제 적용)
+                QApplication.processEvents()
+                
+                # 전체 윈도우 영역 사용 플래그 설정 (새로 추가)
+                self.image_handler.use_full_window = True
+                self.image_handler.resize()
+                
+                # 이미지 처리 완료 후 플래그 초기화
+                self.image_handler.use_full_window = False
+                
+                # 화면 갱신
+                QApplication.processEvents()
+                self.image_label.repaint()
+                self.image_label.update()
+                
+                # 즉시 리사이징 처리 후 지연 리사이징 적용 (안전장치)
+                QTimer.singleShot(50, self.delayed_resize)
+            else:
+                # 비 RAW 파일: 일정 시간 후 지연 리사이징 실행
+                if hasattr(self, 'resize_timer') and not self.resize_timer.isActive():
+                    self.resize_timer.start(100)
 
     def mousePressEvent(self, event):
         """마우스 버튼이 눌렸을 때 이벤트 처리

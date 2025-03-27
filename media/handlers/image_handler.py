@@ -27,6 +27,34 @@ except ImportError:
 
 from media.handlers.base_handler import MediaHandler
 
+# 지원되는 모든 RAW 파일 확장자 목록 (전역 상수로 정의)
+RAW_EXTENSIONS = [
+    '.cr2',   # Canon
+    '.nef',   # Nikon
+    '.arw',   # Sony
+    '.orf',   # Olympus
+    '.raw',   # General
+    '.rw2',   # Panasonic
+    '.dng',   # Adobe/Leica/Others
+    '.pef',   # Pentax
+    '.raf',   # Fujifilm
+    '.srw',   # Samsung
+    '.crw',   # Old Canon
+    '.kdc',   # Kodak
+    '.mrw',   # Minolta
+    '.dcr',   # Kodak
+    '.sr2',   # Sony
+    '.3fr',   # Hasselblad
+    '.mef',   # Mamiya
+    '.erf',   # Epson
+    '.rwl',   # Leica
+    '.mdc',   # Minolta
+    '.mos',   # Leaf
+    '.x3f',   # Sigma
+    '.bay',   # Casio
+    '.nrw',   # Nikon
+]
+
 class ImageHandler(MediaHandler):
     """
     일반 이미지 처리를 위한 클래스
@@ -38,6 +66,7 @@ class ImageHandler(MediaHandler):
         display_label: 이미지를 표시할 QLabel 위젯
         current_pixmap: 현재 로드된 이미지의 QPixmap 객체
         original_pixmap: 원본 크기의 QPixmap 객체 (크기 조정 전)
+        use_full_window: 전체 윈도우 영역 사용 플래그
     """
     
     def __init__(self, parent, display_label):
@@ -51,6 +80,7 @@ class ImageHandler(MediaHandler):
         super().__init__(parent, display_label)
         self.current_pixmap = None
         self.original_pixmap = None
+        self.use_full_window = False  # 전체 윈도우 영역 사용 플래그
     
     def load_static_image(self, image_path, format_type, file_ext):
         """일반 이미지와 PSD 이미지를 로드하고 표시합니다."""
@@ -161,10 +191,8 @@ class ImageHandler(MediaHandler):
                     print(f"AVIF 이미지 처리 중 오류 발생: {e}")
                     # 오류 발생 시 일반 이미지 로드 방식으로 진행
             
-            # RAW 이미지 파일 처리 (CR2, NEF, ARW, ORF, RW2, DNG, PEF, RAF, SRW)
-            if file_ext in ['.cr2', '.nef', '.arw', '.orf', '.rw2', '.dng', '.pef', '.raf', '.srw',
-                            '.crw', '.raw', '.kdc', '.mrw', '.dcr', '.sr2', '.3fr', '.mef', '.erf', 
-                            '.rwl', '.mdc', '.mos', '.x3f', '.bay', '.nrw']:
+            # RAW 이미지 파일 처리 - 전역 상수 사용
+            if file_ext in RAW_EXTENSIONS:
                 try:
                     # 로딩 인디케이터 표시
                     if hasattr(self.parent, 'show_loading_indicator'):
@@ -174,10 +202,14 @@ class ImageHandler(MediaHandler):
                     if hasattr(self.parent, 'show_message'):
                         self.parent.show_message(f"RAW 이미지 로딩 중... {os.path.basename(image_path)}")
                     
+                    print(f"RAW 파일({file_ext}) 처리 시작: {os.path.basename(image_path)}")
+                    
                     # rawpy 라이브러리를 사용하여 RAW 파일 로드
                     with rawpy.imread(image_path) as raw:
                         if hasattr(self.parent, 'show_message'):
                             self.parent.show_message(f"RAW 이미지 처리 중... {os.path.basename(image_path)}")
+                        
+                        print(f"RAW 이미지 처리 진행 중: {os.path.basename(image_path)}, 크기: {file_size_mb:.2f}MB")
                         
                         # 이미지 처리 및 변환 (대용량 파일 처리를 위한 최적화)
                         # 파일 크기에 따라 처리 옵션 조정
@@ -192,15 +224,28 @@ class ImageHandler(MediaHandler):
                             )
                         else:  # 일반 크기 RAW 파일
                             # 고품질 처리 (기본 크기 유지)
-                            rgb = raw.postprocess(
-                                use_camera_wb=True,      # 카메라 화이트밸런스 사용
-                                half_size=False,         # 원본 크기 유지
-                                no_auto_bright=False,    # 자동 밝기 조정 활성화
-                                output_bps=8,            # 8비트 출력
-                                demosaic_algorithm=rawpy.DemosaicAlgorithm.DCB,  # 고품질 알고리즘
-                                bright=1.0,              # 기본 밝기
-                                median_filter_passes=0    # 미디안 필터 패스 수
-                            )
+                            try:
+                                rgb = raw.postprocess(
+                                    use_camera_wb=True,      # 카메라 화이트밸런스 사용
+                                    half_size=False,         # 원본 크기 유지
+                                    no_auto_bright=False,    # 자동 밝기 조정 활성화
+                                    output_bps=8,            # 8비트 출력
+                                    demosaic_algorithm=rawpy.DemosaicAlgorithm.DCB,  # 고품질 알고리즘
+                                    bright=1.0,              # 기본 밝기
+                                    median_filter_passes=0    # 미디안 필터 패스 수
+                                )
+                            except Exception as e:
+                                print(f"고품질 처리 실패, 대체 방식 시도: {e}")
+                                # 고품질 처리 실패 시 대체 방식 시도
+                                rgb = raw.postprocess(
+                                    use_camera_wb=True,
+                                    half_size=False,
+                                    no_auto_bright=False,
+                                    output_bps=8,
+                                    demosaic_algorithm=rawpy.DemosaicAlgorithm.AHD  # 더 안정적인 알고리즘
+                                )
+                        
+                        print(f"RAW 처리 완료, 변환 진행 중: {os.path.basename(image_path)}")
                         
                         # RGB 배열을 QImage로 변환
                         height, width, channel = rgb.shape
@@ -229,6 +274,8 @@ class ImageHandler(MediaHandler):
                         import gc
                         gc.collect()
                         
+                        print(f"RAW 이미지 변환 완료, 표시 진행 중: {os.path.basename(image_path)}")
+                        
                         # 이미지 표시
                         self.display_image(pixmap, image_path, file_size_mb)
                         
@@ -242,7 +289,8 @@ class ImageHandler(MediaHandler):
                         
                         return
                         
-                except ImportError:
+                except ImportError as ie:
+                    print(f"RAW 처리 라이브러리 오류: {ie}")
                     self.parent.show_message("RAW 이미지 처리를 위한 rawpy 라이브러리가 필요합니다.")
                     # rawpy가 없을 경우 PIL 폴백 사용
                     try:
@@ -262,8 +310,8 @@ class ImageHandler(MediaHandler):
                         self.parent.show_message(f"RAW 이미지 처리 실패: {pil_error}")
                         # 계속 진행하여 일반 이미지 로드 방식 시도
                 except Exception as e:
+                    print(f"RAW 이미지 처리 중 상세 오류: {e}")
                     self.parent.show_message(f"RAW 이미지 처리 중 오류 발생: {e}")
-                    print(f"RAW 이미지 처리 중 오류 발생: {e}")
                     # 오류 발생 시 일반 이미지 로드 방식으로 진행
             
             # HEIC/HEIF 파일 처리
@@ -337,15 +385,43 @@ class ImageHandler(MediaHandler):
         if not self.original_pixmap or not self.display_label:
             return
         
-        # 라벨 크기 가져오기
+        # 라벨 크기 가져오기 
         label_size = self.display_label.size()
         
-        # 이미지 크기 조정 (AspectRatioMode는 비율 유지)
-        self.current_pixmap = self.original_pixmap.scaled(
-            label_size, 
-            Qt.KeepAspectRatio, 
-            Qt.SmoothTransformation
-        )
+        # RAW 파일인 경우 특별 처리
+        is_raw_file = False
+        if hasattr(self, 'current_media_path') and self.current_media_path:
+            file_ext = os.path.splitext(self.current_media_path)[1].lower()
+            # 전역 상수로 정의된 RAW 확장자 목록 사용
+            is_raw_file = file_ext in RAW_EXTENSIONS
+        
+        # 실제 화면 크기 확인 (UI 숨김 상태를 고려)
+        actual_width = self.parent.width()
+        actual_height = self.parent.height()
+        
+        # UI 숨김 여부 확인
+        ui_is_hidden = False
+        if hasattr(self.parent, 'ui_state_manager'):
+            ui_is_hidden = not self.parent.ui_state_manager.get_ui_visibility('controls') or not self.parent.ui_state_manager.get_ui_visibility('title_bar')
+            
+        if is_raw_file and ui_is_hidden:
+            # RAW 파일이고 UI가 숨겨진 경우, 실제 윈도우 크기에 맞게 조정
+            print(f"RAW 파일 + UI 숨김 상태: 전체 화면 크기로 리사이징 ({actual_width}x{actual_height})")
+            
+            # 전체 화면에 맞게 스케일링 (비율 유지)
+            self.current_pixmap = self.original_pixmap.scaled(
+                actual_width,
+                actual_height,
+                Qt.KeepAspectRatio,
+                Qt.SmoothTransformation
+            )
+        else:
+            # 일반적인 케이스: 이미지 크기 조정 (AspectRatioMode는 비율 유지)
+            self.current_pixmap = self.original_pixmap.scaled(
+                label_size, 
+                Qt.KeepAspectRatio, 
+                Qt.SmoothTransformation
+            )
         
         # MediaDisplay의 display_pixmap 메서드 호출 (있는 경우)
         if hasattr(self.display_label, 'display_pixmap'):
@@ -353,6 +429,23 @@ class ImageHandler(MediaHandler):
         else:
             # 일반 QLabel인 경우 기존 방식으로 이미지 표시
             self.display_label.setPixmap(self.current_pixmap)
+            # 강제 업데이트 추가
+            self.display_label.repaint()
+        
+        # RAW 파일인 경우 강제 업데이트 적용
+        if is_raw_file:
+            # 강제 업데이트를 위한 이벤트 처리
+            from PyQt5.QtWidgets import QApplication
+            QApplication.processEvents()
+            
+            # 실제 화면 크기에 맞게 추가 스케일링 (강제)
+            if ui_is_hidden and self.current_pixmap:
+                # 이미지 다시 표시 - 윈도우 전체 크기 사용
+                if hasattr(self.display_label, 'display_pixmap'):
+                    self.display_label.display_pixmap(self.current_pixmap, 'image')
+                else:
+                    self.display_label.setPixmap(self.current_pixmap)
+                    self.display_label.repaint()
         
         # 이미지 정보 업데이트
         if hasattr(self.parent, 'update_image_info'):
@@ -360,8 +453,34 @@ class ImageHandler(MediaHandler):
     
     def resize(self):
         """창 크기가 변경되었을 때 이미지 크기를 조정합니다."""
-        self._resize_and_display()
+        if not self.original_pixmap or not self.display_label:
+            return
         
+        # 전체 윈도우 영역 사용 플래그가 설정된 경우
+        if self.use_full_window:
+            # 윈도우 전체 크기 가져오기
+            window_width = self.parent.width()
+            window_height = self.parent.height()
+            
+            # 이미지를 윈도우 전체 크기에 맞게 조정
+            print(f"전체 윈도우 크기로 리사이징 적용: {window_width}x{window_height}")
+            self.current_pixmap = self.original_pixmap.scaled(
+                window_width,
+                window_height,
+                Qt.KeepAspectRatio,
+                Qt.SmoothTransformation
+            )
+            
+            # 이미지 직접 표시
+            if hasattr(self.display_label, 'display_pixmap'):
+                self.display_label.display_pixmap(self.current_pixmap, 'image')
+            else:
+                self.display_label.setPixmap(self.current_pixmap)
+                self.display_label.repaint()
+        else:
+            # 일반적인 리사이징 (라벨 크기에 맞춤)
+            self._resize_and_display()
+    
     def get_original_size(self):
         """
         원본 이미지의 크기를 반환합니다.
@@ -466,36 +585,27 @@ class ImageHandler(MediaHandler):
             
         return scaled_pixmap
     
-    def display_image(self, pixmap, image_path, file_size_mb):
+    def display_image(self, pixmap, image_path, file_size_mb=0):
         """
-        이미지를 화면에 표시합니다.
+        이미지를 표시합니다.
         
         Args:
-            pixmap (QPixmap): 표시할 이미지 픽스맵
+            pixmap (QPixmap): 표시할 이미지
             image_path (str): 이미지 파일 경로
-            file_size_mb (float): 파일 크기 (MB)
+            file_size_mb (float): 이미지 파일 크기 (MB)
         """
         try:
-            # 회전 적용 (parent의 current_rotation 값 사용)
-            if hasattr(self.parent, 'current_rotation') and self.parent.current_rotation != 0:
-                # 회전 변환 적용
-                transform = QTransform().rotate(self.parent.current_rotation)
-                pixmap = pixmap.transformed(transform, Qt.SmoothTransformation)
-                print(f"이미지에 회전 적용됨: {self.parent.current_rotation}°")
-            
-            # 이미지 로드 성공
+            # 원본 이미지 저장
             self.original_pixmap = pixmap
-            self.current_pixmap = pixmap
-            self.current_media_path = image_path
             
-            # 이미지 크기 조정 및 표시
+            # 이미지 크기를 라벨 크기에 맞게 조정
+            self.current_pixmap = pixmap
             self._resize_and_display()
             
-            # 로딩 인디케이터 숨김
-            if hasattr(self.parent, 'hide_loading_indicator'):
-                self.parent.hide_loading_indicator()
+            # 현재 미디어 경로 업데이트
+            self.current_media_path = image_path
             
-            # 이미지 정보 업데이트
+            # 파일 정보 표시
             filename = os.path.basename(image_path)
             extension = os.path.splitext(filename)[1].upper().lstrip('.')
             
@@ -508,6 +618,13 @@ class ImageHandler(MediaHandler):
             
             # 현재 미디어 타입 설정
             self.parent.current_media_type = 'image'
+            
+            # RAW 파일인 경우 리사이징이 제대로 적용되도록 추가 처리
+            if os.path.splitext(image_path)[1].lower() in RAW_EXTENSIONS:
+                # 화면 갱신 및 강제 리사이징 적용
+                from PyQt5.QtWidgets import QApplication
+                QApplication.processEvents()
+                self._resize_and_display()
             
         except Exception as e:
             if hasattr(self.parent, 'show_message'):

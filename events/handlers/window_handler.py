@@ -10,6 +10,9 @@ from PyQt5.QtWidgets import QApplication, QPushButton
 from PyQt5.QtGui import QPixmap
 import os
 
+# media/handlers/image_handler.py 모듈에서 RAW 확장자 목록 가져오기
+from media.handlers.image_handler import RAW_EXTENSIONS
+
 class WindowHandler(QObject):
     """
     창 이벤트 처리 클래스
@@ -150,10 +153,43 @@ class WindowHandler(QObject):
             if hasattr(self.parent, 'current_image_path') and self.parent.current_image_path:
                 file_ext = os.path.splitext(self.parent.current_image_path)[1].lower()
                 
+                # 일반 이미지 확장자
+                normal_img_extensions = ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.ico', '.heic', '.heif']
+                
                 # 이미지 타입에 따른 리사이징 처리
-                if file_ext in ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.ico', '.heic', '.heif']:
+                if file_ext in normal_img_extensions or file_ext in RAW_EXTENSIONS:
+                    # RAW 파일인 경우 특별 처리
+                    is_raw_file = file_ext in RAW_EXTENSIONS
+                    
+                    if is_raw_file:
+                        print(f"RAW 파일 {file_ext} 강제 리사이징 적용")
+                        
+                        # UI 숨김 여부 확인
+                        ui_is_hidden = False
+                        if hasattr(self.parent, 'ui_state_manager'):
+                            ui_is_hidden = not self.parent.ui_state_manager.get_ui_visibility('controls') or not self.parent.ui_state_manager.get_ui_visibility('title_bar')
+                        
+                        # UI가 숨겨진 경우 전체 화면 사용
+                        if ui_is_hidden:
+                            print("UI 숨김 상태에서 전체 화면 사용")
+                            # 전체 윈도우 영역 사용 플래그 설정
+                            self.parent.image_handler.use_full_window = True
+                        
+                        # 강제 이벤트 처리로 화면 갱신
+                        QApplication.processEvents()
+                    
                     # ImageHandler를 사용하여 이미지 크기 조정
                     self.parent.image_handler.resize()
+                    
+                    # RAW 파일 후처리
+                    if is_raw_file:
+                        # 플래그 리셋
+                        self.parent.image_handler.use_full_window = False
+                        
+                        # 이미지 레이블 강제 갱신
+                        QApplication.processEvents()
+                        self.parent.image_label.repaint()
+                        self.parent.image_label.update()
                 elif file_ext == '.psd':
                     # PSDHandler를 사용하여 PSD 파일 크기 조정
                     self.parent.psd_handler.resize()
