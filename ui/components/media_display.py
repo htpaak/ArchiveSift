@@ -84,19 +84,25 @@ class MediaDisplay(QLabel):
         Returns:
             bool: 성공적으로 표시되었는지 여부
         """
+        # 애니메이션 로그는 필요한 경우만 출력하거나 완전히 제거
+        is_animation = 'animation' in media_type
+        should_log = not is_animation  # 애니메이션이 아닌 경우만 로그 출력
+        
         if pixmap is None or pixmap.isNull():
-            print("MediaDisplay.display_pixmap: 유효하지 않은 pixmap")
+            if should_log:
+                print("MediaDisplay.display_pixmap: 유효하지 않은 pixmap")
             return False
         
         # 디버깅 정보 출력
-        print(f"MediaDisplay.display_pixmap 호출: 크기={pixmap.width()}x{pixmap.height()}, 타입={media_type}")
+        if should_log:
+            print(f"MediaDisplay.display_pixmap 호출: 크기={pixmap.width()}x{pixmap.height()}, 타입={media_type}")
         
         # 화면에 맞게 이미지 크기 조절
         scaled_pixmap = self.scale_pixmap_to_label(pixmap)
         
         # 회전된 이미지 상태 확인
         parent_app = self.parent()
-        if hasattr(parent_app, 'current_rotation') and parent_app.current_rotation != 0:
+        if should_log and hasattr(parent_app, 'current_rotation') and parent_app.current_rotation != 0:
             print(f"MediaDisplay: 이미지 표시 시 현재 회전 각도 = {parent_app.current_rotation}°")
         
         # 레이블에 이미지 설정
@@ -107,7 +113,8 @@ class MediaDisplay(QLabel):
         # 현재 미디어 타입 설정
         self.current_media_type = media_type
         
-        print(f"MediaDisplay.display_pixmap 완료: 크기={scaled_pixmap.width()}x{scaled_pixmap.height()}")
+        if should_log:
+            print(f"MediaDisplay.display_pixmap 완료: 크기={scaled_pixmap.width()}x{scaled_pixmap.height()}")
         return True
     
     def scale_pixmap_to_label(self, pixmap):

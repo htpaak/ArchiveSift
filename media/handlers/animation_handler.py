@@ -829,6 +829,7 @@ class AnimationHandler(QObject):
                 else:
                     media_type = 'animation'
                 
+                # 디버그 로그 없이 프레임 디스플레이
                 self.image_label.display_pixmap(scaled_pixmap, media_type)
             else:
                 # 일반 QLabel인 경우 기존 방식으로 이미지 표시
