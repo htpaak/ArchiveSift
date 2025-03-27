@@ -170,16 +170,20 @@ class BookmarkManager:
             # 현재 이미지 경로 명시적 설정
             self.viewer.current_image_path = path
             
-            # 파일 이름을 제목표시줄에 표시
-            file_name = os.path.basename(path)
-            title_text = f"ArchiveSift - {file_name}"
-            
-            # 제목표시줄 라벨 찾아서 텍스트 업데이트
-            if hasattr(self.viewer, 'title_bar'):
-                for child in self.viewer.title_bar.children():
-                    if isinstance(child, QLabel):
-                        child.setText(title_text)
-                        break
+            # 파일 이름을 제목표시줄에 표시 (update_window_title 메서드 사용)
+            if hasattr(self.viewer, 'update_window_title'):
+                self.viewer.update_window_title(path)
+            else:
+                # 기존 방식 (fallback)
+                file_name = os.path.basename(path)
+                title_text = f"ArchiveSift - {file_name}"
+                
+                # 제목표시줄 라벨 찾아서 텍스트 업데이트
+                if hasattr(self.viewer, 'title_bar'):
+                    for child in self.viewer.title_bar.children():
+                        if isinstance(child, QLabel):
+                            child.setText(title_text)
+                            break
             
             # 시간 딜레이를 추가하여 기존 이미지가 제거될 시간을 확보
             QApplication.processEvents()
