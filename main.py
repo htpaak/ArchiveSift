@@ -927,21 +927,30 @@ class ArchiveSift(QWidget):
     def get_image_files(self, folder_path):
         """폴더에서 이미지 파일 목록을 가져옵니다."""
         try:
-            # 지원하는 이미지 확장자 목록 (새로운 형식 추가)
-            image_extensions = ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.ico', '.heic', '.heif',
-                              '.jfif', '.jp2', '.avif', '.jpe', '.jps']
-            
-            # RAW 파일 확장자 목록
-            raw_extensions = RAW_EXTENSIONS
-            
-            # 모든 지원하는 이미지 확장자 목록
-            all_image_extensions = image_extensions + raw_extensions
+            # file_browser.py에서 사용하는 확장자 목록과 일치시키기
+            valid_extensions = [
+                # 이미지 형식
+                '.jpg', '.jpeg', '.png', '.webp', '.psd', '.gif', '.bmp', 
+                '.tiff', '.tif', '.ico', '.heic', '.heif', '.avif',
+                '.jpe', '.jps', '.jfif', '.jp2', '.tga',
+                # RAW 이미지 형식
+                '.cr2', '.nef', '.arw', '.orf', '.rw2', '.dng', '.pef', '.raf', '.srw',
+                '.crw', '.raw', '.kdc', '.mrw', '.dcr', '.sr2', '.3fr', '.mef', '.erf',
+                '.rwl', '.mdc', '.mos', '.x3f', '.bay', '.nrw',
+                # 비디오 형식
+                '.mp4', '.avi', '.wav', '.ts', '.m2ts', '.mov', '.qt', 
+                '.mkv', '.flv', '.webm', '.3gp', '.m4v', '.mpg', '.mpeg', 
+                '.vob', '.wmv', 
+                # 오디오 형식
+                '.mp3', '.flac', '.aac', '.m4a', '.ogg'
+            ]
             
             # 폴더 내의 모든 파일 목록 가져오기
             files = os.listdir(folder_path)
             
-            # 이미지 파일만 필터링
-            image_files = [f for f in files if os.path.splitext(f)[1].lower() in all_image_extensions]
+            # 이미지 파일만 필터링하고 전체 경로로 변환
+            image_files = [os.path.join(folder_path, f) for f in files 
+                          if os.path.splitext(f)[1].lower() in valid_extensions]
             
             # 파일 이름으로 정렬
             image_files.sort()
