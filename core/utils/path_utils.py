@@ -27,14 +27,19 @@ def get_user_data_directory():
     사용자의 정보를 저장할 폴더를 만들고 알려주는 함수예요.
     
     이 함수는 프로그램에서 사용자 정보(북마크, 설정 등)를 
-    저장할 'UserData'라는 폴더를 찾아요. 
+    C:/ArchiveSift/UserData 폴더에 저장합니다.
     만약 그 폴더가 없다면 새로 만들어줘요.
     
     반환값:
         사용자 데이터를 저장하는 폴더의 경로
     """
-    app_dir = get_app_directory()  # 프로그램 폴더 찾기
-    data_dir = os.path.join(app_dir, 'UserData')  # UserData 폴더 경로 만들기
+    # C드라이브에 고정된 경로 사용
+    if os.name == 'nt':  # Windows
+        data_dir = "C:/ArchiveSift/UserData"  # 슬래시 사용
+    else:  # macOS, Linux 등
+        # 홈 디렉토리의 ArchiveSift 폴더 사용
+        home = os.path.expanduser("~")
+        data_dir = os.path.join(home, 'ArchiveSift', 'UserData')
     
     # 만약 그 폴더가 아직 없다면 새로 만들어요
     if not os.path.exists(data_dir):
