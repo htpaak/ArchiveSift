@@ -800,6 +800,9 @@ class ArchiveSift(QWidget):
         self.image_label.mouseDoubleClicked.connect(self.mouseDoubleClickEvent)
         self.image_label.mouseWheelScrolled.connect(self.handle_wheel_event)
         
+        # 전체 창에 휠 이벤트 필터 설치
+        self.installEventFilter(self)
+        
         # 추가 이벤트 핸들러 함수 추가
     def handle_wheel_event(self, delta):
         """
@@ -1357,9 +1360,20 @@ class ArchiveSift(QWidget):
         self.keyboard_handler.handle_key_press(event)
 
     def eventFilter(self, obj, event):
-        """모든 마우스 이벤트를 필터링"""
-        # MouseHandler로 이벤트 필터링 위임
-        return self.mouse_handler.event_filter(obj, event)
+        """이벤트 필터 - 여러 유형의 이벤트를 감시하고 필요에 따라 처리"""
+        # 마우스 이벤트 처리
+        if event.type() in [QEvent.MouseMove, QEvent.MouseButtonPress, QEvent.MouseButtonRelease]:
+            return self.mouse_handler.event_filter(obj, event)
+        # 휠 이벤트 처리 (UI 요소에 상관없이 전체 창에서 작동하도록)
+        elif event.type() == QEvent.Wheel:
+            # 마우스 휠 이벤트 처리
+            delta = event.angleDelta().y()
+            self.handle_wheel_event(delta)
+            # 이벤트 처리됨으로 표시
+            event.accept()
+            return True
+        
+        return False  # 다른 이벤트는 기본 처리로 전달
 
     def toggle_fullscreen(self):
         """전체화면 모드를 전환합니다."""
