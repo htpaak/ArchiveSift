@@ -85,17 +85,29 @@ class MediaDisplay(QLabel):
             bool: 성공적으로 표시되었는지 여부
         """
         if pixmap is None or pixmap.isNull():
+            print("MediaDisplay.display_pixmap: 유효하지 않은 pixmap")
             return False
+        
+        # 디버깅 정보 출력
+        print(f"MediaDisplay.display_pixmap 호출: 크기={pixmap.width()}x{pixmap.height()}, 타입={media_type}")
         
         # 화면에 맞게 이미지 크기 조절
         scaled_pixmap = self.scale_pixmap_to_label(pixmap)
         
+        # 회전된 이미지 상태 확인
+        parent_app = self.parent()
+        if hasattr(parent_app, 'current_rotation') and parent_app.current_rotation != 0:
+            print(f"MediaDisplay: 이미지 표시 시 현재 회전 각도 = {parent_app.current_rotation}°")
+        
         # 레이블에 이미지 설정
         self.setPixmap(scaled_pixmap)
+        # 화면 즉시 갱신을 위한 강제 업데이트
+        self.repaint()
         
         # 현재 미디어 타입 설정
         self.current_media_type = media_type
         
+        print(f"MediaDisplay.display_pixmap 완료: 크기={scaled_pixmap.width()}x{scaled_pixmap.height()}")
         return True
     
     def scale_pixmap_to_label(self, pixmap):

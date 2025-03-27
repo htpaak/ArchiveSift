@@ -66,6 +66,8 @@ class ImageHandler(MediaHandler):
         display_label: 이미지를 표시할 QLabel 위젯
         current_pixmap: 현재 로드된 이미지의 QPixmap 객체
         original_pixmap: 원본 크기의 QPixmap 객체 (크기 조정 전)
+        _plain_original_pixmap: 회전 적용 전의 완전한 원본 이미지 (회전 재적용 시 사용)
+        rotation_applied: 회전 적용 여부
         use_full_window: 전체 윈도우 영역 사용 플래그
     """
     
@@ -80,6 +82,8 @@ class ImageHandler(MediaHandler):
         super().__init__(parent, display_label)
         self.current_pixmap = None
         self.original_pixmap = None
+        self._plain_original_pixmap = None  # 회전 적용 전의 완전한 원본 이미지 (회전 재적용 시 사용)
+        self.rotation_applied = False  # 회전 적용 여부
         self.use_full_window = False  # 전체 윈도우 영역 사용 플래그
     
     def load_static_image(self, image_path, format_type, file_ext):
@@ -128,6 +132,14 @@ class ImageHandler(MediaHandler):
             if not os.path.exists(image_path):
                 raise FileNotFoundError(f"파일을 찾을 수 없습니다: {image_path}")
             
+            # 현재 회전 상태 확인 (이미지 로드 전에 미리 확인)
+            current_rotation = getattr(self.parent, 'current_rotation', 0)
+            print(f"🔍 이미지 로드 시작: {os.path.basename(image_path)}, 현재 회전 각도={current_rotation}°")
+            
+            # 회전 적용 상태 초기화 (이미지가 새로 로드되므로)
+            self.rotation_applied = False
+            self._plain_original_pixmap = None  # 완전한 원본 초기화
+            
             # 이미지 크기 확인
             file_size_bytes = os.path.getsize(image_path)
             file_size_mb = file_size_bytes / (1024 * 1024)
@@ -170,7 +182,7 @@ class ImageHandler(MediaHandler):
                         # QPixmap으로 변환
                         pixmap = QPixmap.fromImage(qimg)
                         
-                        # 이미지 표시
+                        # 이미지 표시 (현재 회전 각도 전달)
                         self.display_image(pixmap, image_path, file_size_mb)
                         
                         # 로딩 인디케이터 숨김
@@ -438,6 +450,10 @@ class ImageHandler(MediaHandler):
         if not self.original_pixmap or not self.display_label:
             return
         
+        # 회전 상태 확인 (디버깅용)
+        current_rotation = getattr(self.parent, 'current_rotation', 0)
+        print(f"📊 resize_and_display: 회전={current_rotation}°, rotation_applied={getattr(self, 'rotation_applied', False)}")
+        
         # 라벨 크기 가져오기 
         label_size = self.display_label.size()
         
@@ -456,13 +472,17 @@ class ImageHandler(MediaHandler):
         ui_is_hidden = False
         if hasattr(self.parent, 'ui_state_manager'):
             ui_is_hidden = not self.parent.ui_state_manager.get_ui_visibility('controls') or not self.parent.ui_state_manager.get_ui_visibility('title_bar')
-            
+        
+        # 사용할 이미지: 이미 display_image에서 회전이 적용된 original_pixmap 사용
+        pixmap_to_scale = self.original_pixmap
+        
+        # 이미지 크기 조정
         if is_raw_file and ui_is_hidden:
             # RAW 파일이고 UI가 숨겨진 경우, 실제 윈도우 크기에 맞게 조정
             print(f"RAW 파일 + UI 숨김 상태: 전체 화면 크기로 리사이징 ({actual_width}x{actual_height})")
             
             # 전체 화면에 맞게 스케일링 (비율 유지)
-            self.current_pixmap = self.original_pixmap.scaled(
+            self.current_pixmap = pixmap_to_scale.scaled(
                 actual_width,
                 actual_height,
                 Qt.KeepAspectRatio,
@@ -470,17 +490,22 @@ class ImageHandler(MediaHandler):
             )
         else:
             # 일반적인 케이스: 이미지 크기 조정 (AspectRatioMode는 비율 유지)
-            self.current_pixmap = self.original_pixmap.scaled(
+            self.current_pixmap = pixmap_to_scale.scaled(
                 label_size, 
                 Qt.KeepAspectRatio, 
                 Qt.SmoothTransformation
             )
         
+        # 이미지 표시 전 정보 출력
+        print(f"📊 이미지 표시 직전: current_pixmap 크기={self.current_pixmap.width()}x{self.current_pixmap.height()}, 회전={current_rotation}°")
+        
         # MediaDisplay의 display_pixmap 메서드 호출 (있는 경우)
         if hasattr(self.display_label, 'display_pixmap'):
+            print(f"📊 display_pixmap으로 표시: 크기={self.current_pixmap.width()}x{self.current_pixmap.height()}")
             self.display_label.display_pixmap(self.current_pixmap, 'image')
         else:
             # 일반 QLabel인 경우 기존 방식으로 이미지 표시
+            print(f"📊 setPixmap으로 표시: 크기={self.current_pixmap.width()}x{self.current_pixmap.height()}")
             self.display_label.setPixmap(self.current_pixmap)
             # 강제 업데이트 추가
             self.display_label.repaint()
@@ -488,8 +513,11 @@ class ImageHandler(MediaHandler):
         # RAW 파일인 경우 강제 업데이트 적용
         if is_raw_file:
             # 강제 업데이트를 위한 이벤트 처리
-            from PyQt5.QtWidgets import QApplication
-            QApplication.processEvents()
+            try:
+                from PyQt5.QtWidgets import QApplication
+                QApplication.instance().processEvents()
+            except Exception as e:
+                print(f"이벤트 처리 중 오류: {e}")
             
             # 실제 화면 크기에 맞게 추가 스케일링 (강제)
             if ui_is_hidden and self.current_pixmap:
@@ -503,6 +531,15 @@ class ImageHandler(MediaHandler):
         # 이미지 정보 업데이트
         if hasattr(self.parent, 'update_image_info'):
             self.parent.update_image_info()
+        
+        # 명시적으로 화면 갱신 요청
+        try:
+            from PyQt5.QtWidgets import QApplication
+            QApplication.instance().processEvents()
+        except Exception as e:
+            print(f"화면 갱신 요청 중 오류: {e}")
+        
+        print(f"📊 resize_and_display 완료: 크기={self.current_pixmap.width()}x{self.current_pixmap.height()}, 회전={current_rotation}°")
     
     def resize(self):
         """창 크기가 변경되었을 때 이미지 크기를 조정합니다."""
@@ -648,11 +685,33 @@ class ImageHandler(MediaHandler):
             file_size_mb (float): 이미지 파일 크기 (MB)
         """
         try:
-            # 원본 이미지 저장
-            self.original_pixmap = pixmap
+            # 현재 회전 상태 확인 및 출력
+            current_rotation = getattr(self.parent, 'current_rotation', 0)
+            print(f"📌 display_image 호출: 파일={os.path.basename(image_path)}, 현재 회전={current_rotation}°")
+            
+            # 원본 이미지 저장 (회전 적용 전 상태)
+            original_plain_pixmap = pixmap
+            self._plain_original_pixmap = pixmap.copy()  # 완전한 원본 이미지 저장 (항상 회전 전 상태 유지)
+            self.original_pixmap = pixmap  # 원본 보존
+            print(f"📌 원본 이미지 크기: {pixmap.width()}x{pixmap.height()}")
+            
+            # 회전 적용
+            if current_rotation != 0:
+                print(f"📌 display_image에서 회전 적용: {current_rotation}°")
+                try:
+                    transform = QTransform().rotate(current_rotation)
+                    transformed_pixmap = self._plain_original_pixmap.transformed(transform, Qt.SmoothTransformation)
+                    self.original_pixmap = transformed_pixmap  # 회전된 이미지로 원본 업데이트
+                    self.rotation_applied = True
+                    print(f"📌 회전 적용 성공: 결과 크기={self.original_pixmap.width()}x{self.original_pixmap.height()}")
+                except Exception as e:
+                    print(f"📌 회전 적용 실패: {e}")
+            else:
+                # 회전이 없는 경우 명시적으로 표시
+                self.rotation_applied = False
+                print(f"📌 회전 없음 (0°): 원본 이미지 그대로 사용")
             
             # 이미지 크기를 라벨 크기에 맞게 조정
-            self.current_pixmap = pixmap
             self._resize_and_display()
             
             # 현재 미디어 경로 업데이트
@@ -661,10 +720,6 @@ class ImageHandler(MediaHandler):
             # 파일 정보 표시
             filename = os.path.basename(image_path)
             extension = os.path.splitext(filename)[1].upper().lstrip('.')
-            
-            # 스케일링된 이미지 표시
-            if hasattr(self, 'display_label') and self.display_label:
-                self.display_label.setPixmap(self.current_pixmap)
             
             if hasattr(self.parent, 'show_message'):
                 self.parent.show_message(f"{extension} 이미지 로드 완료: {filename}, 크기: {file_size_mb:.2f}MB")
@@ -675,11 +730,17 @@ class ImageHandler(MediaHandler):
             # RAW 파일인 경우 리사이징이 제대로 적용되도록 추가 처리
             if os.path.splitext(image_path)[1].lower() in RAW_EXTENSIONS:
                 # 화면 갱신 및 강제 리사이징 적용
-                from PyQt5.QtWidgets import QApplication
-                QApplication.processEvents()
-                self._resize_and_display()
+                try:
+                    from PyQt5.QtWidgets import QApplication
+                    QApplication.instance().processEvents()
+                    self._resize_and_display()
+                except Exception as e:
+                    print(f"RAW 이미지 추가 처리 중 오류: {e}")
+            
+            print(f"📌 이미지 표시 완료: 회전={current_rotation}°, 최종 크기={self.current_pixmap.width()}x{self.current_pixmap.height()}, 회전 적용 상태={getattr(self, 'rotation_applied', False)}")
             
         except Exception as e:
+            print(f"📌 이미지 표시 중 오류 발생: {e}")
             if hasattr(self.parent, 'show_message'):
                 self.parent.show_message(f"이미지 표시 중 오류 발생: {str(e)}")
             raise e
