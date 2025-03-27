@@ -129,7 +129,7 @@ class ArchiveSift(QWidget):
         self.tooltip_manager = TooltipManager(self)
         
         self.setWindowTitle('이미지 뷰어')  # 창 제목 설정
-        self.setWindowIcon(QIcon('./icons/app_icon.png'))  # 앱 아이콘 설정
+        self.setWindowIcon(QIcon('./core/ArchiveSift.ico'))  # 앱 아이콘 설정
         self.setGeometry(100, 100, 800, 600)  # 창 위치와 크기 설정
         
         # 키 설정 로드 - 키보드 단축키를 저장하는 사전
@@ -402,6 +402,13 @@ class ArchiveSift(QWidget):
         
         title_layout = QHBoxLayout(self.title_bar)
         title_layout.setContentsMargins(10, 0, 10, 0)  # 좌우 여백만 설정
+        
+        # 앱 아이콘 레이블 추가
+        app_icon_label = QLabel()
+        app_icon_pixmap = QIcon('./core/ArchiveSift.ico').pixmap(20, 20)  # 아이콘 크기 20x20
+        app_icon_label.setPixmap(app_icon_pixmap)
+        app_icon_label.setStyleSheet("background-color: transparent;")
+        title_layout.addWidget(app_icon_label)
         
         # 제목 텍스트 레이블
         title_label = QLabel("ArchiveSift")
@@ -964,14 +971,19 @@ class ArchiveSift(QWidget):
         # 파일 이름을 제목표시줄에 표시
         file_name = os.path.basename(image_path) if image_path else "ArchiveSift"
         title_text = f"ArchiveSift - {file_name}" if image_path else "ArchiveSift"
-        # 제목표시줄 라벨 찾아서 텍스트 업데이트
+        
+        # 제목표시줄 라벨 찾아서 텍스트 업데이트 (두 번째 자식이 제목 레이블)
+        title_label = None
         for child in self.title_bar.children():
-            if isinstance(child, QLabel):
-                child.setText(title_text)
-                # 라벨 텍스트 색상을 흰색으로 설정 (제목 표시줄은 남색 배경 유지)
-                child.setStyleSheet("color: white; background-color: transparent;")
+            if isinstance(child, QLabel) and not child.pixmap():  # pixmap이 없는 QLabel(텍스트 레이블)
+                title_label = child
                 break
                 
+        if title_label:
+            title_label.setText(title_text)
+            # 라벨 텍스트 색상을 흰색으로 설정 (제목 표시줄은 남색 배경 유지)
+            title_label.setStyleSheet("color: white; background-color: transparent;")
+
     def update_bookmark_ui(self):
         """북마크 관련 UI 요소들을 업데이트"""
         # 책갈피 버튼 상태 업데이트
