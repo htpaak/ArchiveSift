@@ -1128,7 +1128,19 @@ class ArchiveSift(QWidget):
             print("전체화면 모드에서 이미지 로드 후 지연된 리사이징 예약")
 
     def show_image(self, image_path):
-        """이미지/미디어 파일 표시 및 관련 UI 업데이트"""
+        """이미지/미디어 파일 표시 및 관련 UI 업데이트
+           prepare_for_media_loading 메서드에서 리소스 정리를 건너뛰게 하는
+           is_boundary_navigation 플래그를 재설정합니다.
+        """
+        # 경계 도달로 인해 리소스 정리를 건너뛰지 않도록 플래그 재설정
+        # boundary_navigation 플래그 상태 출력
+        print(f"리소스 정리 건너뛰기 상태(변경 전): {self.is_boundary_navigation}")
+        
+        # 항상 리소스를 정리하도록 플래그 재설정
+        # is_boundary_navigation 상태와 상관없이 미디어 로딩 전에 리소스를 항상 정리
+        self.is_boundary_navigation = False
+        
+        # 이미지 핸들러에게 이미지 표시 위임
         self.image_handler.show_image(image_path)
 
     def scale_webp(self):
@@ -1278,27 +1290,50 @@ class ArchiveSift(QWidget):
     def show_next_image(self):
         """다음 이미지로 이동합니다."""
         print("\n=== 다음 이미지 로드 시작 ===")
+        
+        # 현재 인덱스와 이미지 파일 수를 확인하여 마지막 이미지인지 확인합니다
+        current_index = self.file_navigator.get_current_index()
+        file_count = len(self.file_navigator.get_files())
+        
+        # 마지막 이미지인 경우에만 경계 내비게이션으로 처리
+        is_last_image = (current_index >= file_count - 1)
+        
         success, next_image = self.file_navigator.next_file()
         if success and next_image:
             self.current_index = self.file_navigator.get_current_index()  # 인덱스 동기화
             self.state_manager.set_state("current_index", self.current_index)  # 상태 관리자 업데이트
             self.show_image(next_image)
         else:
-            # 경계 도달 - 플래그 설정
-            self.is_boundary_navigation = True
-            print("다음 이미지 로드 실패 - 경계 도달")
+            # 마지막 이미지에서 더 다음으로 가려고 할 때만 경계 내비게이션 플래그 설정
+            if is_last_image:
+                self.is_boundary_navigation = True
+                print("다음 이미지 로드 실패 - 경계 도달")
+            else:
+                # 다른 이유로 실패한 경우 일반적인 처리
+                print("다음 이미지 로드 실패 - 알 수 없는 이유")
         print("=== 다음 이미지 로드 종료 ===\n")
 
     def show_previous_image(self):
+        """이전 이미지로 이동합니다."""
+        # 현재 인덱스와 이미지 파일 수를 확인하여 첫 번째 이미지인지 확인합니다
+        current_index = self.file_navigator.get_current_index()
+        
+        # 첫 번째 이미지인 경우(인덱스 0)에만 경계 내비게이션으로 처리
+        is_first_image = (current_index == 0)
+        
         success, prev_image = self.file_navigator.previous_file()
         if success and prev_image:
             self.current_index = self.file_navigator.get_current_index()  # 인덱스 동기화
             self.state_manager.set_state("current_index", self.current_index)  # 상태 관리자 업데이트
             self.show_image(prev_image)
         else:
-            # 경계 도달 - 플래그 설정
-            self.is_boundary_navigation = True
-            print("이전 이미지 로드 실패 - 경계 도달")
+            # 첫 번째 이미지에서 더 이전으로 가려고 할 때만 경계 내비게이션 플래그 설정
+            if is_first_image:
+                self.is_boundary_navigation = True
+                print("이전 이미지 로드 실패 - 경계 도달")
+            else:
+                # 다른 이유로 실패한 경우 일반적인 처리
+                print("이전 이미지 로드 실패 - 알 수 없는 이유")
 
     def handle_navigation(self, direction):
         """이미지 탐색 로직을 처리합니다.
@@ -1318,16 +1353,32 @@ class ArchiveSift(QWidget):
             self.image_files = self.file_navigator.get_files()
             print(f"이미지 목록 동기화됨: {len(self.image_files)} 파일")
         
-        # 경계 내비게이션 플래그 초기화
+        # 경계 내비게이션 플래그 기본값은 False
         self.is_boundary_navigation = False
+        
+        # 현재 인덱스 확인
+        current_index = self.file_navigator.get_current_index()
+        file_count = len(self.file_navigator.get_files())
+        
+        # 첫 번째 또는 마지막 이미지인지 확인
+        is_first_image = (current_index == 0)
+        is_last_image = (current_index >= file_count - 1)
         
         # 탐색 방향에 따라 적절한 메서드 호출
         if direction == 'next':
             success, image_path = self.file_navigator.next_file()
             direction_text = "다음"
+            
+            # 마지막 이미지에서 다음으로 가려고 할 때만 경계 내비게이션 설정
+            if not success and is_last_image:
+                self.is_boundary_navigation = True
         else:  # previous
             success, image_path = self.file_navigator.previous_file()
             direction_text = "이전"
+            
+            # 첫 번째 이미지에서 이전으로 가려고 할 때만 경계 내비게이션 설정
+            if not success and is_first_image:
+                self.is_boundary_navigation = True
         
         print(f"{direction_text} 이미지 로드 성공 여부: {success}")
         print(f"{direction_text} 이미지 경로: {image_path}")
@@ -1337,9 +1388,11 @@ class ArchiveSift(QWidget):
             print(f"새 인덱스: {self.current_index}")
             self.show_image(image_path)
         else:
-            # 경계 도달 - 플래그 설정
-            self.is_boundary_navigation = True
-            print(f"{direction_text} 이미지 로드 실패 - 경계 도달")
+            # 경계 도달 시 메시지 표시
+            if self.is_boundary_navigation:
+                print(f"{direction_text} 이미지 로드 실패 - 경계 도달")
+            else:
+                print(f"{direction_text} 이미지 로드 실패 - 알 수 없는 이유")
 
     def show_message(self, message):
         if hasattr(self, 'message_label') and self.message_label.isVisible():
