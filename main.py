@@ -1400,7 +1400,18 @@ class ArchiveSift(QWidget):
             return self.mouse_handler.event_filter(obj, event)
         # 휠 이벤트 처리 (UI 요소에 상관없이 전체 창에서 작동하도록)
         elif event.type() == QEvent.Wheel:
-            # 마우스 휠 이벤트 처리
+            # 현재 마우스 커서 아래에 있는 위젯이 QDialog이면 휠 이벤트를 무시함
+            pos = QCursor.pos()
+            widget_under_cursor = QApplication.widgetAt(pos)
+            
+            # QDialog 또는 QDialog의 자식 위젯인 경우 휠 이벤트 처리하지 않음
+            parent_widget = widget_under_cursor
+            while parent_widget is not None:
+                if isinstance(parent_widget, QDialog):
+                    return False  # 이벤트를 처리하지 않고 기본 핸들러로 전달
+                parent_widget = parent_widget.parent()
+                
+            # QDialog가 아닌 경우 평소처럼 처리
             delta = event.angleDelta().y()
             self.handle_wheel_event(delta)
             # 이벤트 처리됨으로 표시
