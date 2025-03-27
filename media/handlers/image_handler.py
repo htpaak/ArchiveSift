@@ -135,6 +135,59 @@ class ImageHandler(MediaHandler):
             # 파일 확장자 확인
             _, file_ext = os.path.splitext(image_path.lower())
             
+            # 일반 이미지 확장자 목록 (새로운 형식 추가)
+            normal_img_extensions = ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.ico', '.heic', '.heif',
+                                  '.jfif', '.jp2', '.avif', '.jpe', '.jps', '.tga']
+            
+            # 일반 이미지 파일 처리
+            if file_ext in normal_img_extensions:
+                try:
+                    # 로딩 인디케이터 표시
+                    if hasattr(self.parent, 'show_loading_indicator'):
+                        self.parent.show_loading_indicator()
+                        
+                    # 로딩 메시지 표시
+                    if hasattr(self.parent, 'show_message'):
+                        self.parent.show_message(f"이미지 로딩 중... {os.path.basename(image_path)}")
+                    
+                    # PIL을 사용하여 이미지 로드
+                    with Image.open(image_path) as pil_image:
+                        # 이미지 처리 및 변환 (대용량 파일 처리를 위한 최적화)
+                        # 파일 크기에 따라 처리 옵션 조정
+                        if file_size_mb > 30:  # 30MB 이상의 대용량 이미지
+                            # 절반 크기로 처리하여 메모리 사용량과 처리 시간 감소
+                            pil_image.thumbnail((pil_image.width // 2, pil_image.height // 2), Image.Resampling.LANCZOS)
+                        
+                        # 이미지를 QImage로 변환
+                        img_data = BytesIO()
+                        pil_image.save(img_data, format='PNG')
+                        qimg = QImage()
+                        qimg.loadFromData(img_data.getvalue())
+                        
+                        if qimg.isNull():
+                            raise ValueError("이미지 변환 실패")
+                        
+                        # QPixmap으로 변환
+                        pixmap = QPixmap.fromImage(qimg)
+                        
+                        # 이미지 표시
+                        self.display_image(pixmap, image_path, file_size_mb)
+                        
+                        # 로딩 인디케이터 숨김
+                        if hasattr(self.parent, 'hide_loading_indicator'):
+                            self.parent.hide_loading_indicator()
+                        
+                        # 로딩 완료 메시지
+                        if hasattr(self.parent, 'show_message'):
+                            self.parent.show_message(f"이미지 로드 완료: {os.path.basename(image_path)}, 크기: {file_size_mb:.2f}MB")
+                        
+                        return
+                        
+                except Exception as e:
+                    print(f"일반 이미지 처리 중 오류: {e}")
+                    self.parent.show_message(f"이미지 처리 중 오류 발생: {e}")
+                    # 오류 발생 시 일반 이미지 로드 방식으로 진행
+            
             # AVIF 이미지 파일 처리
             if file_ext == '.avif':
                 try:

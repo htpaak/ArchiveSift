@@ -925,8 +925,32 @@ class ArchiveSift(QWidget):
                 self.update_image_info()  # 이미지 정보 업데이트 (인덱스 표시 업데이트)
 
     def get_image_files(self, folder_path):
-        """지원하는 모든 미디어 파일 목록 가져오기"""
-        return self.file_browser.get_media_files(folder_path)
+        """폴더에서 이미지 파일 목록을 가져옵니다."""
+        try:
+            # 지원하는 이미지 확장자 목록 (새로운 형식 추가)
+            image_extensions = ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.ico', '.heic', '.heif',
+                              '.jfif', '.jp2', '.avif', '.jpe', '.jps']
+            
+            # RAW 파일 확장자 목록
+            raw_extensions = RAW_EXTENSIONS
+            
+            # 모든 지원하는 이미지 확장자 목록
+            all_image_extensions = image_extensions + raw_extensions
+            
+            # 폴더 내의 모든 파일 목록 가져오기
+            files = os.listdir(folder_path)
+            
+            # 이미지 파일만 필터링
+            image_files = [f for f in files if os.path.splitext(f)[1].lower() in all_image_extensions]
+            
+            # 파일 이름으로 정렬
+            image_files.sort()
+            
+            return image_files
+            
+        except Exception as e:
+            print(f"이미지 파일 목록 가져오기 실패: {e}")
+            return []
 
     def stop_video(self):
         """비디오 재생 중지 및 관련 리소스 정리"""
