@@ -134,7 +134,6 @@ class ImageHandler(MediaHandler):
             
             # 현재 회전 상태 확인 (이미지 로드 전에 미리 확인)
             current_rotation = getattr(self.parent, 'current_rotation', 0)
-            print(f"🔍 이미지 로드 시작: {os.path.basename(image_path)}, 현재 회전 각도={current_rotation}°")
             
             # 회전 적용 상태 초기화 (이미지가 새로 로드되므로)
             self.rotation_applied = False
@@ -159,27 +158,40 @@ class ImageHandler(MediaHandler):
             # 일반 이미지 파일 처리 (표준 라이브러리로 처리 가능한 이미지)
             if file_ext in normal_img_extensions:
                 try:
-                    # 로딩 인디케이터 표시
+                    # 로딩 인디케이터 표시 (간결하게 한 줄로 처리)
                     if hasattr(self.parent, 'show_loading_indicator'):
                         self.parent.show_loading_indicator()
-                        
-                    # 로딩 메시지 표시
-                    if hasattr(self.parent, 'show_message'):
-                        self.parent.show_message(f"이미지 로딩 중... {os.path.basename(image_path)}")
                     
-                    # PIL을 사용하여 이미지 로드
+                    # 직접 QPixmap으로 로드 시도 (가장 빠른 방법)
+                    pixmap = QPixmap(image_path)
+                    
+                    # QPixmap 로드 성공 여부 확인
+                    if not pixmap.isNull():
+                        # 빠른 경로: 직접 QPixmap 로드 성공 시 바로 표시
+                        self.display_image(pixmap, image_path, file_size_mb)
+                        
+                        # 로딩 완료 처리
+                        if hasattr(self.parent, 'hide_loading_indicator'):
+                            self.parent.hide_loading_indicator()
+                        
+                        return
+                    
+                    # QPixmap으로 직접 로드 실패 시 PIL 시도 (대체 방법)
                     with Image.open(image_path) as pil_image:
-                        # 이미지 처리 및 변환 (대용량 파일 처리를 위한 최적화)
-                        # 파일 크기에 따라 처리 옵션 조정
-                        if file_size_mb > 30:  # 30MB 이상의 대용량 이미지
-                            # 절반 크기로 처리하여 메모리 사용량과 처리 시간 감소
+                        # 대용량 이미지만 크기 조정 적용 (30MB 이상)
+                        if file_size_mb > 30:
                             pil_image.thumbnail((pil_image.width // 2, pil_image.height // 2), Image.Resampling.LANCZOS)
                         
-                        # 이미지를 QImage로 변환
-                        img_data = BytesIO()
-                        pil_image.save(img_data, format='PNG')
-                        qimg = QImage()
-                        qimg.loadFromData(img_data.getvalue())
+                        # PIL 이미지를 QPixmap으로 효율적 변환
+                        if pil_image.mode == 'RGB':
+                            # RGB 모드는 직접 변환 (BytesIO 사용 안 함)
+                            qimg = QImage(pil_image.tobytes(), pil_image.width, pil_image.height, QImage.Format_RGB888)
+                        else:
+                            # 다른 모드는 PNG로 변환하여 메모리에 저장
+                            img_data = BytesIO()
+                            pil_image.save(img_data, format='PNG')
+                            qimg = QImage()
+                            qimg.loadFromData(img_data.getvalue())
                         
                         if qimg.isNull():
                             raise ValueError("이미지 변환 실패")
@@ -187,23 +199,21 @@ class ImageHandler(MediaHandler):
                         # QPixmap으로 변환
                         pixmap = QPixmap.fromImage(qimg)
                         
-                        # 이미지 표시 (현재 회전 각도 전달)
+                        # 이미지 표시
                         self.display_image(pixmap, image_path, file_size_mb)
-                        
-                        # 로딩 인디케이터 숨김
-                        if hasattr(self.parent, 'hide_loading_indicator'):
-                            self.parent.hide_loading_indicator()
-                        
-                        # 로딩 완료 메시지
-                        if hasattr(self.parent, 'show_message'):
-                            self.parent.show_message(f"이미지 로드 완료: {os.path.basename(image_path)}, 크기: {file_size_mb:.2f}MB")
-                        
-                        return
+                    
+                    # 로딩 인디케이터 숨김
+                    if hasattr(self.parent, 'hide_loading_indicator'):
+                        self.parent.hide_loading_indicator()
+                    
+                    return
                         
                 except Exception as e:
-                    print(f"일반 이미지 처리 중 오류: {e}")
-                    self.parent.show_message(f"이미지 처리 중 오류 발생: {e}")
-                    # 오류 발생 시 기본 이미지 로드 방식으로 진행
+                    print(f"일반 이미지 처리 오류: {e}")
+                    if hasattr(self.parent, 'hide_loading_indicator'):
+                        self.parent.hide_loading_indicator()
+                    if hasattr(self.parent, 'show_message'):
+                        self.parent.show_message(f"이미지 처리 중 오류 발생: {e}")
             
             # AVIF 이미지 파일 처리 (pillow-avif-plugin 라이브러리 필요)
             if file_ext in avif_extensions:
@@ -444,11 +454,20 @@ class ImageHandler(MediaHandler):
                 try:
                     # PIL을 사용하여 이미지 로드
                     with Image.open(image_path) as pil_image:
-                        # QImage로 변환
-                        img_data = BytesIO()
-                        pil_image.save(img_data, format='PNG')
-                        qimg = QImage()
-                        qimg.loadFromData(img_data.getvalue())
+                        # 대용량 이미지만 크기 조정 적용 (30MB 이상)
+                        if file_size_mb > 30:
+                            pil_image.thumbnail((pil_image.width // 2, pil_image.height // 2), Image.Resampling.LANCZOS)
+                        
+                        # PIL 이미지를 QPixmap으로 효율적 변환
+                        if pil_image.mode == 'RGB':
+                            # RGB 모드는 직접 변환 (BytesIO 사용 안 함)
+                            qimg = QImage(pil_image.tobytes(), pil_image.width, pil_image.height, QImage.Format_RGB888)
+                        else:
+                            # 다른 모드는 PNG로 변환하여 메모리에 저장
+                            img_data = BytesIO()
+                            pil_image.save(img_data, format='PNG')
+                            qimg = QImage()
+                            qimg.loadFromData(img_data.getvalue())
                         
                         if qimg.isNull():
                             raise ValueError("이미지 변환 실패")
@@ -480,9 +499,8 @@ class ImageHandler(MediaHandler):
         if not self.original_pixmap or not self.display_label:
             return
         
-        # 회전 상태 확인 (디버깅용)
+        # 회전 상태 확인
         current_rotation = getattr(self.parent, 'current_rotation', 0)
-        print(f"📊 resize_and_display: 회전={current_rotation}°, rotation_applied={getattr(self, 'rotation_applied', False)}")
         
         # 라벨 크기 가져오기 
         label_size = self.display_label.size()
@@ -509,9 +527,6 @@ class ImageHandler(MediaHandler):
         # 이미지 크기 조정
         if is_raw_file and ui_is_hidden:
             # RAW 파일이고 UI가 숨겨진 경우, 실제 윈도우 크기에 맞게 조정
-            print(f"RAW 파일 + UI 숨김 상태: 전체 화면 크기로 리사이징 ({actual_width}x{actual_height})")
-            
-            # 전체 화면에 맞게 스케일링 (비율 유지)
             self.current_pixmap = pixmap_to_scale.scaled(
                 actual_width,
                 actual_height,
@@ -526,18 +541,12 @@ class ImageHandler(MediaHandler):
                 Qt.SmoothTransformation
             )
         
-        # 이미지 표시 전 정보 출력
-        print(f"📊 이미지 표시 직전: current_pixmap 크기={self.current_pixmap.width()}x{self.current_pixmap.height()}, 회전={current_rotation}°")
-        
         # MediaDisplay의 display_pixmap 메서드 호출 (있는 경우)
         if hasattr(self.display_label, 'display_pixmap'):
-            print(f"📊 display_pixmap으로 표시: 크기={self.current_pixmap.width()}x{self.current_pixmap.height()}")
             self.display_label.display_pixmap(self.current_pixmap, 'image')
         else:
             # 일반 QLabel인 경우 기존 방식으로 이미지 표시
-            print(f"📊 setPixmap으로 표시: 크기={self.current_pixmap.width()}x{self.current_pixmap.height()}")
             self.display_label.setPixmap(self.current_pixmap)
-            # 강제 업데이트 추가
             self.display_label.repaint()
         
         # RAW 파일인 경우 강제 업데이트 적용
@@ -546,8 +555,8 @@ class ImageHandler(MediaHandler):
             try:
                 from PyQt5.QtWidgets import QApplication
                 QApplication.instance().processEvents()
-            except Exception as e:
-                print(f"이벤트 처리 중 오류: {e}")
+            except Exception:
+                pass
             
             # 실제 화면 크기에 맞게 추가 스케일링 (강제)
             if ui_is_hidden and self.current_pixmap:
@@ -561,44 +570,37 @@ class ImageHandler(MediaHandler):
         # 이미지 정보 업데이트
         if hasattr(self.parent, 'update_image_info'):
             self.parent.update_image_info()
-        
-        # 명시적으로 화면 갱신 요청
-        try:
-            from PyQt5.QtWidgets import QApplication
-            QApplication.instance().processEvents()
-        except Exception as e:
-            print(f"화면 갱신 요청 중 오류: {e}")
-        
-        print(f"📊 resize_and_display 완료: 크기={self.current_pixmap.width()}x{self.current_pixmap.height()}, 회전={current_rotation}°")
     
     def resize(self):
         """창 크기가 변경되었을 때 이미지 크기를 조정합니다."""
         if not self.original_pixmap or not self.display_label:
             return
         
-        # 전체 윈도우 영역 사용 플래그가 설정된 경우
+        # 전체 화면 모드에서는 속도를 위해 SmoothTransformation 대신 FastTransformation 사용
+        transformation_mode = Qt.SmoothTransformation
         if self.use_full_window:
-            # 윈도우 전체 크기 가져오기
+            transformation_mode = Qt.FastTransformation
+        
+        # 윈도우 크기에 맞게 이미지 크기 조정
+        if self.use_full_window:
             window_width = self.parent.width()
             window_height = self.parent.height()
             
-            # 이미지를 윈도우 전체 크기에 맞게 조정
-            print(f"전체 윈도우 크기로 리사이징 적용: {window_width}x{window_height}")
             self.current_pixmap = self.original_pixmap.scaled(
                 window_width,
                 window_height,
                 Qt.KeepAspectRatio,
-                Qt.SmoothTransformation
+                transformation_mode
             )
             
-            # 이미지 직접 표시
+            # 이미지 직접 표시 (최적화)
             if hasattr(self.display_label, 'display_pixmap'):
                 self.display_label.display_pixmap(self.current_pixmap, 'image')
             else:
                 self.display_label.setPixmap(self.current_pixmap)
                 self.display_label.repaint()
         else:
-            # 일반적인 리사이징 (라벨 크기에 맞춤)
+            # 일반적인 리사이징 (라벨 크기에 맞춤) - UI 숨김/표시에 필요한 부분
             self._resize_and_display()
     
     def get_original_size(self):
@@ -705,75 +707,40 @@ class ImageHandler(MediaHandler):
             
         return scaled_pixmap
     
-    def display_image(self, pixmap, image_path, file_size_mb=0):
-        """
-        이미지를 표시합니다.
+    def display_image(self, pixmap, image_path, size_mb):
+        """이미지를 표시합니다."""
+        # 경로와 원본 이미지 저장
+        self.current_media_path = image_path
         
-        Args:
-            pixmap (QPixmap): 표시할 이미지
-            image_path (str): 이미지 파일 경로
-            file_size_mb (float): 이미지 파일 크기 (MB)
-        """
-        try:
-            # 현재 회전 상태 확인 및 출력
-            current_rotation = getattr(self.parent, 'current_rotation', 0)
-            print(f"📌 display_image 호출: 파일={os.path.basename(image_path)}, 현재 회전={current_rotation}°")
-            
-            # 원본 이미지 저장 (회전 적용 전 상태)
-            original_plain_pixmap = pixmap
-            self._plain_original_pixmap = pixmap.copy()  # 완전한 원본 이미지 저장 (항상 회전 전 상태 유지)
-            self.original_pixmap = pixmap  # 원본 보존
-            print(f"📌 원본 이미지 크기: {pixmap.width()}x{pixmap.height()}")
-            
-            # 회전 적용
-            if current_rotation != 0:
-                print(f"📌 display_image에서 회전 적용: {current_rotation}°")
-                try:
-                    transform = QTransform().rotate(current_rotation)
-                    transformed_pixmap = self._plain_original_pixmap.transformed(transform, Qt.SmoothTransformation)
-                    self.original_pixmap = transformed_pixmap  # 회전된 이미지로 원본 업데이트
-                    self.rotation_applied = True
-                    print(f"📌 회전 적용 성공: 결과 크기={self.original_pixmap.width()}x{self.original_pixmap.height()}")
-                except Exception as e:
-                    print(f"📌 회전 적용 실패: {e}")
-            else:
-                # 회전이 없는 경우 명시적으로 표시
-                self.rotation_applied = False
-                print(f"📌 회전 없음 (0°): 원본 이미지 그대로 사용")
-            
-            # 이미지 크기를 라벨 크기에 맞게 조정
-            self._resize_and_display()
-            
-            # 현재 미디어 경로 업데이트
-            self.current_media_path = image_path
-            
-            # 파일 정보 표시
-            filename = os.path.basename(image_path)
-            extension = os.path.splitext(filename)[1].upper().lstrip('.')
-            
-            if hasattr(self.parent, 'show_message'):
-                self.parent.show_message(f"{extension} 이미지 로드 완료: {filename}, 크기: {file_size_mb:.2f}MB")
-            
-            # 현재 미디어 타입 설정
-            self.parent.current_media_type = 'image'
-            
-            # RAW 파일인 경우 리사이징이 제대로 적용되도록 추가 처리
-            if os.path.splitext(image_path)[1].lower() in RAW_EXTENSIONS:
-                # 화면 갱신 및 강제 리사이징 적용
-                try:
-                    from PyQt5.QtWidgets import QApplication
-                    QApplication.instance().processEvents()
-                    self._resize_and_display()
-                except Exception as e:
-                    print(f"RAW 이미지 추가 처리 중 오류: {e}")
-            
-            print(f"📌 이미지 표시 완료: 회전={current_rotation}°, 최종 크기={self.current_pixmap.width()}x{self.current_pixmap.height()}, 회전 적용 상태={getattr(self, 'rotation_applied', False)}")
-            
-        except Exception as e:
-            print(f"📌 이미지 표시 중 오류 발생: {e}")
-            if hasattr(self.parent, 'show_message'):
-                self.parent.show_message(f"이미지 표시 중 오류 발생: {str(e)}")
-            raise e
+        # 원본 이미지 저장 (회전 적용 전에 항상 원본 보존)
+        if self._plain_original_pixmap is None:
+            self._plain_original_pixmap = pixmap.copy()  # 완전한 원본 복사
+        
+        # 회전 적용이 필요한 경우
+        current_rotation = getattr(self.parent, 'current_rotation', 0)
+        if current_rotation != 0:
+            try:
+                # Transform 객체 생성 및 회전 설정
+                transform = QTransform()
+                transform.rotate(current_rotation)
+                
+                # 회전 적용 (항상 원본에서 회전)
+                rotated_pixmap = self._plain_original_pixmap.transformed(transform, Qt.SmoothTransformation)
+                
+                # 회전된 이미지로 원본 이미지 대체
+                self.original_pixmap = rotated_pixmap
+                
+                # 회전 적용 상태 표시
+                self.rotation_applied = True
+            except Exception as e:
+                self.parent.show_message(f"이미지 회전 중 오류 발생: {e}")
+        else:
+            # 회전이 없는 경우 원본 사용
+            self.original_pixmap = self._plain_original_pixmap.copy()
+            self.rotation_applied = False
+        
+        # 이미지 크기 조정 및 표시
+        self._resize_and_display()
     
     def on_error(self, image_path, error_message):
         """
@@ -814,4 +781,13 @@ class ImageHandler(MediaHandler):
                 # 원본 이미지를 캐시 (회전하지 않은 상태)
                 self.parent.image_cache.put(path, image, size_mb)
         else:
-            print(f"크기가 너무 큰 이미지는 캐시되지 않습니다: {os.path.basename(path)} ({size_mb:.2f}MB)") 
+            print(f"크기가 너무 큰 이미지는 캐시되지 않습니다: {os.path.basename(path)} ({size_mb:.2f}MB)")
+
+    def on_rotation_changed(self, angle):
+        """회전 각도가 변경되었을 때 호출되는 메서드"""
+        # 로드된 이미지가 없으면 처리하지 않음
+        if not self._plain_original_pixmap or not self.current_media_path:
+            return
+            
+        # 회전 각도 적용하여 이미지 다시 표시
+        self.display_image(self._plain_original_pixmap, self.current_media_path, 0) 

@@ -1921,7 +1921,10 @@ class ArchiveSift(QWidget):
         # 호환성을 위해 current_rotation 업데이트
         self.current_rotation = angle
         
-        # 필요한 경우 여기에 추가 작업 구현
+        # ImageHandler의 on_rotation_changed 메서드 호출하여 즉시 이미지 회전 적용
+        if hasattr(self, 'image_handler') and self.current_image_path:
+            self.image_handler.on_rotation_changed(angle)
+            
         print(f"회전 각도 변경됨: {angle}°")
 
     def rotate_image(self, clockwise=True):
