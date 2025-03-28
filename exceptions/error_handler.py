@@ -55,7 +55,7 @@ class ErrorHandler:
         """ErrorHandler 초기화"""
         # 싱글톤 패턴 강제
         if ErrorHandler._instance is not None:
-            raise RuntimeError("ErrorHandler는 싱글톤입니다. get_instance()를 사용하세요.")
+            raise RuntimeError("ErrorHandler is a singleton. Use get_instance() instead.")
         
         # 로거 초기화
         self.logger = Logger("error_handler")
@@ -124,7 +124,7 @@ class ErrorHandler:
                 try:
                     return handler(wrapped_exception, error_info, context)
                 except Exception as handler_exc:
-                    self.logger.error(f"커스텀 예외 핸들러 실행 중 오류: {handler_exc}")
+                    self.logger.error(f"Custom exception handler execution error: {handler_exc}")
         
         # UI에 오류 메시지 표시
         if show_ui:

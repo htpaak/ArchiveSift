@@ -24,7 +24,7 @@ class FileAccessError(FileError):
     파일 읽기/쓰기 권한 문제, 잠긴 파일 등의 상황에서 발생합니다.
     """
     
-    def __init__(self, message: str = "파일에 접근할 수 없습니다", 
+    def __init__(self, message: str = "File access error", 
                  file_path: Optional[str] = None, 
                  details: Optional[Dict[str, Any]] = None):
         """
@@ -51,7 +51,7 @@ class FileNotFoundError(FileError):
     지정된 경로에 파일이 존재하지 않을 때 발생합니다.
     """
     
-    def __init__(self, message: str = "파일을 찾을 수 없습니다", 
+    def __init__(self, message: str = "File not found", 
                  file_path: Optional[str] = None, 
                  details: Optional[Dict[str, Any]] = None):
         """
@@ -78,7 +78,7 @@ class DirectoryNotFoundError(FileError):
     지정된 경로에 디렉토리가 존재하지 않을 때 발생합니다.
     """
     
-    def __init__(self, message: str = "디렉토리를 찾을 수 없습니다", 
+    def __init__(self, message: str = "Directory not found", 
                  dir_path: Optional[str] = None, 
                  details: Optional[Dict[str, Any]] = None):
         """
@@ -105,7 +105,7 @@ class FileOperationError(FileError):
     파일 복사, 이동, 삭제 등의 작업 중 발생한 오류입니다.
     """
     
-    def __init__(self, message: str = "파일 작업 중 오류가 발생했습니다", 
+    def __init__(self, message: str = "File operation error", 
                  operation: Optional[str] = None,
                  src_path: Optional[str] = None,
                  dest_path: Optional[str] = None,
@@ -142,7 +142,7 @@ class NavigationError(FileError):
     파일 목록 탐색, 다음/이전 파일 이동 등의 작업 중 발생한 오류입니다.
     """
     
-    def __init__(self, message: str = "파일 탐색 중 오류가 발생했습니다", 
+    def __init__(self, message: str = "File navigation error", 
                  current_index: Optional[int] = None,
                  file_count: Optional[int] = None,
                  details: Optional[Dict[str, Any]] = None):
@@ -174,7 +174,7 @@ class EmptyDirectoryError(FileError):
     지정된 디렉토리에 표시할 파일이 없을 때 발생합니다.
     """
     
-    def __init__(self, message: str = "디렉토리에 표시할 파일이 없습니다", 
+    def __init__(self, message: str = "No files to display in directory", 
                  dir_path: Optional[str] = None, 
                  details: Optional[Dict[str, Any]] = None):
         """

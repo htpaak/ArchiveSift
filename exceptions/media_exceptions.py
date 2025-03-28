@@ -24,7 +24,7 @@ class MediaLoadError(MediaError):
     미디어 파일을 로드할 수 없을 때 발생합니다.
     """
     
-    def __init__(self, message: str = "미디어를 로드할 수 없습니다", 
+    def __init__(self, message: str = "Media load error", 
                  file_path: Optional[str] = None, 
                  details: Optional[Dict[str, Any]] = None):
         """
@@ -51,7 +51,7 @@ class UnsupportedFormatError(MediaError):
     지원되지 않는 파일 형식을 로드하려고 할 때 발생합니다.
     """
     
-    def __init__(self, message: str = "지원되지 않는 미디어 형식입니다", 
+    def __init__(self, message: str = "Unsupported media format", 
                  file_path: Optional[str] = None, 
                  format_name: Optional[str] = None,
                  details: Optional[Dict[str, Any]] = None):
@@ -83,7 +83,7 @@ class MediaProcessingError(MediaError):
     이미지 처리, 비디오 프레임 추출 등의 작업 중 발생한 오류입니다.
     """
     
-    def __init__(self, message: str = "미디어 처리 중 오류가 발생했습니다", 
+    def __init__(self, message: str = "Media processing error", 
                  operation: Optional[str] = None,
                  details: Optional[Dict[str, Any]] = None):
         """
@@ -110,7 +110,7 @@ class MediaDisplayError(MediaError):
     UI에 미디어를 표시하는 과정에서 발생한 오류입니다.
     """
     
-    def __init__(self, message: str = "미디어를 표시할 수 없습니다", 
+    def __init__(self, message: str = "Media display error", 
                  details: Optional[Dict[str, Any]] = None):
         """
         MediaDisplayError 초기화
@@ -129,7 +129,7 @@ class CacheError(MediaError):
     캐시 저장, 로드, 관리 등의 작업 중 발생한 오류입니다.
     """
     
-    def __init__(self, message: str = "미디어 캐시 작업 중 오류가 발생했습니다", 
+    def __init__(self, message: str = "Media cache error", 
                  cache_key: Optional[str] = None,
                  details: Optional[Dict[str, Any]] = None):
         """

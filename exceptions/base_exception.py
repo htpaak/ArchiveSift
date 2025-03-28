@@ -31,7 +31,7 @@ class MediaViewerException(Exception):
         """예외를 문자열로 표현"""
         if self.details:
             details_str = ', '.join(f"{k}={v}" for k, v in self.details.items())
-            return f"{self.message} (세부 정보: {details_str})"
+            return f"{self.message} (Details: {details_str})"
         return self.message
     
     def get_error_dict(self) -> Dict[str, Any]:
@@ -91,7 +91,7 @@ class OperationCancelledError(MediaViewerException):
     일부로 처리될 수 있습니다.
     """
     
-    def __init__(self, message: str = "작업이 취소되었습니다", details: Optional[Dict[str, Any]] = None):
+    def __init__(self, message: str = "Operation was cancelled", details: Optional[Dict[str, Any]] = None):
         """
         OperationCancelledError 초기화
         
