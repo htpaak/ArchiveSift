@@ -101,13 +101,13 @@ class UIStateManager(QObject):
     
     def _update_ui_visibility(self, visibility_dict):
         """
-        UI 요소 표시 상태 업데이트
+        Update UI element visibility
         
         Args:
-            visibility_dict: 각 UI 요소의 표시 여부를 담은 사전
-                             None 값은 기존 상태 유지
+            visibility_dict: A dictionary containing the visibility of each UI element.
+                             None values maintain the current state.
         """
-        # 입력된 값으로 상태 업데이트 (None이 아닌 경우만)
+        # Update state using the provided values (only if not None)
         updated = False
         for key, value in visibility_dict.items():
             if key in self._ui_visibility and value is not None:
@@ -115,57 +115,54 @@ class UIStateManager(QObject):
                     self._ui_visibility[key] = value
                     updated = True
         
-        # 변경이 있을 때만 신호 발생
+        # Emit signal only if changes occur
         if updated:
-            print(f"UI 표시 상태 업데이트: {self._ui_visibility}")
             self.ui_visibility_changed.emit(self._ui_visibility)
             return True
         return False
     
-    # UIStateManager 클래스 내 메서드 수정
+    # UIStateManager class method modification
     def show_ui_temporarily(self):
-        """마우스 움직임에 따라 UI를 일시적으로 표시"""
-        # 현재 상태 저장
+        """Temporarily display the UI based on mouse movement"""
+        # Store current state
         old_visibility = self._ui_visibility.copy()
         
-        # UI 요소 표시 상태 업데이트
+        # Update UI element visibility
         new_visibility = {
             'title_bar': True,
             'controls': True,
             'sliders': True
         }
         
-        # 변경사항이 있는지 확인
+        # Check if there are any changes
         has_changes = False
         for key, value in new_visibility.items():
             if key in old_visibility and old_visibility[key] != value:
                 has_changes = True
                 break
         
-        # 변경사항이 있을 때만 업데이트
+        # Update only if changes exist
         if has_changes:
-            # 디버깅용 메시지 추가
-            print(f"UI 표시 상태 변경: {old_visibility} → {new_visibility}")
             self._update_ui_visibility(new_visibility)
             return True
         return False
     
     def hide_ui_conditionally(self):
-        """UI 잠금 상태에 따라 UI 표시 여부 결정"""
+        """Determine UI visibility based on UI lock status"""
         title_locked = self._get_title_locked()
         bottom_locked = self._get_bottom_locked()
         
-        # 현재 상태 저장
+        # Store current state
         old_visibility = self._ui_visibility.copy()
         
-        # 새로운 UI 상태 계산
+        # Calculate new UI state
         new_visibility = {
             'title_bar': title_locked,
             'controls': bottom_locked,
             'sliders': bottom_locked
         }
         
-        # 변경사항이 있는지 확인 - 이전 로직 개선
+        # Check if there are any changes - improved previous logic
         has_changes = False
         changed_keys = []
         for key, value in new_visibility.items():
@@ -173,10 +170,8 @@ class UIStateManager(QObject):
                 has_changes = True
                 changed_keys.append(key)
         
-        # 변경사항이 있을 때만 업데이트
+        # Update only if changes exist
         if has_changes:
-            # 디버깅용 메시지 추가
-            print(f"UI 숨김 상태 변경: {old_visibility} → {new_visibility}, 변경된 키: {changed_keys}")
             self._update_ui_visibility(new_visibility)
             return True
         return False
