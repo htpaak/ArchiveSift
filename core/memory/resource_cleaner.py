@@ -24,54 +24,46 @@ class ResourceCleaner:
         self.viewer = viewer
     
     def cleanup_current_media(self):
-        """현재 로드된 미디어 리소스를 정리합니다."""
-        # 디버깅 모드가 활성화된 경우 정리 전 상태 출력
-        if self.viewer.qmovie_debugger.is_debug_mode():
-            self.viewer.qmovie_debugger.debug_qmovie_before_cleanup()
+        """Clean up the currently loaded media resources."""
+        print("Media resource cleanup started...")
         
-        print("미디어 리소스 정리 시작...")
-        
-        # 비디오 리소스 정리
+        # Clean up video resources
         self.cleanup_video_resources()
         
-        # 애니메이션 리소스 정리
+        # Clean up animation resources
         self.cleanup_animation_resources()
         
-        # UI 컴포넌트 초기화
+        # Initialize UI components
         self.cleanup_ui_components()
         
-        # 가비지 컬렉션 수행
+        # Perform garbage collection
         self.viewer.perform_garbage_collection()
             
-        print("미디어 리소스 정리 완료")
-
-        # 디버깅을 위한 정리 후 상태 확인
-        if self.viewer.qmovie_debugger.is_debug_mode():
-            self.viewer.qmovie_debugger.debug_qmovie_after_cleanup()
+        print("Media resource cleanup completed")
         
     def cleanup_video_resources(self):
-        """비디오 관련 리소스 정리"""
-        # 비디오 재생 중지
+        """Clean up video related resources"""
+        # Stop video playback
         self.viewer.stop_video()
         
     def cleanup_animation_resources(self):
-        """애니메이션 관련 리소스 정리"""
-        # 애니메이션 핸들러 존재 여부 확인
+        """Clean up animation related resources"""
+        # Check if animation handler exists
         animation_handler_exists = hasattr(self.viewer, 'animation_handler')
 
-        # 애니메이션 핸들러 리소스 정리 (current_movie 포함)
+        # Clean up animation handler resources (including current_movie)
         if animation_handler_exists:
-            print("애니메이션 핸들러 정리 시작...")
+            print("Animation handler cleanup started...")
             self.viewer.animation_handler.cleanup()
             
-            # 이벤트 처리 루프 실행으로 UI 갱신 및 정리 작업 완료 유도
+            # Execute event processing loop to update UI and finalize cleanup
             QApplication.processEvents()
             
     def cleanup_ui_components(self):
         """UI 컴포넌트 초기화"""
         # 이미지 라벨 초기화 - MediaDisplay의 clear_media 메서드 사용
         if hasattr(self.viewer, 'image_label'):
-            print("MediaDisplay 초기화...")
+            print("Initializing MediaDisplay...")
             # MediaDisplay의 clear_media 메서드 호출
             self.viewer.image_label.clear_media()
             # 이벤트 프로세싱
