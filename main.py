@@ -928,22 +928,50 @@ class ArchiveSift(QWidget):
         """폴더에서 이미지 파일 목록을 가져옵니다."""
         try:
             # file_browser.py에서 사용하는 확장자 목록과 일치시키기
-            valid_extensions = [
-                # 이미지 형식
-                '.jpg', '.jpeg', '.png', '.webp', '.psd', '.gif', '.bmp', 
-                '.tiff', '.tif', '.ico', '.heic', '.heif', '.avif',
-                '.jpe', '.jps', '.jfif', '.jp2', '.tga',
-                # RAW 이미지 형식
+            # 1. 순수 일반 이미지 (표준 라이브러리로 처리 가능)
+            normal_img_extensions = [
+                '.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.ico',
+                '.jfif', '.jp2', '.jpe', '.jps', '.tga'
+            ]
+            
+            # 2. 특수 라이브러리가 필요한 이미지
+            heic_heif_extensions = ['.heic', '.heif']
+            avif_extensions = ['.avif']
+            
+            # 3. RAW 이미지 형식
+            raw_extensions = [
                 '.cr2', '.nef', '.arw', '.orf', '.rw2', '.dng', '.pef', '.raf', '.srw',
                 '.crw', '.raw', '.kdc', '.mrw', '.dcr', '.sr2', '.3fr', '.mef', '.erf',
-                '.rwl', '.mdc', '.mos', '.x3f', '.bay', '.nrw',
-                # 비디오 형식
+                '.rwl', '.mdc', '.mos', '.x3f', '.bay', '.nrw'
+            ]
+            
+            # 4. 애니메이션 이미지
+            animation_extensions = ['.gif', '.webp']
+            
+            # 5. 비디오 형식
+            video_extensions = [
                 '.mp4', '.avi', '.wav', '.ts', '.m2ts', '.mov', '.qt', 
                 '.mkv', '.flv', '.webm', '.3gp', '.m4v', '.mpg', '.mpeg', 
-                '.vob', '.wmv', 
-                # 오디오 형식
-                '.mp3', '.flac', '.aac', '.m4a', '.ogg'
+                '.vob', '.wmv'
             ]
+            
+            # 6. 오디오 형식
+            audio_extensions = ['.mp3', '.flac', '.aac', '.m4a', '.ogg']
+            
+            # 7. 디자인 파일
+            design_extensions = ['.psd']
+            
+            # 모든 지원 확장자 목록 병합
+            valid_extensions = (
+                normal_img_extensions + 
+                heic_heif_extensions + 
+                avif_extensions + 
+                raw_extensions + 
+                animation_extensions + 
+                video_extensions + 
+                audio_extensions + 
+                design_extensions
+            )
             
             # 폴더 내의 모든 파일 목록 가져오기
             files = os.listdir(folder_path)

@@ -153,12 +153,20 @@ class WindowHandler(QObject):
             if hasattr(self.parent, 'current_image_path') and self.parent.current_image_path:
                 file_ext = os.path.splitext(self.parent.current_image_path)[1].lower()
                 
-                # 일반 이미지 확장자 (새로운 형식 추가)
-                normal_img_extensions = ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.ico', '.heic', '.heif',
-                                      '.jfif', '.jp2', '.avif', '.jpe', '.jps', '.tga']
+                # 이미지 타입별 확장자 목록 (라이브러리별로 분리)
+                # 1. 순수 일반 이미지 (표준 라이브러리로 처리 가능)
+                normal_img_extensions = ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.ico',
+                                      '.jfif', '.jp2', '.jpe', '.jps', '.tga']
+                
+                # 2. 특수 라이브러리가 필요한 이미지
+                heic_heif_extensions = ['.heic', '.heif']
+                avif_extensions = ['.avif']
+                
+                # 3. 모든 정적 이미지 확장자 (모든 이미지 핸들러로 처리 가능한 것)
+                all_static_img_extensions = normal_img_extensions + heic_heif_extensions + avif_extensions + RAW_EXTENSIONS
                 
                 # 이미지 타입에 따른 리사이징 처리
-                if file_ext in normal_img_extensions or file_ext in RAW_EXTENSIONS:
+                if file_ext in all_static_img_extensions:
                     # RAW 파일인 경우 특별 처리
                     is_raw_file = file_ext in RAW_EXTENSIONS
                     

@@ -147,11 +147,16 @@ class ImageHandler(MediaHandler):
             # 파일 확장자 확인
             _, file_ext = os.path.splitext(image_path.lower())
             
-            # 일반 이미지 확장자 목록 (새로운 형식 추가)
-            normal_img_extensions = ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.ico', '.heic', '.heif',
-                                  '.jfif', '.jp2', '.avif', '.jpe', '.jps', '.tga']
+            # 이미지 타입별 확장자 목록 (라이브러리별로 분리)
+            # 1. 순수 일반 이미지 (표준 라이브러리로 처리 가능)
+            normal_img_extensions = ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.ico',
+                                   '.jfif', '.jp2', '.jpe', '.jps', '.tga']
             
-            # 일반 이미지 파일 처리
+            # 2. 특수 라이브러리가 필요한 이미지
+            heic_heif_extensions = ['.heic', '.heif']
+            avif_extensions = ['.avif']
+            
+            # 일반 이미지 파일 처리 (표준 라이브러리로 처리 가능한 이미지)
             if file_ext in normal_img_extensions:
                 try:
                     # 로딩 인디케이터 표시
@@ -198,10 +203,10 @@ class ImageHandler(MediaHandler):
                 except Exception as e:
                     print(f"일반 이미지 처리 중 오류: {e}")
                     self.parent.show_message(f"이미지 처리 중 오류 발생: {e}")
-                    # 오류 발생 시 일반 이미지 로드 방식으로 진행
+                    # 오류 발생 시 기본 이미지 로드 방식으로 진행
             
-            # AVIF 이미지 파일 처리
-            if file_ext == '.avif':
+            # AVIF 이미지 파일 처리 (pillow-avif-plugin 라이브러리 필요)
+            if file_ext in avif_extensions:
                 try:
                     # 로딩 인디케이터 표시
                     if hasattr(self.parent, 'show_loading_indicator'):
@@ -254,9 +259,10 @@ class ImageHandler(MediaHandler):
                     if hasattr(self.parent, 'show_message'):
                         self.parent.show_message(f"AVIF 이미지 처리 중 오류 발생: {e}")
                     print(f"AVIF 이미지 처리 중 오류 발생: {e}")
-                    # 오류 발생 시 일반 이미지 로드 방식으로 진행
+                    # 일반 이미지 방식으로 처리 진행하지 않고 오류 발생
+                    raise ValueError(f"AVIF 이미지 처리 중 오류 발생: {e}")
             
-            # RAW 이미지 파일 처리 - 전역 상수 사용
+            # RAW 이미지 파일 처리 - 전역 상수 사용 (rawpy 라이브러리 필요)
             if file_ext in RAW_EXTENSIONS:
                 try:
                     # 로딩 인디케이터 표시
@@ -379,15 +385,26 @@ class ImageHandler(MediaHandler):
                     self.parent.show_message(f"RAW 이미지 처리 중 오류 발생: {e}")
                     # 오류 발생 시 일반 이미지 로드 방식으로 진행
             
-            # HEIC/HEIF 파일 처리
-            if file_ext in ['.heic', '.heif']:
+            # HEIC/HEIF 파일 처리 (pillow-heif 라이브러리 필요)
+            if file_ext in heic_heif_extensions:
                 try:
+                    # 로딩 인디케이터 표시
+                    if hasattr(self.parent, 'show_loading_indicator'):
+                        self.parent.show_loading_indicator()
+                    
+                    # 로딩 메시지 표시
+                    if hasattr(self.parent, 'show_message'):
+                        self.parent.show_message(f"HEIC/HEIF 이미지 로딩 중... {os.path.basename(image_path)}")
+                    
                     # pillow-heif 라이브러리를 사용
                     from pillow_heif import register_heif_opener
                     register_heif_opener()
                     
                     # PIL로 이미지 로드
                     with Image.open(image_path) as pil_image:
+                        # 이미지 메타데이터 출력 (디버깅 용도)
+                        print(f"HEIC/HEIF 이미지 정보: {pil_image.format}, {pil_image.mode}, {pil_image.size}")
+                        
                         # QImage로 변환
                         img_data = BytesIO()
                         pil_image.save(img_data, format='PNG')
@@ -395,18 +412,31 @@ class ImageHandler(MediaHandler):
                         qimg.loadFromData(img_data.getvalue())
                         
                         if qimg.isNull():
-                            raise ValueError("이미지 변환 실패")
+                            raise ValueError("HEIC/HEIF 이미지 변환 실패")
                         
                         # QPixmap으로 변환
                         pixmap = QPixmap.fromImage(qimg)
                         self.display_image(pixmap, image_path, file_size_mb)
+                        
+                        # 로딩 인디케이터 숨김
+                        if hasattr(self.parent, 'hide_loading_indicator'):
+                            self.parent.hide_loading_indicator()
+                        
+                        # 로딩 완료 메시지
+                        if hasattr(self.parent, 'show_message'):
+                            self.parent.show_message(f"HEIC/HEIF 이미지 로드 완료: {os.path.basename(image_path)}, 크기: {file_size_mb:.2f}MB")
+                            
                         return
                 except ImportError:
+                    if hasattr(self.parent, 'hide_loading_indicator'):
+                        self.parent.hide_loading_indicator()
                     raise ImportError("HEIC/HEIF 파일을 처리하기 위한 pillow-heif 라이브러리가 필요합니다")
                 except Exception as e:
+                    if hasattr(self.parent, 'hide_loading_indicator'):
+                        self.parent.hide_loading_indicator()
                     raise Exception(f"HEIC/HEIF 이미지 처리 중 오류 발생: {e}")
             
-            # 일반 이미지 파일 처리
+            # 기본 이미지 로드 방식 (위의 모든 특수 처리가 적용되지 않은 경우)
             pixmap = QPixmap(image_path)
             
             if pixmap.isNull():
