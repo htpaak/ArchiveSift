@@ -113,81 +113,69 @@ class RotationManager(QObject):
         self._show_rotation_message()
     
     def _rotate_static_image(self):
-        """정적 이미지 회전 처리"""
+        """Static image rotation handling"""
         file_ext = ''
         try:
             import os
             file_ext = os.path.splitext(self.viewer.current_image_path)[1].lower()
-            print(f"🔄 이미지 회전 시작: 파일={os.path.basename(self.viewer.current_image_path)}, 확장자={file_ext}, 회전각={self._rotation_angle}°")
         except Exception as e:
-            print(f"파일 확장자 확인 오류: {e}")
             return
             
         try:
-            # 화면 갱신 전 처리
+            # Process before screen refresh
             try:
                 from PyQt5.QtWidgets import QApplication
                 QApplication.instance().processEvents()
             except Exception as e:
-                print(f"화면 갱신 중 오류: {e}")
+                pass
             
-            # 직접 이미지 파일 다시 처리하기 - 가장 효율적인 방법
+            # Directly process the image file - the most efficient method
             if hasattr(self.viewer, 'image_handler') and hasattr(self.viewer.image_handler, 'original_pixmap') and self.viewer.image_handler.original_pixmap:
-                # 이미지 핸들러의 rotation_applied 플래그 초기화
-                print(f"🔄 이미지 핸들러 rotation_applied 플래그 상태: {getattr(self.viewer.image_handler, 'rotation_applied', False)}")
+                # Initialize image handler's rotation_applied flag
                 
-                # 회전 적용 (원본 이미지에 직접 적용)
+                # Apply rotation (directly on the original image)
                 if hasattr(self.viewer.image_handler, 'rotation_applied'):
-                    # 원래 원본 이미지 복제 (필요한 경우)
+                    # Clone the original image if necessary
                     if not hasattr(self.viewer.image_handler, '_plain_original_pixmap'):
                         self.viewer.image_handler._plain_original_pixmap = self.viewer.image_handler.original_pixmap.copy()
                     
-                    # 저장된 원본 이미지가 있으면 그것을 사용하여 회전 적용
+                    # If original image is saved, use it to apply rotation
                     try:
                         transform = QTransform().rotate(self._rotation_angle)
                         rotated_pixmap = self.viewer.image_handler._plain_original_pixmap.transformed(transform, Qt.SmoothTransformation)
                         
-                        # 회전된 이미지 저장 및 플래그 설정
+                        # Save rotated image and set flag
                         self.viewer.image_handler.original_pixmap = rotated_pixmap
                         self.viewer.image_handler.rotation_applied = True
                         
-                        # 이미지 리사이징 및 표시
+                        # Resize and display image
                         self.viewer.image_handler._resize_and_display()
-                        print(f"직접 원본 이미지에 회전 적용 성공: {self._rotation_angle}°")
                         
-                        # 회전 처리 후 화면 업데이트 요청
-                        print(f"🔄 이미지 회전 처리 후 화면 업데이트 요청")
+                        # Request screen update after rotation processing
                         try:
                             from PyQt5.QtWidgets import QApplication
                             QApplication.instance().processEvents()
                         except Exception as e:
-                            print(f"화면 갱신 중 오류: {e}")
+                            pass
                         
-                        # 이미지 라벨 갱신 요청
+                        # Request image label refresh
                         if hasattr(self.viewer, 'image_label') and hasattr(self.viewer.image_label, 'repaint'):
                             self.viewer.image_label.repaint()
                         
-                        print(f"🔄 이미지 회전 처리 완료: 각도={self._rotation_angle}°")
                         return
                     except Exception as e:
-                        print(f"원본 이미지 회전 중 오류: {e}")
+                        pass
             
             # 아래는 기존 코드 (위 방식이 실패할 경우 실행)
             if file_ext == '.psd':
                 # PSD 파일은 PSDHandler를 통해 다시 로드
                 if hasattr(self.viewer, 'psd_handler'):
-                    print(f"🔄 PSD 이미지 회전: PSDHandler를 통해 다시 로드")
                     self.viewer.psd_handler.load(self.viewer.current_image_path)
-                    print(f"PSD 이미지 회전 적용: {self._rotation_angle}°")
             elif file_ext == '.webp':
                 # WEBP 일반 이미지 (AnimationHandler를 통해 처리)
                 if hasattr(self.viewer, 'animation_handler'):
-                    print(f"🔄 WEBP 이미지 회전: AnimationHandler를 통해 처리")
                     self.viewer.animation_handler.rotate_static_image(self.viewer.current_image_path)
-                    print(f"WEBP 이미지 회전 AnimationHandler로 적용: {self._rotation_angle}°")
                 else:
-                    # 예전 방식 (직접 처리)
-                    print(f"🔄 WEBP 이미지 회전: 직접 처리 방식 사용")
                     self._rotate_webp_directly()
             elif file_ext in standard_image_exts or file_ext in raw_image_exts:
                 # 일반 이미지와 RAW 이미지 모두 ImageHandler를 통해 다시 로드
@@ -199,66 +187,51 @@ class RotationManager(QObject):
                     elif file_ext == '.avif':
                         format_type = 'avif'
                     
-                    img_type = "일반" if file_ext in standard_image_exts else "RAW"
-                    print(f"🔄 {img_type} 이미지 회전: ImageHandler.load_static_image 호출, 형식={format_type}")
+                    img_type = "Normal" if file_ext in standard_image_exts else "RAW"
                     
-                    # load_static_image 메서드 호출 - load 대신
+                    # Call load_static_image method - instead of load
                     if hasattr(self.viewer.image_handler, 'load_static_image'):
                         self.viewer.image_handler.load_static_image(self.viewer.current_image_path, format_type, file_ext)
                     else:
                         self.viewer.image_handler.load(self.viewer.current_image_path)
                     
-                    # 회전 후 이미지 다시 표시
+                    # Display image after rotation
                     if hasattr(self.viewer.image_handler, '_resize_and_display'):
-                        print(f"🔄 이미지 회전 후 리사이징 적용")
                         self.viewer.image_handler._resize_and_display()
                     
-                    print(f"{img_type} 이미지 회전 적용: {self._rotation_angle}°")
             else:
-                # 알 수 없는 확장자는 기본적으로 ImageHandler로 처리 시도
+                # For unknown extensions, attempt to process with ImageHandler by default.
                 if hasattr(self.viewer, 'image_handler'):
-                    # 알 수 없는 형식도 load_static_image 메서드로 처리
-                    print(f"🔄 알 수 없는 이미지 유형 회전: ImageHandler.load_static_image 호출")
+                    # For unknown formats, process using load_static_image method.
                     if hasattr(self.viewer.image_handler, 'load_static_image'):
                         self.viewer.image_handler.load_static_image(self.viewer.current_image_path, 'image', file_ext)
                     else:
                         self.viewer.image_handler.load(self.viewer.current_image_path)
                     
-                    # 회전 후 이미지 다시 표시
+                    # After rotation, display image again.
                     if hasattr(self.viewer.image_handler, '_resize_and_display'):
-                        print(f"🔄 알 수 없는 유형 이미지 회전 후 리사이징 적용")
                         self.viewer.image_handler._resize_and_display()
-                    
-                    print(f"알 수 없는 이미지 유형 회전 시도: {file_ext}, 각도: {self._rotation_angle}°")
             
-            # 회전 처리 후 화면 업데이트 요청
-            print(f"🔄 이미지 회전 처리 후 화면 업데이트 요청")
+            # Request screen update after rotation processing
             try:
                 from PyQt5.QtWidgets import QApplication
                 QApplication.instance().processEvents()
             except Exception as e:
-                print(f"화면 갱신 중 오류: {e}")
+                pass
             
-            # 이미지 라벨 갱신 요청
+            # Request image label update
             if hasattr(self.viewer, 'image_label') and hasattr(self.viewer.image_label, 'repaint'):
                 self.viewer.image_label.repaint()
             
-            # 최종 이미지 업데이트
+            # Final image update
             try:
                 from PyQt5.QtWidgets import QApplication
                 QApplication.instance().processEvents()
             except Exception as e:
-                print(f"화면 갱신 중 오류: {e}")
-                
-            print(f"🔄 이미지 회전 처리 완료: 각도={self._rotation_angle}°")
-            
-        except Exception as e:
-            print(f"이미지 회전 중 오류 발생: {e}")
-            if hasattr(self.viewer, 'show_message'):
-                self.viewer.show_message(f"이미지 회전 중 오류 발생: {e}")
+                pass
     
     def _rotate_webp_directly(self):
-        """WEBP 이미지를 직접 회전하는 내부 메서드"""
+        """Internal method to directly rotate WEBP images"""
         if not hasattr(self.viewer, 'current_image_path') or not hasattr(self.viewer, 'image_label'):
             return
             
@@ -269,7 +242,7 @@ class RotationManager(QObject):
                 transform = QTransform().rotate(self._rotation_angle)
                 rotated_pixmap = pixmap.transformed(transform, Qt.SmoothTransformation)
                 
-                # 회전된 이미지를 화면에 맞게 크기 조절
+                # Resize rotated image to fit the screen
                 label_size = self.viewer.image_label.size()
                 scaled_pixmap = rotated_pixmap.scaled(
                     label_size,
@@ -277,9 +250,8 @@ class RotationManager(QObject):
                     Qt.SmoothTransformation
                 )
                 self.viewer.image_label.setPixmap(scaled_pixmap)
-            print(f"WEBP 일반 이미지 회전 직접 적용: {self._rotation_angle}°")
         except Exception as e:
-            print(f"WEBP 직접 회전 중 오류: {e}")
+            pass
     
     def _rotate_animation(self):
         """애니메이션(GIF, WEBP) 회전 처리"""
@@ -323,35 +295,33 @@ class RotationManager(QObject):
                 if current_frame < self.viewer.animation_handler.current_movie.frameCount():
                     self.viewer.animation_handler.seek_to_frame(current_frame)
                 
-                # 재생 상태 복원
+                # Restore playback state
                 if not was_playing:
                     self.viewer.animation_handler.current_movie.setPaused(True)
                     if hasattr(self.viewer, 'play_button'):
-                        self.viewer.play_button.setText("▶")  # 재생 아이콘
+                        self.viewer.play_button.setText("▶")  # Play icon
         except Exception as e:
-            print(f"애니메이션 회전 중 오류 발생: {e}")
             if hasattr(self.viewer, 'show_message'):
-                self.viewer.show_message(f"애니메이션 회전 중 오류 발생: {e}")
+                self.viewer.show_message(f"Error occurred during animation rotation: {e}")
     
     def _rotate_video(self):
-        """비디오 회전 처리"""
+        """Process video rotation"""
         try:
             if hasattr(self.viewer, 'video_handler') and self.viewer.video_handler:
-                # 비디오 핸들러의 rotate 메서드 호출
+                # Call the rotate method of the video handler
                 self.viewer.video_handler.rotate(self._rotation_angle)
         except Exception as e:
-            print(f"비디오 회전 중 오류 발생: {e}")
             if hasattr(self.viewer, 'show_message'):
-                self.viewer.show_message(f"비디오 회전 중 오류 발생: {str(e)}")
+                self.viewer.show_message(f"Error occurred during video rotation: {str(e)}")
     
     def _show_rotation_message(self):
-        """회전 관련 메시지 표시"""
+        """Display rotation message"""
         if not hasattr(self.viewer, 'show_message'):
             return
             
         media_type = self.viewer.current_media_type if hasattr(self.viewer, 'current_media_type') else 'unknown'
         
         if media_type == 'video':
-            self.viewer.show_message(f"비디오 회전: {self._rotation_angle}°")
+            self.viewer.show_message(f"Video rotation: {self._rotation_angle}°")
         else:
-            self.viewer.show_message(f"이미지 회전: {self._rotation_angle}°") 
+            self.viewer.show_message(f"Image rotation: {self._rotation_angle}°")
