@@ -145,105 +145,96 @@ class WindowHandler(QObject):
         self.parent.controls_layout.update_bookmark_button_state()
         
     def delayed_resize(self):
-        """리사이징 완료 후 지연된 UI 업데이트 처리"""
+        """Handle delayed UI update after resizing is complete"""
         try:
-            print("delayed_resize 실행")  # 디버깅용 메시지 추가
-            
-            # 현재 표시 중인 미디어 크기 조절
+            # Adjust the currently displayed media size
             if hasattr(self.parent, 'current_image_path') and self.parent.current_image_path:
                 file_ext = os.path.splitext(self.parent.current_image_path)[1].lower()
                 
-                # 이미지 타입별 확장자 목록 (라이브러리별로 분리)
-                # 1. 순수 일반 이미지 (표준 라이브러리로 처리 가능)
+                # List of file extensions for each image type (categorized by library)
+                # 1. Standard images (can be handled with standard library)
                 normal_img_extensions = ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.ico',
                                       '.jfif', '.jp2', '.jpe', '.jps', '.tga']
                 
-                # 2. 특수 라이브러리가 필요한 이미지
+                # 2. Images requiring special libraries
                 heic_heif_extensions = ['.heic', '.heif']
                 avif_extensions = ['.avif']
                 
-                # 3. 모든 정적 이미지 확장자 (모든 이미지 핸들러로 처리 가능한 것)
+                # 3. All static image extensions (processable by all image handlers)
                 all_static_img_extensions = normal_img_extensions + heic_heif_extensions + avif_extensions + RAW_EXTENSIONS
                 
-                # 이미지 타입에 따른 리사이징 처리
+                # Resize handling based on image type
                 if file_ext in all_static_img_extensions:
-                    # RAW 파일인 경우 특별 처리
+                    # Special handling for RAW files
                     is_raw_file = file_ext in RAW_EXTENSIONS
                     
                     if is_raw_file:
-                        print(f"RAW 파일 {file_ext} 강제 리사이징 적용")
-                        
-                        # UI 숨김 여부 확인
+                        # Check if the UI is hidden
                         ui_is_hidden = False
                         if hasattr(self.parent, 'ui_state_manager'):
                             ui_is_hidden = not self.parent.ui_state_manager.get_ui_visibility('controls') or not self.parent.ui_state_manager.get_ui_visibility('title_bar')
                         
-                        # UI가 숨겨진 경우 전체 화면 사용
+                        # If the UI is hidden, use full window
                         if ui_is_hidden:
-                            print("UI 숨김 상태에서 전체 화면 사용")
-                            # 전체 윈도우 영역 사용 플래그 설정
+                            # Set flag to use the full window area
                             self.parent.image_handler.use_full_window = True
                         
-                        # 강제 이벤트 처리로 화면 갱신
+                        # Refresh screen via forced event processing
                         QApplication.processEvents()
                     
-                    # ImageHandler를 사용하여 이미지 크기 조정
+                    # Resize image using ImageHandler
                     self.parent.image_handler.resize()
                     
-                    # RAW 파일 후처리
+                    # Post-process RAW files
                     if is_raw_file:
-                        # 플래그 리셋
+                        # Reset flag
                         self.parent.image_handler.use_full_window = False
                         
-                        # 이미지 레이블 강제 갱신
+                        # Force update of image label
                         QApplication.processEvents()
                         self.parent.image_label.repaint()
                         self.parent.image_label.update()
                 elif file_ext == '.psd':
-                    # PSDHandler를 사용하여 PSD 파일 크기 조정
+                    # Resize PSD file using PSDHandler
                     self.parent.psd_handler.resize()
                 elif (file_ext == '.gif' or file_ext == '.webp') and self.parent.current_media_type in ['gif_animation', 'webp_animation']:
-                    # 애니메이션 핸들러를 통해 애니메이션 크기 조정
+                    # Resize animation using animation handler
                     if hasattr(self.parent, 'animation_handler'):
-                        print(f"{file_ext.upper()} 애니메이션 핸들러를 통한 리사이징")
                         self.parent.animation_handler.scale_animation()
                     else:
-                        # 기존 방식으로 처리 (호환성 유지)
+                        # Process using legacy method (for compatibility)
                         if file_ext == '.gif':
-                            print("GIF 애니메이션 직접 리사이징")
                             self.parent.scale_gif()
                         elif file_ext == '.webp':
-                            print("WEBP 애니메이션 직접 리사이징")
                             self.parent.scale_webp()
-                        # UI 처리 완료 후 애니메이션이 제대로 보이도록 강제 프레임 업데이트
+                        # Force frame update for proper display of animation after UI processing
                         QApplication.processEvents()
                 elif file_ext == '.webp' and self.parent.current_media_type == 'webp_image':
-                    # 정적 WEBP 이미지 처리
+                    # Process static WEBP image
                     if hasattr(self.parent, 'animation_handler'):
-                        print("정적 WEBP 이미지 핸들러를 통한 리사이징")
                         self.parent.animation_handler.rotate_static_image(self.parent.current_image_path)
                     else:
-                        # 일반 WEBP 이미지 처리 (애니메이션이 아닌 경우)
+                        # Process normal WEBP image (if not animated)
                         pixmap = QPixmap(self.parent.current_image_path)
                         if not pixmap.isNull():
                             scaled_pixmap = pixmap.scaled(self.parent.image_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
                             self.parent.image_label.setPixmap(scaled_pixmap)
                 elif file_ext in ['.mp4', '.avi', '.wmv', '.ts', '.m2ts', '.mov', '.qt', '.mkv', '.flv', '.webm', '.3gp', '.m4v', '.mpg', '.mpeg', '.vob', '.wav', '.flac', '.mp3', '.aac', '.m4a', '.ogg']:
-                    # MPV 플레이어 윈도우 ID 업데이트
+                    # Update MPV player's window ID
                     if hasattr(self.parent, 'player'):
                         self.parent.player.wid = int(self.parent.image_label.winId())
             
-            # 이미지 정보 레이블 업데이트
+            # Update image info label
             if hasattr(self.parent, 'image_info_label') and self.parent.image_files:
                 self.parent.update_image_info()
 
-            # 잠금 버튼과 북마크 버튼 상태 업데이트 (리사이징 후 스타일 복원)
+            # Update lock and bookmark button states (restore style after resizing)
             self.parent.update_ui_lock_button_state()
             self.parent.update_title_lock_button_state()
             self.parent.controls_layout.update_bookmark_button_state()
                     
         except Exception as e:
-            print(f"지연된 리사이징 처리 중 오류 발생: {e}")
+            pass
             
     def toggle_fullscreen(self):
         """전체화면 모드를 전환합니다."""
@@ -350,109 +341,112 @@ class WindowHandler(QObject):
                 QTimer.singleShot(500, lambda: self.parent.restore_video_state(was_playing, position))
 
     def toggle_maximize_state(self):
-        """최대화 상태와 일반 상태를 토글합니다."""
+        """Toggle between maximized and normal state."""
         if self.parent.isMaximized():
             self.parent.showNormal()
-            self.parent.max_btn.setText("□")  # 일반 상태일 때는 □ 표시
-            print("창 상태: 일반")  # 디버깅용 로그
+            self.parent.max_btn.setText("□")  # When in normal state, display □
+            # Removed debug print for normal state.
         else:
             self.parent.showMaximized()
-            self.parent.max_btn.setText("❐")  # 최대화 상태일 때는 ❐ 표시
-            print("창 상태: 최대화")  # 디버깅용 로그
+            self.parent.max_btn.setText("❐")  # When in maximized state, display ❐
+            # Removed debug print for maximized state.
         
-        # 창 포커스 설정 (이벤트 처리 개선)
+        # Set window focus (improve event handling)
         QTimer.singleShot(50, self.parent.setFocus) 
 
     def close_event(self, event):
         """
-        애플리케이션 종료 시 필요한 정리 작업을 수행합니다.
+        Perform necessary cleanup tasks when the application terminates.
         """
-        print("프로그램 종료 처리 시작...")
+        # Removed debug print for program shutdown cleanup start.
         
-        # 디버깅을 위한 초기 상태 확인
+        # Check initial state for debugging
         if hasattr(self.parent, 'qmovie_debugger') and self.parent.qmovie_debugger.is_debug_mode():
             self.parent.qmovie_debugger.debug_qmovie_before_cleanup()
         
-        # 현재 미디어 리소스 정리
+        # Clean up current media resources
         self.parent.cleanup_current_media()
         
-        # ImageLoader 정리 (이미지 로더 스레드 정리)
+        # Clean up ImageLoader (image loader thread cleanup)
         if hasattr(self.parent, 'image_loader') and self.parent.image_loader:
-            print("이미지 로더 정리 시작...")
+            # Removed debug print for ImageLoader cleanup start.
             self.parent.image_loader.cleanup()
-            print("이미지 로더 정리 완료")
+            # Removed debug print for ImageLoader cleanup complete.
         
-        # PSD 핸들러 언로드
+        # Unload PSD handler
         if hasattr(self.parent, 'psd_handler') and self.parent.psd_handler:
             self.parent.psd_handler.unload()
             
-        # 이미지 캐시 정리
+        # Clean up image cache
         if hasattr(self.parent, 'image_cache') and self.parent.image_cache:
-            print("이미지 캐시 정리 시작...")
+            # Removed debug print for image cache cleanup start.
             self.parent.image_cache.clear()
-            print("이미지 캐시 정리 완료")
+            # Removed debug print for image cache cleanup complete.
             
-        # PSD 캐시 정리
+        # Clean up PSD cache
         if hasattr(self.parent, 'psd_cache') and self.parent.psd_cache:
-            print("PSD 캐시 정리 시작...")
+            # Removed debug print for PSD cache cleanup start.
             self.parent.psd_cache.clear()
-            print("PSD 캐시 정리 완료")
+            # Removed debug print for PSD cache cleanup complete.
             
-        # GIF 캐시 정리
+        # Clean up GIF cache
         if hasattr(self.parent, 'gif_cache') and self.parent.gif_cache:
-            print("GIF 캐시 정리 시작...")
-            # 단순화된 QMovie 정리 과정
+            # Removed debug print for GIF cache cleanup start.
+            # Simplified QMovie cleanup process
             try:
                 from PyQt5.QtGui import QMovie
                 from PyQt5.QtWidgets import QApplication
                 
-                # 캐시에서 QMovie 객체 간단히 확인 및 정리
+                # Check and clean up QMovie objects in the cache
                 for key, item in list(self.parent.gif_cache.cache.items()):
                     if isinstance(item, QMovie):
-                        # 기본적인 정리 단계만 수행
+                        # Perform basic cleanup steps
                         item.stop()
                         item.deleteLater()
                 
-                # 한 번의 이벤트 처리만 수행
+                # Process events once
                 QApplication.processEvents()
                 
-                # 캐시 비우기
+                # Clear cache
                 self.parent.gif_cache.clear()
-                self.parent.gif_cache = None  # 참조 해제
+                self.parent.gif_cache = None  # Release reference
             except Exception as e:
-                print(f"GIF 캐시 정리 중 오류: {e}")
-            print("GIF 캐시 정리 완료")
+                # Removed debug print for error during GIF cache cleanup.
+                pass
+            # Removed debug print for GIF cache cleanup complete.
             
-        # 활성 타이머 정리
+        # Clean up active timers
         for timer in list(self.parent.timers):
             try:
                 if timer.isActive():
                     timer.stop()
                 timer.deleteLater()
             except Exception as e:
-                print(f"타이머 정리 오류: {e}")
-        self.parent.timers.clear()  # 타이머 목록 비우기
+                # Removed debug print for timer cleanup error.
+                pass
+        self.parent.timers.clear()  # Clear timer list
         
-        # 싱글샷 타이머 정리 추가
+        # Additional cleanup for singleshot timers
         for timer in list(self.parent.singleshot_timers):
             try:
                 if timer.isActive():
                     timer.stop()
                 timer.deleteLater()
             except Exception as e:
-                print(f"싱글샷 타이머 정리 오류: {e}")
+                # Removed debug print for singleshot timer cleanup error.
+                pass
         self.parent.singleshot_timers.clear()
                 
-        # 책갈피 저장
+        # Save bookmarks
         self.parent.save_bookmarks()
         
-        # 디버깅을 위한 정리 후 상태 확인
+        # Check state after cleanup for debugging
         if hasattr(self.parent, 'qmovie_debugger') and self.parent.qmovie_debugger.is_debug_mode():
             self.parent.qmovie_debugger.debug_qmovie_after_cleanup()
             
-        # 마지막 정리 작업 후 이벤트 처리를 강제로 수행하여 모든 정리 작업이 완료되도록 함
+        # Force event processing after final cleanup to ensure all tasks are completed
         from PyQt5.QtWidgets import QApplication
         QApplication.processEvents()
         
-        # 이벤트 처리 계속 (창 닫기)
+        # Continue processing event (close window)
         event.accept() 

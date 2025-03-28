@@ -28,7 +28,7 @@ class KeyInputEdit(QLineEdit):
         super().__init__(parent)
         self.key_value = None  # 입력된 키 값을 저장할 변수
         self.setReadOnly(True)  # 직접 텍스트를 입력할 수 없게 해요
-        self.setPlaceholderText("여기를 클릭하고 키를 누르세요")  # 안내 텍스트를 설정해요
+        self.setPlaceholderText("Click here and press a key")  # Set placeholder text
         
         # 예쁜 스타일을 추가해요
         self.setStyleSheet("""

@@ -35,7 +35,7 @@ class EventDispatcher:
         """EventDispatcher 초기화"""
         # 이미 인스턴스가 있으면 싱글톤 패턴 강제
         if EventDispatcher._instance is not None:
-            raise RuntimeError("EventDispatcher는 싱글톤입니다. get_instance()를 사용하세요.")
+            raise RuntimeError("EventDispatcher is a singleton. Use get_instance() instead.")
         
         # 기본 핸들러 맵 초기화
         self._handlers: Dict[str, List[Callable]] = {}
@@ -136,17 +136,15 @@ class EventDispatcher:
                     handler(**kwargs)
                     handled = True
                 except Exception as e:
-                    print(f"이벤트 핸들러 호출 중 오류 ({event_type}): {str(e)}")
-        
-        # 와일드카드 핸들러 실행 (모든 이벤트 수신)
+                    pass
+        # Wildcard handler execution (receive all events)
         if '*' in self._handlers:
             for handler in self._handlers['*']:
                 try:
                     handler(event_type=event_type, **kwargs)
                     handled = True
                 except Exception as e:
-                    print(f"와일드카드 핸들러 호출 중 오류: {str(e)}")
-        
+                    pass
         return handled
     
     def get_registered_events(self) -> Set[str]:

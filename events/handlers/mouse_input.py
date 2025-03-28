@@ -17,27 +17,27 @@ class MouseActionCombo(QComboBox):
     
     def __init__(self, parent=None):
         """
-        마우스 액션 콤보박스 초기화
+        Initialize mouse action combo box
         
         Args:
-            parent: 부모 위젯
+            parent: parent widget
         """
         super().__init__(parent)
         
-        # 사용 가능한 액션 목록 추가
-        self.addItem("재생/일시정지", "toggle_play")
-        self.addItem("이전 이미지", "prev_image")
-        self.addItem("다음 이미지", "next_image")
-        self.addItem("시계 방향 회전", "rotate_clockwise")
-        self.addItem("반시계 방향 회전", "rotate_counterclockwise")
-        self.addItem("볼륨 증가", "volume_up")
-        self.addItem("볼륨 감소", "volume_down")
-        self.addItem("음소거 토글", "toggle_mute")
-        self.addItem("전체화면 전환", "toggle_fullscreen")
-        self.addItem("최대화 전환", "toggle_maximize_state")
-        self.addItem("컨텍스트 메뉴", "context_menu")
+        # Add available actions list
+        self.addItem("Play/Pause", "toggle_play")
+        self.addItem("Previous Image", "prev_image")
+        self.addItem("Next Image", "next_image")
+        self.addItem("Rotate Clockwise", "rotate_clockwise")
+        self.addItem("Rotate Counterclockwise", "rotate_counterclockwise")
+        self.addItem("Volume Up", "volume_up")
+        self.addItem("Volume Down", "volume_down")
+        self.addItem("Toggle Mute", "toggle_mute")
+        self.addItem("Toggle Fullscreen", "toggle_fullscreen")
+        self.addItem("Toggle Maximize State", "toggle_maximize_state")
+        self.addItem("Context Menu", "context_menu")
         
-        # 스타일 설정
+        # Set style configuration
         self.setStyleSheet("""
             QComboBox {
                 background-color: white;
