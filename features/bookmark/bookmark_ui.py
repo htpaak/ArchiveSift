@@ -24,12 +24,12 @@ class BookmarkUI:
                          self.viewer.current_image_path and 
                          self.viewer.current_image_path in self.bookmark_manager.bookmarks)
             
-        # 북마크 버튼이 set_bookmark_state 메서드를 가지고 있으면 사용
+        # If the bookmark button has the set_bookmark_state method, use it
         if hasattr(self.bookmark_button, 'set_bookmark_state'):
             self.bookmark_button.set_bookmark_state(is_bookmarked)
         else:
-            # 이전 방식 (레거시 코드 지원용, 필요시 제거 가능)
-            print("경고: 북마크 버튼에 set_bookmark_state 메서드가 없습니다.")
+            # Legacy method (for legacy code support, remove if not needed)
+            pass
 
     def create_bookmark_menu(self):
         """북마크 메뉴 생성"""
@@ -56,7 +56,7 @@ class BookmarkUI:
         """)
         
         # 북마크 추가/제거 액션
-        toggle_action = QAction("북마크 추가/제거", self.viewer)
+        toggle_action = QAction("Toggle Bookmark", self.viewer)  # "Toggle Bookmark" replaces "북마크 추가/제거"
         toggle_action.triggered.connect(self.bookmark_manager.toggle_bookmark)
         self.bookmark_menu.addAction(toggle_action)
         
@@ -72,14 +72,14 @@ class BookmarkUI:
         
         # 북마크가 없는 경우 메시지 표시
         if not self.bookmark_manager.bookmarks:
-            empty_action = QAction("북마크가 없습니다", self.viewer)
+            empty_action = QAction("No Bookmarks", self.viewer)  # "No Bookmarks" replaces "북마크가 없습니다"
             empty_action.setEnabled(False)
             self.bookmark_menu.addAction(empty_action)
         else:
             # 구분선 추가
             self.bookmark_menu.addSeparator()
             # 모든 북마크 삭제 액션
-            clear_action = QAction("모든 북마크 삭제", self.viewer)
+            clear_action = QAction("Clear All Bookmarks", self.viewer)  # "Clear All Bookmarks" replaces "모든 북마크 삭제"
             clear_action.triggered.connect(self.bookmark_manager.clear_bookmarks)
             self.bookmark_menu.addAction(clear_action)
         

@@ -44,19 +44,19 @@ class RotationUI:
             self.rotate_ccw_button = self.main_window.rotate_ccw_button
             
     def setup_actions(self):
-        """회전 관련 액션 설정"""
-        # 시계 방향 회전 액션
-        self.rotate_cw_action = QAction("시계 방향으로 회전(&R)", self.main_window)
+        """Set up actions for rotation"""
+        # Rotate Clockwise Action
+        self.rotate_cw_action = QAction("Rotate Clockwise (&R)", self.main_window)
         self.rotate_cw_action.setShortcut(self.main_window.key_settings["rotate_clockwise"])
         self.rotate_cw_action.triggered.connect(self.rotate_clockwise)
         
-        # 반시계 방향 회전 액션
-        self.rotate_ccw_action = QAction("반시계 방향으로 회전(&L)", self.main_window)
+        # Rotate Counterclockwise Action
+        self.rotate_ccw_action = QAction("Rotate Counterclockwise (&L)", self.main_window)
         self.rotate_ccw_action.setShortcut(self.main_window.key_settings["rotate_counterclockwise"])
         self.rotate_ccw_action.triggered.connect(self.rotate_counterclockwise)
         
-        # 회전 초기화 액션
-        self.reset_rotation_action = QAction("회전 초기화", self.main_window)
+        # Reset Rotation Action
+        self.reset_rotation_action = QAction("Reset Rotation", self.main_window)
         self.reset_rotation_action.triggered.connect(self.reset_rotation)
         
     def setup_connections(self):

@@ -33,27 +33,25 @@ class UILockManager(QObject):
         return self._title_locked
     
     def toggle_ui_lock(self):
-        """UI 잠금 상태 토글"""
+        """Toggle UI lock state"""
         self._ui_locked = not self._ui_locked
         
-        # 호환성을 위한 변수 설정
+        # Set variable for compatibility
         if self._parent:
             self._parent.is_bottom_ui_locked = self._ui_locked
         
-        # 신호 발생
+        # Emit signal
         self.ui_lock_changed.emit(self._ui_locked)
-        print(f"UI 잠금 상태: {self._ui_locked}")
         return self._ui_locked
     
     def toggle_title_lock(self):
-        """타이틀 잠금 상태 토글"""
+        """Toggle title lock state"""
         self._title_locked = not self._title_locked
         
-        # 호환성을 위한 변수 설정
+        # Set variable for compatibility
         if self._parent:
             self._parent.is_title_ui_locked = self._title_locked
         
-        # 신호 발생
+        # Emit signal
         self.title_lock_changed.emit(self._title_locked)
-        print(f"타이틀 잠금 상태: {self._title_locked}")
         return self._title_locked 
