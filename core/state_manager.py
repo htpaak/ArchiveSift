@@ -79,20 +79,25 @@ class StateManager:
     
     def _notify_observers(self, key: str, new_value: Any, old_value: Any) -> None:
         """
+        Notify observers when the state changes
         상태 변경 시 옵저버에게 알림
         
         Args:
-            key: 변경된 상태 키
-            new_value: 새 상태값
-            old_value: 이전 상태값
+            key: key of the changed state
+                  변경된 상태 키
+            new_value: new state value
+                       새 상태값
+            old_value: previous state value
+                       이전 상태값
         """
         if key in self._observers:
             for callback in self._observers[key]:
                 try:
                     callback(new_value, old_value)
                 except Exception as e:
+                    # Continue calling other observers even if an exception occurs
                     # 예외가 발생해도 다른 옵저버 호출을 계속 진행
-                    print(f"옵저버 호출 중 오류 발생: {str(e)}")
+                    pass
     
     def reset_state(self, key: str) -> None:
         """
