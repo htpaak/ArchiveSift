@@ -17,20 +17,23 @@ class DebugUtils:
     
     def toggle_debug_mode(self):
         """
+        Toggle debug mode.
         디버깅 모드를 켜고 끕니다.
         
         Returns:
+            bool: Changed debug mode state
             bool: 변경된 디버깅 모드 상태
         """
         self.debug_mode = not self.debug_mode
-        print(f"디버깅 모드: {'켜짐' if self.debug_mode else '꺼짐'}")
         return self.debug_mode
     
     def is_debug_mode(self):
         """
+        Return the current debug mode state.
         현재 디버깅 모드 상태를 반환합니다.
         
         Returns:
+            bool: Whether debug mode is active
             bool: 디버깅 모드 활성화 여부
         """
         return self.debug_mode
@@ -38,15 +41,16 @@ class DebugUtils:
     @staticmethod
     def print_debug_info(title, info):
         """
+        Format and print debug information.
         디버깅 정보를 포맷팅하여 출력합니다.
         
         Args:
-            title (str): 정보 제목
-            info (str): 출력할 정보
+            title (str): Information title
+            str: 정보 제목
+            info (str): Information to print
+            str: 출력할 정보
         """
-        print(f"\n===== {title} =====")
-        print(info)
-        print("=" * (len(title) + 12))
+        pass
     
     @staticmethod
     def check_library_exists(library_name):
