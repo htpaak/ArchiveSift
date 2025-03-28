@@ -75,35 +75,31 @@ from core.state_manager import StateManager
 from file import FileBrowser, FileNavigator
 from file.operations import FileOperations
 
-# MPV DLL 경로를 환경 변수 PATH에 추가 (mpv 모듈 import 전에 필수)
+# Add MPV DLL path to PATH environment variable (required before importing mpv module)
 mpv_path = os.path.join(get_app_directory(), 'mpv')
 # 로거 인스턴스 생성 (전역 로거)
 logger = Logger("main")
-logger.info(f"애플리케이션 시작 - 버전: {get_version_string()}")
-logger.debug(f"MPV 경로: {mpv_path}")
+logger.info(f"Application start - Version: {get_version_string()}")
+logger.debug(f"MPV path: {mpv_path}")
 
 # MPV 경로가 없으면 생성
 if not os.path.exists(mpv_path):
     os.makedirs(mpv_path, exist_ok=True)
-    logger.debug(f"MPV 디렉토리 생성됨: {mpv_path}")
+    logger.debug(f"MPV directory created: {mpv_path}")
 
 # DLL 파일 확인
 dll_path = os.path.join(mpv_path, 'libmpv-2.dll')
-if os.path.exists(dll_path):
-    dll_size = os.path.getsize(dll_path)
-    logger.debug(f"DLL 파일 존재 여부: True")
-    logger.debug(f"DLL 파일 크기: {dll_size}")
-else:
-    logger.warning(f"DLL 파일이 존재하지 않음: {dll_path}")
+if not os.path.exists(dll_path):
+    logger.warning(f"DLL file does not exist: {dll_path}")
 
 if mpv_path not in os.environ['PATH']:
     os.environ['PATH'] = mpv_path + os.pathsep + os.environ['PATH']
-    logger.debug(f"MPV 경로가 PATH 환경변수에 추가됨")
+    logger.debug(f"MPV path added to PATH environment variable")
 
-print(f"MPV 경로: {mpv_path}")
+print(f"MPV path: {mpv_path}")
 if os.path.exists(dll_path):
-    print(f"DLL 파일 존재 여부: True")
-    print(f"DLL 파일 크기: {os.path.getsize(dll_path)}")
+    print(f"DLL file existence: True")
+    print(f"DLL file size: {os.path.getsize(dll_path)}")
 
 # MPV 모듈 import (경로 설정 후에 가능)
 import mpv  # 비디오 재생 라이브러리 (고성능 미디어 플레이어)
@@ -121,7 +117,7 @@ class ArchiveSift(QWidget):
         # 앱 초기화 시작 로깅
         # get_logger 함수가 없으므로 원래 코드로 되돌립니다
         self.logger = Logger("ArchiveSift")
-        self.logger.info("이미지 뷰어 초기화 시작")
+        self.logger.info("Image viewer initialization start")
         
         # TooltipManager import
         from ui.components.custom_tooltip import TooltipManager
@@ -129,7 +125,7 @@ class ArchiveSift(QWidget):
         # 툴팁 매니저 초기화
         self.tooltip_manager = TooltipManager(self)
         
-        self.setWindowTitle('이미지 뷰어')  # 창 제목 설정
+        self.setWindowTitle('Image Viewer')  # 창 제목 설정
         self.setWindowIcon(QIcon('./core/ArchiveSift.ico'))  # 앱 아이콘 설정
         self.setGeometry(100, 100, 800, 600)  # 창 위치와 크기 설정
         
@@ -147,13 +143,9 @@ class ArchiveSift(QWidget):
         app_data_dir = get_user_data_directory()
         if not os.path.exists(app_data_dir):
             os.makedirs(app_data_dir, exist_ok=True)
-            self.logger.debug(f"애플리케이션 데이터 디렉토리 생성됨: {app_data_dir}")
-        else:
-            self.logger.debug(f"애플리케이션 데이터 디렉토리 확인: {app_data_dir}")
         
         # 상태 관리자 초기화
         self.state_manager = StateManager()
-        self.logger.debug("상태 관리자 초기화 완료")
         
         # 기본 상태 설정
         self.state_manager.set_state("initialized", True)
@@ -231,7 +223,7 @@ class ArchiveSift(QWidget):
         # 비동기 이미지 로딩 관련 변수 초기화
         self.loader_threads = {}  # 로더 스레드 추적용 딕셔너리 (경로: 스레드)
         self.image_loader = ImageLoader()  # 이미지 로더 매니저 초기화
-        self.loading_label = QLabel("로딩 중...", self)  # 로딩 중 표시용 레이블
+        self.loading_label = QLabel("Loading...", self)  # 로딩 중 표시용 레이블
         self.loading_label.setAlignment(Qt.AlignCenter)  # 중앙 정렬
         self.loading_label.setStyleSheet("""
             QLabel {
@@ -256,17 +248,17 @@ class ArchiveSift(QWidget):
         if system == 'Windows':
             mpv_dll_path = os.path.join(mpv_path, "libmpv-2.dll")
             if not os.path.exists(mpv_dll_path):
-                print(f"경고: {mpv_dll_path} 파일이 없습니다.")
+                print(f"Warning: File {mpv_dll_path} does not exist.")
             os.environ["MPV_DYLIB_PATH"] = mpv_dll_path
         elif system == 'Darwin':  # macOS
             mpv_dll_path = os.path.join(mpv_path, "libmpv.dylib")
             if not os.path.exists(mpv_dll_path):
-                print(f"경고: {mpv_dll_path} 파일이 없습니다.")
+                print(f"Warning: File {mpv_dll_path} does not exist.")
             os.environ["MPV_DYLIB_PATH"] = mpv_dll_path
         else:  # Linux
             mpv_dll_path = os.path.join(mpv_path, "libmpv.so")
             if not os.path.exists(mpv_dll_path):
-                print(f"경고: {mpv_dll_path} 파일이 없습니다.")
+                print(f"Warning: File {mpv_dll_path} does not exist.")
             os.environ["MPV_DYLIB_PATH"] = mpv_dll_path
         
         # MPV 플레이어 초기화
@@ -282,9 +274,9 @@ class ArchiveSift(QWidget):
             self.player.keep_open = True  # 재생 후 닫지 않음
             self.player.terminal = False  # 터미널 출력 비활성화
 
-            print("MPV 플레이어 초기화 성공")
+            print("MPV player initialization successful")
         except Exception as e:
-            print(f"MPV 플레이어 초기화 실패: {e}")
+            print(f"MPV player initialization failed: {e}")
             self.player = None  # 초기화 실패 시 None으로 설정
         
         # 리소스 관리를 위한 객체 추적
@@ -846,16 +838,15 @@ class ArchiveSift(QWidget):
         if event:
             self.mouse_handler.handle_double_click(event)
         else:
-            # 이벤트 객체가 없는 경우 (MediaDisplay에서 호출된 경우) 처리
-            print("더블 클릭 이벤트가 이벤트 객체 없이 호출되었습니다.")
+            # When event object is missing (called from MediaDisplay)
             self.mouse_handler.handle_double_click(None)
 
     def set_base_folder(self):
-        """기준 폴더 설정 (하위 폴더 버튼 자동 생성용)"""
-        folder_path = QFileDialog.getExistingDirectory(self, "Set Base Folder")  # 폴더 선택 대화상자
-        if folder_path:  # 폴더가 선택된 경우
-            self.base_folder = folder_path  # 기준 폴더 경로 저장
-            print(f"Base folder set to: {self.base_folder}")  # 콘솔에 설정된 경로 출력
+        """Set base folder (for auto-generating subfolder buttons)"""
+        folder_path = QFileDialog.getExistingDirectory(self, "Set Base Folder")  # Folder selection dialog
+        if folder_path:  # When folder is selected
+            self.base_folder = folder_path  # Save base folder path
+            print(f"Base folder set to: {self.base_folder}")  # Print set path to console
 
             # 모든 버튼 초기화 (텍스트 및 툴팁 제거)
             for row in self.buttons:
@@ -986,36 +977,34 @@ class ArchiveSift(QWidget):
             return image_files
             
         except Exception as e:
-            print(f"이미지 파일 목록 가져오기 실패: {e}")
             return []
 
     def stop_video(self):
-        """비디오 재생 중지 및 관련 리소스 정리"""
+        """Stop video playback and clean up related resources"""
         if self.video_handler:
             self.video_handler.stop_video()
 
     def disconnect_all_slider_signals(self):
-        """슬라이더의 모든 신호 연결 해제 (이벤트 충돌 방지)"""
+        """Disconnect all slider signals (to prevent event conflicts)"""
         
-        # ClickableSlider의 disconnect_all_signals 메서드로 책임 위임
+        # Delegate responsibility to ClickableSlider's disconnect_all_signals method
         if hasattr(self, 'playback_slider') and self.playback_slider:
             self.playback_slider.disconnect_all_signals()
 
     def cancel_pending_loaders(self, current_path=None):
-        """현재 로딩 중인 이미지를 제외한 모든 로더 스레드를 취소합니다."""
-        # ImageLoader 클래스에 로더 취소 책임 위임
+        """Cancel all loader threads except for the currently loading image."""
+        # Delegate loader cancellation responsibility to the ImageLoader class
         self.image_loader.cancel_pending_loaders(current_path)
         
-        # 기존 코드 호환성 유지 (점진적 마이그레이션 중)
+        # Maintain compatibility with existing code (incremental migration)
         for path, loader in list(self.loader_threads.items()):
             if (current_path is None or path != current_path) and loader.isRunning():
                 try:
                     loader.terminate()
-                    loader.wait(100)  # 최대 100ms 대기
+                    loader.wait(100)  # Wait up to 100ms
                 except:
                     pass
                 del self.loader_threads[path]
-                print(f"이미지 로딩 취소: {os.path.basename(path)}")
 
     def update_ui_for_media(self, image_path):
         """미디어 표시에 필요한 UI 요소들을 업데이트합니다."""
@@ -1058,44 +1047,41 @@ class ArchiveSift(QWidget):
         self.controls_layout.update_bookmark_menu()
         
     def update_media_controls(self):
-        """미디어 종류에 따른 컨트롤 상태 업데이트"""
-        # 비디오 미디어의 경우 음소거 버튼 상태 재설정
+        """Update control states based on media type"""
+        # For video media, reset the mute button state
         if self.current_media_type == 'video' and hasattr(self, 'mute_button'):
             try:
                 is_muted = self.video_handler.is_muted()
-                if is_muted is not None:  # None이 아닌 경우에만 상태 업데이트
+                if is_muted is not None:  # Update state only if not None
                     self.mute_button.set_mute_state(is_muted)
             except Exception as e:
-                print(f"음소거 버튼 상태 업데이트 오류: {e}")
+                pass
                 
     def ensure_ui_visibility(self):
-        """UI 컴포넌트의 가시성 관리"""
-        # 제목표시줄과 이미지 정보 레이블을 앞으로 가져옴
+        """Manage visibility of UI components"""
+        # Bring the title bar and image info label to the front
         if hasattr(self, 'title_bar'):
             self.title_bar.raise_()
         if hasattr(self, 'image_info_label'):
             self.image_info_label.raise_()
 
     def prepare_for_media_loading(self, image_path):
-        """미디어 로딩 전 준비 작업"""
-        print(f"\n========= 이미지 로드 시작: {os.path.basename(image_path)} =========")
-        
-        # 경계 내비게이션인 경우 리소스 정리를 건너뜁니다
+        """Preparations before media loading"""
+        # Skip resource cleanup for boundary navigation
         if self.is_boundary_navigation:
-            print("경계 내비게이션으로 인한 리소스 정리 건너뛰기")
-            # 플래그 초기화
+            # Flag reset
             self.is_boundary_navigation = False
         else:
-            # 일반적인 경우 리소스 정리 수행
+            # Perform resource cleanup in normal cases
             self.cleanup_current_media()
 
-        # 이미지 크기 확인
+        # Check image size
         image_size_mb = 0
         try:
             if os.path.exists(image_path):
-                image_size_mb = os.path.getsize(image_path) / (1024 * 1024)  # 메가바이트 단위로 변환
+                image_size_mb = os.path.getsize(image_path) / (1024 * 1024)  # Convert to megabytes
         except Exception as e:
-            print(f"이미지 크기 확인 오류: {e}")
+            pass
 
         # 전체화면 모드에서 고품질 이미지 로딩 (비동기로 처리)
         if self.isFullScreen() and image_size_mb > 5:  # 큰 이미지인 경우
@@ -1129,40 +1115,36 @@ class ArchiveSift(QWidget):
             if hasattr(self, 'controls_layout'):
                 self.controls_layout.connect_animation_handler(self.animation_handler)
                 
-        # 미디어 타입에 따라 적절한 핸들러 메서드 호출
+        # Call the appropriate handler method based on media type
         if format_type == 'gif_image' or format_type == 'gif_animation':
             detected_type = self.animation_handler.load_gif(image_path)
             self.current_media_type = detected_type
         elif format_type == 'webp_image' or format_type == 'webp_animation':
             detected_type = self.animation_handler.load_webp(image_path)
             self.current_media_type = detected_type
-            print(f"WEBP 미디어 타입 감지: {detected_type}")
 
     def load_static_image(self, image_path, format_type, file_ext):
-        """일반 이미지와 PSD 이미지를 로드하고 표시합니다."""
+        """Load and display regular images and PSD images."""
         self.image_handler.load_static_image(image_path, format_type, file_ext)
 
     def load_video_media(self, image_path):
-        """비디오 파일을 로드하고 재생합니다."""
-        # 비디오 파일 처리
-        self.current_media_type = 'video'  # 미디어 타입 업데이트
-        self.play_video(image_path)  # 비디오 재생
+        """Load and play the video file."""
+        # Process video file
+        self.current_media_type = 'video'  # Update media type
+        self.play_video(image_path)  # Play video
 
     def finalize_media_loading(self, image_path):
-        """미디어 로딩 후 최종 처리 작업을 수행합니다."""
-        # 전체화면 모드에서 지연된 리사이징 적용
+        """Perform final processing tasks after media loading."""
+        # Apply delayed resizing in fullscreen mode
         if self.isFullScreen():
             QTimer.singleShot(300, self.delayed_resize)
-            print("전체화면 모드에서 이미지 로드 후 지연된 리사이징 예약")
 
     def show_image(self, image_path):
-        """이미지/미디어 파일 표시 및 관련 UI 업데이트
-           prepare_for_media_loading 메서드에서 리소스 정리를 건너뛰게 하는
-           is_boundary_navigation 플래그를 재설정합니다.
+        """Display image/media file and update related UI
+           Resets the is_boundary_navigation flag that skips resource cleanup in the prepare_for_media_loading method.
         """
-        # 경계 도달로 인해 리소스 정리를 건너뛰지 않도록 플래그 재설정
-        # boundary_navigation 플래그 상태 출력
-        print(f"리소스 정리 건너뛰기 상태(변경 전): {self.is_boundary_navigation}")
+        # Reset flag to not skip resource cleanup when boundary is reached
+        # Print boundary_navigation flag state
         
         # 항상 리소스를 정리하도록 플래그 재설정
         # is_boundary_navigation 상태와 상관없이 미디어 로딩 전에 리소스를 항상 정리
@@ -1316,111 +1298,99 @@ class ArchiveSift(QWidget):
 
     # 다음 이미지를 보여주는 메서드입니다.
     def show_next_image(self):
-        """다음 이미지로 이동합니다."""
-        print("\n=== 다음 이미지 로드 시작 ===")
-        
-        # 현재 인덱스와 이미지 파일 수를 확인하여 마지막 이미지인지 확인합니다
+        """Move to the next image."""
+        # Check current index and the number of image files to determine if it's the last image
         current_index = self.file_navigator.get_current_index()
         file_count = len(self.file_navigator.get_files())
         
-        # 마지막 이미지인 경우에만 경계 내비게이션으로 처리
+        # Handle boundary navigation only when it is the last image
         is_last_image = (current_index >= file_count - 1)
         
         success, next_image = self.file_navigator.next_file()
         if success and next_image:
-            self.current_index = self.file_navigator.get_current_index()  # 인덱스 동기화
-            self.state_manager.set_state("current_index", self.current_index)  # 상태 관리자 업데이트
+            self.current_index = self.file_navigator.get_current_index()  # Synchronize index
+            self.state_manager.set_state("current_index", self.current_index)  # Update state manager
             self.show_image(next_image)
         else:
-            # 마지막 이미지에서 더 다음으로 가려고 할 때만 경계 내비게이션 플래그 설정
+            # Set boundary navigation flag only when trying to go beyond the last image
             if is_last_image:
                 self.is_boundary_navigation = True
-                print("다음 이미지 로드 실패 - 경계 도달")
             else:
-                # 다른 이유로 실패한 경우 일반적인 처리
-                print("다음 이미지 로드 실패 - 알 수 없는 이유")
-        print("=== 다음 이미지 로드 종료 ===\n")
+                # Handle failure for other reasons in a general manner
+                pass
 
     def show_previous_image(self):
-        """이전 이미지로 이동합니다."""
-        # 현재 인덱스와 이미지 파일 수를 확인하여 첫 번째 이미지인지 확인합니다
+        """Move to the previous image."""
+        # Check current index and the number of image files to determine if it's the first image
         current_index = self.file_navigator.get_current_index()
         
-        # 첫 번째 이미지인 경우(인덱스 0)에만 경계 내비게이션으로 처리
+        # Handle boundary navigation only when it is the first image (index 0)
         is_first_image = (current_index == 0)
         
         success, prev_image = self.file_navigator.previous_file()
         if success and prev_image:
-            self.current_index = self.file_navigator.get_current_index()  # 인덱스 동기화
-            self.state_manager.set_state("current_index", self.current_index)  # 상태 관리자 업데이트
+            self.current_index = self.file_navigator.get_current_index()  # Synchronize index
+            self.state_manager.set_state("current_index", self.current_index)  # Update state manager
             self.show_image(prev_image)
         else:
-            # 첫 번째 이미지에서 더 이전으로 가려고 할 때만 경계 내비게이션 플래그 설정
+            # Set boundary navigation flag only when trying to go before the first image
             if is_first_image:
                 self.is_boundary_navigation = True
-                print("이전 이미지 로드 실패 - 경계 도달")
             else:
-                # 다른 이유로 실패한 경우 일반적인 처리
-                print("이전 이미지 로드 실패 - 알 수 없는 이유")
+                # Handle failure for other reasons in a general manner
+                pass
 
     def handle_navigation(self, direction):
-        """이미지 탐색 로직을 처리합니다.
+        """Handles image navigation logic.
         
         Args:
-            direction (str): 'next' 또는 'previous'
+            direction (str): 'next' or 'previous'
         """
-        print(f"현재 인덱스(이동 전): {self.current_index}")
-        print(f"현재 이미지: {self.current_image_path}")
-        print(f"파일 내비게이터 파일 수: {len(self.file_navigator.get_files())}")
-        print(f"메인 이미지 목록 수: {len(self.image_files)}")
+        # Debug messages removed: current index before navigation, current image, file navigator file count, and main image list count
         
-        # 이미지 목록 동기화 확인
+        # Check image list synchronization
         if self.file_navigator.get_files() != self.image_files:
-            print("경고: 파일 내비게이터와 메인 이미지 목록이 불일치합니다.")
-            # 필요한 경우 동기화
+            # Synchronize if necessary
             self.image_files = self.file_navigator.get_files()
-            print(f"이미지 목록 동기화됨: {len(self.image_files)} 파일")
         
-        # 경계 내비게이션 플래그 기본값은 False
+        # Default boundary navigation flag is False
         self.is_boundary_navigation = False
         
-        # 현재 인덱스 확인
+        # Check current index
         current_index = self.file_navigator.get_current_index()
         file_count = len(self.file_navigator.get_files())
         
-        # 첫 번째 또는 마지막 이미지인지 확인
+        # Determine if it is the first or last image
         is_first_image = (current_index == 0)
         is_last_image = (current_index >= file_count - 1)
         
-        # 탐색 방향에 따라 적절한 메서드 호출
+        # Call the appropriate method based on navigation direction
         if direction == 'next':
             success, image_path = self.file_navigator.next_file()
-            direction_text = "다음"
+            direction_text = "next"
             
-            # 마지막 이미지에서 다음으로 가려고 할 때만 경계 내비게이션 설정
+            # Set boundary navigation flag only when attempting to go beyond the last image
             if not success and is_last_image:
                 self.is_boundary_navigation = True
         else:  # previous
             success, image_path = self.file_navigator.previous_file()
-            direction_text = "이전"
+            direction_text = "previous"
             
-            # 첫 번째 이미지에서 이전으로 가려고 할 때만 경계 내비게이션 설정
+            # Set boundary navigation flag only when attempting to go before the first image
             if not success and is_first_image:
                 self.is_boundary_navigation = True
         
-        print(f"{direction_text} 이미지 로드 성공 여부: {success}")
-        print(f"{direction_text} 이미지 경로: {image_path}")
-        
+        # Debug messages removed: image load success/failure details
         if success and image_path:
-            self.current_index = self.file_navigator.get_current_index()  # 인덱스 동기화
-            print(f"새 인덱스: {self.current_index}")
+            self.current_index = self.file_navigator.get_current_index()  # Synchronize index
+            # Debug message removed: new index
             self.show_image(image_path)
         else:
-            # 경계 도달 시 메시지 표시
+            # Display message if navigation fails due to boundary or unknown reason
             if self.is_boundary_navigation:
-                print(f"{direction_text} 이미지 로드 실패 - 경계 도달")
+                pass  # Debug message removed: image load failed - boundary reached
             else:
-                print(f"{direction_text} 이미지 로드 실패 - 알 수 없는 이유")
+                pass  # Debug message removed: image load failed - unknown reason
 
     def show_message(self, message):
         if hasattr(self, 'message_label') and self.message_label.isVisible():
@@ -1603,7 +1573,7 @@ class ArchiveSift(QWidget):
             self.dropdown_menu = ScrollableMenu(self)
             
             # 키 설정 메뉴 항목
-            key_settings_action = QAction("환경 설정", self)
+            key_settings_action = QAction("Preferences", self)
             key_settings_action.triggered.connect(self.show_preferences_dialog)
             self.dropdown_menu.addAction(key_settings_action)
             
@@ -1611,7 +1581,7 @@ class ArchiveSift(QWidget):
             self.dropdown_menu.addSeparator()
             
             # 정보 메뉴 항목
-            about_action = QAction("프로그램 정보", self)
+            about_action = QAction("About", self)
             about_action.triggered.connect(self.show_about_dialog)
             self.dropdown_menu.addAction(about_action)
             
@@ -1699,52 +1669,52 @@ class ArchiveSift(QWidget):
         # 이전 코드는 유지하지 않음 - controls_layout에서 모든 기능 처리
         
     def setup_tooltips(self):
-        """버튼 및 컨트롤 요소에 커스텀 툴팁 등록"""
-        # 제목 표시줄 버튼 툴팁 등록
+        """Register custom tooltips for buttons and control elements"""
+        # Register title bar button tooltips
         if hasattr(self, 'title_bar') and hasattr(self.title_bar, 'controls'):
             for control_name, control in self.title_bar.controls.items():
                 if control_name == 'close_button':
-                    self.tooltip_manager.register(control, "창 닫기")
+                    self.tooltip_manager.register(control, "Close Window")
                 elif control_name == 'minimize_button':
-                    self.tooltip_manager.register(control, "최소화")
+                    self.tooltip_manager.register(control, "Minimize")
                 elif control_name == 'maximize_button':
-                    self.tooltip_manager.register(control, "최대화/복원")
+                    self.tooltip_manager.register(control, "Maximize/Restore")
                 elif control_name == 'fullscreen_button':
-                    self.tooltip_manager.register(control, "전체화면 전환")
+                    self.tooltip_manager.register(control, "Toggle Fullscreen")
                 elif control_name == 'title_lock_button':
-                    self.tooltip_manager.register(control, "제목 표시줄 잠금/해제")
+                    self.tooltip_manager.register(control, "Toggle Title Bar Lock")
                 elif control_name == 'feedback_button':
-                    self.tooltip_manager.register(control, "피드백 보내기")
+                    self.tooltip_manager.register(control, "Send Feedback")
                 
-        # 하단 컨트롤 버튼 툴팁 등록
+        # Register bottom control button tooltips
         if hasattr(self, 'slider_controls'):
             for control in self.slider_controls:
                 if control == self.open_button:
-                    self.tooltip_manager.register(control, "폴더 열기")
+                    self.tooltip_manager.register(control, "Open Folder")
                 elif control == self.set_base_folder_button:
-                    self.tooltip_manager.register(control, "기본 폴더 설정")
+                    self.tooltip_manager.register(control, "Set Base Folder")
                 elif control == self.play_button:
-                    self.tooltip_manager.register(control, "재생/일시정지")
+                    self.tooltip_manager.register(control, "Play/Pause")
                 elif control == self.rotate_ccw_button:
-                    self.tooltip_manager.register(control, "시계 반대 방향으로 회전")
+                    self.tooltip_manager.register(control, "Rotate Counter-Clockwise")
                 elif control == self.rotate_cw_button:
-                    self.tooltip_manager.register(control, "시계 방향으로 회전")
+                    self.tooltip_manager.register(control, "Rotate Clockwise")
                 elif control == self.mute_button:
-                    self.tooltip_manager.register(control, "음소거/음소거 해제")
+                    self.tooltip_manager.register(control, "Mute/Unmute")
                 elif control == self.menu_button:
-                    self.tooltip_manager.register(control, "메뉴")
+                    self.tooltip_manager.register(control, "Menu")
                 elif control == self.slider_bookmark_btn:
-                    self.tooltip_manager.register(control, "북마크 추가/제거")
+                    self.tooltip_manager.register(control, "Add/Remove Bookmark")
                 elif control == self.ui_lock_btn:
-                    self.tooltip_manager.register(control, "UI 잠금/해제")
+                    self.tooltip_manager.register(control, "Toggle UI Lock")
                 elif control == self.time_label:
-                    self.tooltip_manager.register(control, "재생 시간 정보")
+                    self.tooltip_manager.register(control, "Playback Time Info")
                     
-        # 슬라이더 툴팁 등록
+        # Register slider tooltips
         if hasattr(self, 'playback_slider'):
-            self.tooltip_manager.register(self.playback_slider, "재생 위치 조절")
+            self.tooltip_manager.register(self.playback_slider, "Adjust Playback Position")
         if hasattr(self, 'volume_slider'):
-            self.tooltip_manager.register(self.volume_slider, "볼륨 조절")
+            self.tooltip_manager.register(self.volume_slider, "Adjust Volume")
 
     def show_loading_indicator(self):
         """로딩 인디케이터를 화면 중앙에 표시합니다."""
@@ -1756,7 +1726,7 @@ class ArchiveSift(QWidget):
         self.is_loading = True
         
         # 로딩 레이블 스타일 설정 (테두리 없는 파란색 배경)
-        self.loading_label.setText("로딩 중...")
+        self.loading_label.setText("Loading...")
         self.loading_label.setStyleSheet("""
             QLabel {
                 color: white;
@@ -1796,107 +1766,102 @@ class ArchiveSift(QWidget):
         QApplication.processEvents()
 
     def hide_loading_indicator(self):
-        """로딩 인디케이터를 숨깁니다."""
-        # 로딩 중이 아니면 무시
+        """Hides the loading indicator."""
+        # If not currently loading, ignore
         if not self.is_loading:
             return
             
-        # 로딩 상태 해제
+        # Reset loading state
         self.is_loading = False
         
-        # 타이머 정리
+        # Clean up timer
         if self.loading_timer is not None and self.loading_timer.isActive():
             self.loading_timer.stop()
             if self.loading_timer in self.timers:
                 self.timers.remove(self.loading_timer)
             self.loading_timer = None
         
-        # 로딩 레이블 숨기기 (단순하게 숨기기만 함)
+        # Hide loading label (simply hide)
         self.loading_label.hide()
         
-        # 강제 업데이트를 통해 화면 갱신
+        # Force update to refresh display
         self.image_label.update()
         QApplication.processEvents()
-        
-        print("로딩 인디케이터 숨김")
 
     def cleanup_loader_threads(self):
-        """로더 스레드를 정리하고 메모리를 확보합니다."""
+        """Cleans up loader threads and frees memory."""
         try:
-            # ImageLoader를 통한 정리 (점진적 마이그레이션으로 추가)
+            # Clean up using ImageLoader (added for gradual migration)
             self.image_loader.cleanup()
             
-            # 완료되었거나 오류가 발생한 스레드 제거
+            # Remove threads that have completed or encountered an error
             current_threads = list(self.loader_threads.items())
             for path, loader in current_threads:
-                # 로더가 아직 실행 중이 아닌 경우 (완료된 경우)
+                # If the loader is not running (completed)
                 try:
                     if not loader.isRunning():
-                        # 스레드 객체 제거
+                        # Remove thread object
                         del self.loader_threads[path]
                 except Exception as e:
-                    print(f"스레드 정리 중 오류: {path}, {e}")
-                    # 오류가 발생한 스레드는 목록에서 제거 시도
+                    # Attempt to remove thread from the list after an error occurs
                     try:
                         del self.loader_threads[path]
                     except:
                         pass
         except Exception as e:
-            print(f"스레드 정리 중 일반 오류: {e}")
+            pass
 
     def on_image_loaded(self, path, image, size_mb):
-        """이미지 로딩이 완료되면 호출되는 콜백 메서드"""
-        # 로딩 표시 숨기기
+        """Callback method called when image loading is complete"""
+        # Hide loading indicator
         self.hide_loading_indicator()
         
-        # 이미지 캐싱 처리
+        # Process image caching
         self.handle_image_caching(path, image, size_mb)
         
-        # 현재 경로가 로드된 이미지 경로와 일치하는 경우에만 표시
+        # Display only if the current path matches the loaded image path
         if self.current_image_path == path:
-            # 이미지 표시를 위한 준비 (회전, 크기 조정)
+            # Prepare image for display (rotation, scaling)
             scaled_pixmap = self.prepare_image_for_display(image, size_mb)
             
-            # 이미지 표시
+            # Display image
             self.display_image(scaled_pixmap, path, size_mb)
         
-        # 로더 스레드 정리
+        # Clean up loader thread
         self.cleanup_image_loader(path)
         
-        # 추가: 전체화면 모드에서 지연된 리사이징 적용
+        # Additional: apply delayed resizing in fullscreen mode
         if self.isFullScreen():
             QTimer.singleShot(200, self.delayed_resize)
-            print("전체화면 모드에서 지연된 리사이징 적용")
             
     def handle_image_caching(self, path, image, size_mb):
-        """이미지 캐싱을 처리하는 메서드"""
+        """Method to handle image caching"""
         self.image_handler.handle_image_caching(path, image, size_mb)
     
     def prepare_image_for_display(self, image, size_mb):
-        """이미지 변환(회전, 크기 조정)을 처리하는 메서드"""
+        """Method to handle image transformation (rotation, scaling)"""
         return self.image_handler.prepare_image_for_display(image, size_mb)
     
     def display_image(self, scaled_pixmap, path, size_mb):
-        """이미지를 화면에 표시하는 메서드"""
+        """Method to display image on screen"""
         self.image_handler.display_image(scaled_pixmap, path, size_mb)
     
     def cleanup_image_loader(self, path):
-        """로더 스레드 정리를 처리하는 메서드"""
-        # 스레드 정리
+        """Method to handle cleanup of loader threads"""
+        # Cleanup threads
         if path in self.loader_threads:
             del self.loader_threads[path]
 
     def on_image_error(self, path, error):
-        """이미지 로딩 중 오류가 발생하면 호출되는 콜백 메서드"""
-        # 로딩 표시 숨기기
+        """Callback method called when an error occurs during image loading"""
+        # Hide loading indicator
         self.hide_loading_indicator()
         
-        # 오류 메시지 표시
-        error_msg = f"이미지 로드 실패: {os.path.basename(path)}\n{error}"
+        # Display error message
+        error_msg = f"Image load failed: {os.path.basename(path)}\n{error}"
         self.show_message(error_msg)
-        print(error_msg)  # 콘솔에도 출력
         
-        # 스레드 정리
+        # Cleanup threads
         if path in self.loader_threads:
             del self.loader_threads[path]
 
@@ -1917,31 +1882,29 @@ class ArchiveSift(QWidget):
                 timer.start()
 
     def on_rotation_changed(self, angle):
-        """회전 변경 신호를 처리합니다."""
-        # 호환성을 위해 current_rotation 업데이트
+        """Handles rotation change signal."""
+        # Update current_rotation for compatibility
         self.current_rotation = angle
         
-        # ImageHandler의 on_rotation_changed 메서드 호출하여 즉시 이미지 회전 적용
+        # Call ImageHandler's on_rotation_changed method to immediately apply image rotation
         if hasattr(self, 'image_handler') and self.current_image_path:
             self.image_handler.on_rotation_changed(angle)
-            
-        print(f"회전 각도 변경됨: {angle}°")
 
     def rotate_image(self, clockwise=True):
-        """이미지를 90도 회전합니다."""
+        """Rotate image 90 degrees."""
         if not self.current_image_path:
             return
             
-        # RotationManager를 사용하여 회전 처리 및 UI 업데이트
+        # Use RotationManager to process rotation and update UI
         self.rotation_manager.apply_rotation(clockwise)
 
     def update_button_sizes(self):
-        """버튼 크기를 창 크기에 맞게 업데이트하는 메서드 - 이제 ControlsLayout에 위임"""
+        """Method to update button sizes to fit the window - now delegated to ControlsLayout"""
         if hasattr(self, 'controls_layout'):
             self.controls_layout.update_button_sizes()
         else:
-            # 컨트롤 레이아웃이 아직 초기화되지 않은 경우 (예: 초기 로딩 과정)
-            print("ControlsLayout이 초기화되지 않았습니다. 버튼 크기 업데이트를 건너뜁니다.")
+            # When ControlsLayout is not yet initialized (e.g., during initial loading process)
+            pass
 
     def load_key_settings(self):
         """키 설정을 로드합니다."""
@@ -1961,81 +1924,76 @@ class ArchiveSift(QWidget):
                 "toggle_maximize_state": Qt.Key_Return  # Enter 키 추가
             }
             
-            # core.config 모듈의 load_settings 함수를 사용해 설정을 로드합니다
+            # Use the load_settings function from the core.config module to load settings
             loaded_settings = load_settings("key_settings.json")
             
-            # 기존 설정 파일에서 값을 불러와 기본 설정에 적용합니다
+            # Apply values loaded from the existing settings file to the default settings
             for key, value in loaded_settings.items():
                 if key in default_settings:
                     try:
-                        # JSON에서 불러온 값은 문자열이나 숫자일 수 있으므로 정수로 변환합니다
+                        # Since the values loaded from JSON can be strings or numbers, convert them to integers
                         default_settings[key] = int(value)
                     except (ValueError, TypeError) as e:
-                        # 변환할 수 없는 경우 오류 메시지 출력하고 기본값 유지
-                        print(f"키 설정 '{key}'의 값을 변환할 수 없습니다: {e}")
+                        # If conversion fails, output an error message and retain the default value
+                        pass
             
-            # 최종 설정을 self.key_settings에 할당합니다
+            # Assign the final settings to self.key_settings
             self.key_settings = default_settings
-            print("키 설정 로드 완료")
             
         except Exception as e:
-            # 로드 중 예외가 발생하면 기본 설정을 사용합니다
-            print(f"키 설정 로드 오류: {e}")
+            # If an exception occurs during loading, use the default settings
             self.key_settings = default_settings
 
     def save_key_settings(self):
-        """키 설정을 저장합니다."""
+        """Save key settings."""
         try:
-            # core.config 모듈의 save_settings 함수를 사용해 설정을 저장합니다
+            # Use the save_settings function from the core.config module to save settings
             if save_settings(self.key_settings, "key_settings.json"):
-                print("키 설정이 저장되었습니다")
+                pass
             else:
-                print("키 설정 저장에 실패했습니다")
+                pass
         except Exception as e:
-            print(f"키 설정 저장 오류: {e}")
-    
+            pass
     def show_preferences_dialog(self):
-        """환경 설정 대화상자를 표시합니다."""
-        # 키 설정 다이얼로그 표시
+        """Displays the preferences dialog."""
+        # Display key settings dialog
         dialog = PreferencesDialog(self, self.key_settings, self.mouse_settings)
         if dialog.exec_() == QDialog.Accepted:
-            # 변경된 키 설정 적용
+            # Apply updated key settings
             self.key_settings = dialog.get_key_settings()
-            # 키 설정 저장
+            # Save key settings
             self.save_key_settings()
             
-            # 변경된 마우스 설정 적용
+            # Apply updated mouse settings
             self.mouse_settings = dialog.get_mouse_settings()
-            # 마우스 설정 저장
+            # Save mouse settings
             self.save_mouse_settings()
             
-            # 메시지 표시
-            self.show_message("설정이 변경되었습니다.")
+            # Display message
+            self.show_message("Settings have been updated.")
 
     def show_about_dialog(self):
-        # 정보 다이얼로그 표시
+        # Display about dialog
         dialog = AboutDialog(self)
         dialog.exec_()
         
     def _on_current_index_changed(self, new_value, old_value):
         """
-        current_index 상태 변경 시 호출되는 옵저버 콜백
+        Observer callback called when current_index changes.
         
         Args:
-            new_value: 새로운 인덱스 값
-            old_value: 이전 인덱스 값
+            new_value: new index value
+            old_value: previous index value
         """
-        self.logger.debug(f"현재 인덱스 변경됨: {old_value} → {new_value}")
         
     def _on_current_image_path_changed(self, new_value, old_value):
         """
-        current_image_path a상태 변경 시 호출되는 옵저버 콜백
+        Observer callback called when current_image_path changes.
         
         Args:
-            new_value: 새로운 이미지 경로
-            old_value: 이전 이미지 경로
+            new_value: new image path
+            old_value: previous image path
         """
-        self.logger.debug(f"현재 이미지 경로 변경됨: {os.path.basename(old_value) if old_value else None} → {os.path.basename(new_value) if new_value else None}")
 
     def cleanup_current_media(self):
         """현재 로드된 미디어 리소스를 정리합니다."""
@@ -2080,41 +2038,39 @@ class ArchiveSift(QWidget):
     
     def on_ui_visibility_changed(self, visibility_dict):
         """
-        UI 요소 가시성 변경 이벤트 처리
+        Handle UI element visibility change event
         
         Args:
-            visibility_dict: 각 UI 요소의 표시 여부를 담은 사전
+            visibility_dict: Dictionary containing visibility status of each UI element
         """
-        # UI 상태 관리자에게 UI 가시성 적용을 위임
+        # Delegate applying UI visibility to UI state manager
         self.ui_state_manager.apply_ui_visibility()
         
-        # UI 변경 후 리사이징 적용이 필요한 경우 
+        # If resizing is required after UI change 
         if hasattr(self, 'current_image_path') and self.current_image_path:
             file_ext = os.path.splitext(self.current_image_path)[1].lower()
  
-            # RAW 파일인 경우 즉시 리사이징 적용 (문제 해결을 위해)
+            # For RAW files, apply resizing immediately (to solve issue)
             if file_ext in RAW_EXTENSIONS:
-                print(f"RAW 파일({file_ext}) UI 가시성 변경 감지: 즉시 리사이징 적용 ({self.width()}x{self.height()})")
-                
-                # 즉시 여러 번 리사이징 시도 (강제 적용)
+                # Force immediate multiple resizing attempts
                 QApplication.processEvents()
                 
-                # 전체 윈도우 영역 사용 플래그 설정 (새로 추가)
+                # Set flag to use full window area (new addition)
                 self.image_handler.use_full_window = True
                 self.image_handler.resize()
                 
-                # 이미지 처리 완료 후 플래그 초기화
+                # Reset flag after image processing is complete
                 self.image_handler.use_full_window = False
                 
-                # 화면 갱신
+                # Refresh the screen
                 QApplication.processEvents()
                 self.image_label.repaint()
                 self.image_label.update()
                 
-                # 즉시 리사이징 처리 후 지연 리사이징 적용 (안전장치)
+                # Apply delayed resizing after immediate resizing (safety measure)
                 QTimer.singleShot(50, self.delayed_resize)
             else:
-                # 비 RAW 파일: 일정 시간 후 지연 리사이징 실행
+                # For non-RAW files: start delayed resizing after a set time
                 if hasattr(self, 'resize_timer') and not self.resize_timer.isActive():
                     self.resize_timer.start(100)
 
@@ -2135,9 +2091,7 @@ class ArchiveSift(QWidget):
             event.accept()  # 이벤트가 처리됨을 표시
 
     def show_context_menu(self):
-        """우클릭 컨텍스트 메뉴를 표시합니다."""
-        print(f"[DEBUG] 컨텍스트 메뉴 표시 요청됨")
-        
+        """Display the right-click context menu."""
         # 컨텍스트 메뉴 생성
         context_menu = QMenu(self)
         context_menu.setStyleSheet("""
@@ -2171,7 +2125,7 @@ class ArchiveSift(QWidget):
             elif self.current_media_type == 'video' and hasattr(self, 'video_handler'):
                 is_playing = self.video_handler.is_playing()
                 
-            play_pause_text = "일시정지" if is_playing else "재생"
+            play_pause_text = "Pause" if is_playing else "Play"
             play_pause_action = QAction(play_pause_text, self)
             play_pause_action.triggered.connect(self.toggle_animation_playback)
             context_menu.addAction(play_pause_action)
@@ -2186,20 +2140,20 @@ class ArchiveSift(QWidget):
             if hasattr(self, 'current_image_path'):
                 is_bookmarked = self.bookmark_manager.is_bookmarked(self.current_image_path)
                 
-            bookmark_text = "북마크 제거" if is_bookmarked else "북마크 추가"
+            bookmark_text = "Remove Bookmark" if is_bookmarked else "Add Bookmark"
             bookmark_action = QAction(bookmark_text, self)
             bookmark_action.triggered.connect(self.toggle_bookmark)
             context_menu.addAction(bookmark_action)
         
         # 이미지 회전
-        rotate_menu = QMenu("이미지 회전", self)
+        rotate_menu = QMenu("Image Rotation", self)
         rotate_menu.setStyleSheet(context_menu.styleSheet())
         
-        rotate_cw_action = QAction("시계 방향으로 회전", self)
+        rotate_cw_action = QAction("Rotate Clockwise", self)
         rotate_cw_action.triggered.connect(lambda: self.rotate_image(True))
         rotate_menu.addAction(rotate_cw_action)
         
-        rotate_ccw_action = QAction("반시계 방향으로 회전", self)
+        rotate_ccw_action = QAction("Rotate Counterclockwise", self)
         rotate_ccw_action.triggered.connect(lambda: self.rotate_image(False))
         rotate_menu.addAction(rotate_ccw_action)
         
@@ -2211,17 +2165,17 @@ class ArchiveSift(QWidget):
         # 파일 관련 메뉴
         if hasattr(self, 'current_image_path') and self.current_image_path:
             # 이미지 삭제
-            delete_action = QAction("삭제", self)
+            delete_action = QAction("Delete", self)
             delete_action.triggered.connect(self.delete_current_image)
             context_menu.addAction(delete_action)
             
             # 파일 탐색기에서 열기
-            open_in_explorer_action = QAction("탐색기에서 열기", self)
+            open_in_explorer_action = QAction("Open in Explorer", self)
             open_in_explorer_action.triggered.connect(lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(os.path.dirname(self.current_image_path))))
             context_menu.addAction(open_in_explorer_action)
         
         # 화면 모드 관련 메뉴
-        fullscreen_action = QAction("전체 화면 전환", self)
+        fullscreen_action = QAction("Toggle Fullscreen", self)
         fullscreen_action.triggered.connect(self.toggle_fullscreen)
         context_menu.addAction(fullscreen_action)
         
@@ -2229,14 +2183,13 @@ class ArchiveSift(QWidget):
         context_menu.addSeparator()
         
         # 환경설정 메뉴 추가
-        settings_action = QAction("환경 설정", self)
+        settings_action = QAction("Preferences", self)
         settings_action.triggered.connect(self.show_preferences_dialog)
         context_menu.addAction(settings_action)
         
         # 메뉴 표시
         cursor_pos = QCursor.pos()
         context_menu.popup(cursor_pos)
-        print(f"[DEBUG] 컨텍스트 메뉴 표시됨")
 
     def load_mouse_settings(self):
         """마우스 설정을 로드합니다."""
@@ -2267,17 +2220,15 @@ class ArchiveSift(QWidget):
                             default_settings[key] = int(value)
                         except (ValueError, TypeError) as e:
                             # 변환할 수 없는 경우 오류 메시지 출력하고 기본값 유지
-                            print(f"휠 쿨다운 설정을 변환할 수 없습니다: {e}")
+                            pass
                     else:
                         default_settings[key] = value
             
             # 최종 설정을 self.mouse_settings에 할당합니다
             self.mouse_settings = default_settings
-            print("마우스 설정 로드 완료")
             
         except Exception as e:
             # 로드 중 예외가 발생하면 기본 설정을 사용합니다
-            print(f"마우스 설정 로드 오류: {e}")
             self.mouse_settings = default_settings
 
     def save_mouse_settings(self):
@@ -2285,29 +2236,26 @@ class ArchiveSift(QWidget):
         try:
             # core.config 모듈의 save_settings 함수를 사용해 설정을 저장합니다
             if save_settings(self.mouse_settings, "mouse_settings.json"):
-                print("마우스 설정이 저장되었습니다")
+                pass
             else:
-                print("마우스 설정 저장에 실패했습니다")
+                pass
         except Exception as e:
-            print(f"마우스 설정 저장 오류: {e}")
+            pass
 
     def open_feedback(self):
         """GitHub Discussions 페이지를 웹 브라우저에서 엽니다."""
         feedback_url = "https://github.com/htpaak/ArchiveSift/discussions"
         QDesktopServices.openUrl(QUrl(feedback_url))
 
-# 메인 함수
+# Main function
 def main():
-    logger.info("애플리케이션 메인 함수 시작")
-    app = QApplication(sys.argv)  # Qt 애플리케이션 객체 생성
-    app.setApplicationName("ArchiveSift")  # 애플리케이션 이름 설정
-    viewer = ArchiveSift()  # ArchiveSift 클래스의 객체 생성
-    viewer.show()  # 뷰어 창 표시
-    logger.info("이미지 뷰어 창 표시됨")
-    exit_code = app.exec_()  # 이벤트 루프 실행
-    logger.info(f"애플리케이션 종료 (코드: {exit_code})")
+    app = QApplication(sys.argv)  # Qt application instance creation
+    app.setApplicationName("ArchiveSift")  # Set application name
+    viewer = ArchiveSift()  # Create instance of ArchiveSift class
+    viewer.show()  # Display viewer window
+    exit_code = app.exec_()  # Execute event loop
     sys.exit(exit_code)
 
-# 프로그램 실행 시 main() 함수 실행
+# Execute main() function when program is run
 if __name__ == "__main__":
-    main()  # 메인 함수 실행
+    main()  # Call main function
