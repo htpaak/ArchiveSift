@@ -121,6 +121,11 @@ class RotationManager(QObject):
         except Exception as e:
             return
             
+        # Define image extension lists that are used below
+        standard_image_exts = ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.webp']
+        raw_image_exts = ['.cr2', '.nef', '.arw', '.orf', '.raf', '.raw']
+            
+        # Process before screen refresh
         try:
             # Process before screen refresh
             try:
@@ -229,6 +234,10 @@ class RotationManager(QObject):
                 QApplication.instance().processEvents()
             except Exception as e:
                 pass
+        except Exception as e:
+            # Handle any errors during the image rotation process
+            if hasattr(self.viewer, 'show_message'):
+                self.viewer.show_message(f"Error rotating image: {str(e)}")
     
     def _rotate_webp_directly(self):
         """Internal method to directly rotate WEBP images"""
