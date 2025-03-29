@@ -131,6 +131,9 @@ class ImageHandler(MediaHandler):
             if not os.path.exists(image_path):
                 raise FileNotFoundError(f"File not found: {image_path}")
             
+            # 파일 확장자 확인
+            _, file_ext = os.path.splitext(image_path.lower())
+            
             # 현재 회전 상태 확인 (이미지 로드 전에 미리 확인)
             current_rotation = getattr(self.parent, 'current_rotation', 0)
             
@@ -142,17 +145,68 @@ class ImageHandler(MediaHandler):
             file_size_bytes = os.path.getsize(image_path)
             file_size_mb = file_size_bytes / (1024 * 1024)
             
-            # 파일 확장자 확인
-            _, file_ext = os.path.splitext(image_path.lower())
-            
             # 이미지 타입별 확장자 목록 (라이브러리별로 분리)
             # 1. 순수 일반 이미지 (표준 라이브러리로 처리 가능)
             normal_img_extensions = ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.ico',
-                                   '.jfif', '.jp2', '.jpe', '.jps', '.tga']
+                                   '.jfif', '.jpe', '.jps', '.tga']
             
             # 2. 특수 라이브러리가 필요한 이미지
+            jp2_extensions = ['.jp2']  # JP2 파일용 별도 확장자 목록
             heic_heif_extensions = ['.heic', '.heif']
             avif_extensions = ['.avif']
+            
+            # JP2 이미지 파일 처리 (JPEG 2000)
+            if file_ext in jp2_extensions:
+                try:
+                    # 로딩 인디케이터 표시
+                    if hasattr(self.parent, 'show_loading_indicator'):
+                        self.parent.show_loading_indicator()
+                    
+                    # 로딩 메시지 표시
+                    if hasattr(self.parent, 'show_message'):
+                        self.parent.show_message(f"JPEG 2000 image loading... {os.path.basename(image_path)}")
+                    
+                    # Check if Pillow has JP2 support
+                    from PIL import features
+                    if not features.check('jpg_2000'):
+                        self.parent.show_message("Pillow JPEG 2000 support is required to process JP2 files.")
+                    
+                    # JP2 이미지를 PIL로 로드
+                    with Image.open(image_path) as pil_image:
+                        # 대용량 이미지 크기 조정 (30MB 이상)
+                        if file_size_mb > 30:
+                            pil_image.thumbnail((pil_image.width // 2, pil_image.height // 2), Image.Resampling.LANCZOS)
+                        
+                        # JP2 전용 안전 변환 방식 (PNG로 변환 후 QImage 생성)
+                        img_data = BytesIO()
+                        pil_image.save(img_data, format='PNG')
+                        qimg = QImage()
+                        qimg.loadFromData(img_data.getvalue())
+                        
+                        if qimg.isNull():
+                            raise ValueError("JP2 image conversion failed")
+                        
+                        # QPixmap으로 변환
+                        pixmap = QPixmap.fromImage(qimg)
+                        
+                        # 이미지 표시
+                        self.display_image(pixmap, image_path, file_size_mb)
+                        
+                        # 로딩 인디케이터 숨김
+                        if hasattr(self.parent, 'hide_loading_indicator'):
+                            self.parent.hide_loading_indicator()
+                        
+                        # 로딩 완료 메시지
+                        if hasattr(self.parent, 'show_message'):
+                            self.parent.show_message(f"JPEG 2000 image load complete: {os.path.basename(image_path)}, Size: {file_size_mb:.2f}MB")
+                        
+                        return
+                except Exception as e:
+                    if hasattr(self.parent, 'hide_loading_indicator'):
+                        self.parent.hide_loading_indicator()
+                    if hasattr(self.parent, 'show_message'):
+                        self.parent.show_message(f"Error occurred during JP2 image processing: {e}")
+                    return
             
             # 일반 이미지 파일 처리 (표준 라이브러리로 처리 가능한 이미지)
             if file_ext in normal_img_extensions:
@@ -212,6 +266,7 @@ class ImageHandler(MediaHandler):
                         self.parent.hide_loading_indicator()
                     if hasattr(self.parent, 'show_message'):
                         self.parent.show_message(f"Error occurred during image processing: {e}")
+                    return
             
             # AVIF 이미지 파일 처리 (pillow-avif-plugin 라이브러리 필요)
             if file_ext in avif_extensions:
