@@ -3,6 +3,13 @@ from PyQt5.QtCore import Qt, QPoint
 from PyQt5.QtGui import QIcon
 import os
 
+class BookmarkMenu(QMenu):
+    """북마크 메뉴 커스텀 클래스 - 툴팁 표시 지원"""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        # 툴팁 활성화
+        self.setToolTipsVisible(True)
+
 class BookmarkUI:
     def __init__(self, bookmark_manager):
         self.bookmark_manager = bookmark_manager
@@ -33,7 +40,8 @@ class BookmarkUI:
 
     def create_bookmark_menu(self):
         """북마크 메뉴 생성"""
-        self.bookmark_menu = QMenu(self.viewer)
+        # 일반 QMenu 대신 툴팁을 표시하는 커스텀 BookmarkMenu 사용
+        self.bookmark_menu = BookmarkMenu(self.viewer)
         self.bookmark_menu.setStyleSheet("""
             QMenu {
                 background-color: #2c3e50;
@@ -53,6 +61,12 @@ class BookmarkUI:
                 background: #34495e;
                 margin: 5px 0;
             }
+            QToolTip {
+                background-color: #34495e;
+                color: #ecf0f1;
+                border: 1px solid #2c3e50;
+                padding: 2px;
+            }
         """)
         
         # 북마크 추가/제거 액션
@@ -66,8 +80,12 @@ class BookmarkUI:
         # 북마크된 항목들 추가 (원래 순서대로 추가하면 최신 북마크가 아래에 표시됨)
         # bookmarks 리스트는 북마크 추가 순서대로 저장되어 있음 (최신 항목이 마지막)
         for path in self.bookmark_manager.bookmarks:
+            # 파일 이름만 표시
             action = QAction(os.path.basename(path), self.viewer)
             action.setData(path)
+            # 파일 전체 경로를 툴팁으로 설정
+            action.setToolTip(path)
+            action.setStatusTip(path)  # 상태바에도 표시 (지원되는 경우)
             action.triggered.connect(lambda checked, p=path: self.bookmark_manager.load_bookmarked_image(p))
             self.bookmark_menu.addAction(action)
         
