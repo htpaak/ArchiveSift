@@ -30,7 +30,7 @@ class BookmarkManager:
             viewer: 부모 위젯 (보통 ArchiveSift 클래스)
         """
         self.viewer = viewer
-        self.bookmarks = set()
+        self.bookmarks = []  # 북마크를 set 대신 list로 사용하여 순서 유지
         self.ui = BookmarkUI(self)
         self.load_bookmarks()
     
@@ -97,14 +97,19 @@ class BookmarkManager:
         현재 이미지를 북마크에 추가해요.
         """
         if hasattr(self.viewer, 'current_image_path') and self.viewer.current_image_path:
-            self.bookmarks.add(self.viewer.current_image_path)
+            # 이미 북마크에 있는 경우 제거
+            if self.viewer.current_image_path in self.bookmarks:
+                self.bookmarks.remove(self.viewer.current_image_path)
+            # 리스트 마지막에 추가하여 최신 북마크가 아래에 표시되도록 함
+            self.bookmarks.append(self.viewer.current_image_path)
             
     def remove_bookmark(self):
         """
         현재 이미지를 북마크에서 제거해요.
         """
         if hasattr(self.viewer, 'current_image_path') and self.viewer.current_image_path:
-            self.bookmarks.discard(self.viewer.current_image_path)
+            if self.viewer.current_image_path in self.bookmarks:
+                self.bookmarks.remove(self.viewer.current_image_path)
             
     def save_bookmarks(self):
         """
@@ -113,7 +118,7 @@ class BookmarkManager:
         bookmark_file = os.path.join(get_user_data_directory(), "bookmarks.json")
         try:
             with open(bookmark_file, 'w', encoding='utf-8') as f:
-                json.dump(list(self.bookmarks), f, ensure_ascii=False, indent=2)
+                json.dump(self.bookmarks, f, ensure_ascii=False, indent=2)
         except Exception as e:
             print(f"북마크 저장 중 오류 발생: {e}")
     
@@ -125,10 +130,16 @@ class BookmarkManager:
         try:
             if os.path.exists(bookmark_file):
                 with open(bookmark_file, 'r', encoding='utf-8') as f:
-                    self.bookmarks = set(json.load(f))
+                    loaded_bookmarks = json.load(f)
+                    # 기존 JSON이 리스트가 아닌 경우 (이전 버전 호환성)
+                    if isinstance(loaded_bookmarks, list):
+                        self.bookmarks = loaded_bookmarks
+                    else:
+                        # set이나 다른 형태로 저장된 경우 리스트로 변환
+                        self.bookmarks = list(loaded_bookmarks)
         except Exception as e:
             print(f"북마크 로드 중 오류 발생: {e}")
-            self.bookmarks = set()
+            self.bookmarks = []
     
     def load_bookmarked_image(self, path):
         """북마크된 이미지를 불러옵니다."""

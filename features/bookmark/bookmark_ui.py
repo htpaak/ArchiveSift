@@ -63,7 +63,8 @@ class BookmarkUI:
         # 구분선 추가
         self.bookmark_menu.addSeparator()
         
-        # 북마크된 항목들 추가
+        # 북마크된 항목들 추가 (원래 순서대로 추가하면 최신 북마크가 아래에 표시됨)
+        # bookmarks 리스트는 북마크 추가 순서대로 저장되어 있음 (최신 항목이 마지막)
         for path in self.bookmark_manager.bookmarks:
             action = QAction(os.path.basename(path), self.viewer)
             action.setData(path)
