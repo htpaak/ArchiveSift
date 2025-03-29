@@ -23,7 +23,6 @@ try:
     AVIF_SUPPORT = True
 except ImportError:
     AVIF_SUPPORT = False
-    print("pillow-avif-plugin이 설치되지 않았습니다. AVIF 지원이 제한적일 수 있습니다.")
 
 from media.handlers.base_handler import MediaHandler
 
@@ -128,9 +127,9 @@ class ImageHandler(MediaHandler):
     def load(self, image_path):
         """이미지 파일을 로드하고 화면에 표시합니다."""
         try:
-            # 이미지 경로 확인
+            # Check image path
             if not os.path.exists(image_path):
-                raise FileNotFoundError(f"파일을 찾을 수 없습니다: {image_path}")
+                raise FileNotFoundError(f"File not found: {image_path}")
             
             # 현재 회전 상태 확인 (이미지 로드 전에 미리 확인)
             current_rotation = getattr(self.parent, 'current_rotation', 0)
@@ -194,26 +193,25 @@ class ImageHandler(MediaHandler):
                             qimg.loadFromData(img_data.getvalue())
                         
                         if qimg.isNull():
-                            raise ValueError("이미지 변환 실패")
+                            raise ValueError("Image conversion failed")
                         
-                        # QPixmap으로 변환
+                        # Convert to QPixmap
                         pixmap = QPixmap.fromImage(qimg)
                         
-                        # 이미지 표시
+                        # Display image
                         self.display_image(pixmap, image_path, file_size_mb)
                     
-                    # 로딩 인디케이터 숨김
+                    # Hide loading indicator
                     if hasattr(self.parent, 'hide_loading_indicator'):
                         self.parent.hide_loading_indicator()
                     
                     return
                         
                 except Exception as e:
-                    print(f"일반 이미지 처리 오류: {e}")
                     if hasattr(self.parent, 'hide_loading_indicator'):
                         self.parent.hide_loading_indicator()
                     if hasattr(self.parent, 'show_message'):
-                        self.parent.show_message(f"이미지 처리 중 오류 발생: {e}")
+                        self.parent.show_message(f"Error occurred during image processing: {e}")
             
             # AVIF 이미지 파일 처리 (pillow-avif-plugin 라이브러리 필요)
             if file_ext in avif_extensions:
@@ -222,31 +220,30 @@ class ImageHandler(MediaHandler):
                     if hasattr(self.parent, 'show_loading_indicator'):
                         self.parent.show_loading_indicator()
                     
-                    # 로딩 메시지 표시
+                    # Display loading message
                     if hasattr(self.parent, 'show_message'):
-                        self.parent.show_message(f"AVIF 이미지 로딩 중... {os.path.basename(image_path)}")
+                        self.parent.show_message(f"AVIF image loading... {os.path.basename(image_path)}")
                     
-                    # pillow-avif-plugin이 설치되었는지 확인
+                    # Check if pillow-avif-plugin is installed
                     if not AVIF_SUPPORT:
-                        self.parent.show_message("AVIF 파일을 처리하기 위해 pillow-avif-plugin이 필요합니다.")
+                        self.parent.show_message("pillow-avif-plugin is required to process AVIF files.")
                     
-                    # PIL로 AVIF 이미지 로드
+                    # Load AVIF image using PIL
                     with Image.open(image_path) as pil_image:
-                        # 이미지 메타데이터 출력 (디버깅 용도)
-                        print(f"AVIF 이미지 정보: {pil_image.format}, {pil_image.mode}, {pil_image.size}")
+                        # Output image metadata (for debugging purposes)
                         
-                        # RGBA 모드로 변환 (투명도 유지)
+                        # Convert to RGBA mode (preserve transparency)
                         if pil_image.mode != 'RGBA':
                             pil_image = pil_image.convert('RGBA')
                         
-                        # QImage로 변환 (PNG로 변환하여 메모리에 저장)
+                        # Convert to QImage (by converting to PNG and storing in memory)
                         img_data = BytesIO()
                         pil_image.save(img_data, format='PNG')
                         qimg = QImage()
                         qimg.loadFromData(img_data.getvalue())
                         
                         if qimg.isNull():
-                            raise ValueError("AVIF 이미지 변환 실패")
+                            raise ValueError("AVIF image conversion failed")
                         
                         # QPixmap으로 변환
                         pixmap = QPixmap.fromImage(qimg)
@@ -258,20 +255,18 @@ class ImageHandler(MediaHandler):
                         if hasattr(self.parent, 'hide_loading_indicator'):
                             self.parent.hide_loading_indicator()
                         
-                        # 로딩 완료 메시지
+                        # Loading complete message
                         if hasattr(self.parent, 'show_message'):
-                            self.parent.show_message(f"AVIF 이미지 로드 완료: {os.path.basename(image_path)}, 크기: {file_size_mb:.2f}MB")
+                            self.parent.show_message(f"AVIF image load complete: {os.path.basename(image_path)}, Size: {file_size_mb:.2f}MB")
                         
                         return
                 except Exception as e:
                     if hasattr(self.parent, 'hide_loading_indicator'):
                         self.parent.hide_loading_indicator()
                     if hasattr(self.parent, 'show_message'):
-                        self.parent.show_message(f"AVIF 이미지 처리 중 오류 발생: {e}")
-                    print(f"AVIF 이미지 처리 중 오류 발생: {e}")
-                    # 일반 이미지 방식으로 처리 진행하지 않고 오류 발생
-                    raise ValueError(f"AVIF 이미지 처리 중 오류 발생: {e}")
-            
+                        self.parent.show_message(f"Error occurred during AVIF image processing: {e}")
+                    # Do not proceed with regular image processing and raise an error
+                    raise ValueError(f"Error occurred during AVIF image processing: {e}")
             # RAW 이미지 파일 처리 - 전역 상수 사용 (rawpy 라이브러리 필요)
             if file_ext in RAW_EXTENSIONS:
                 try:
@@ -281,16 +276,12 @@ class ImageHandler(MediaHandler):
                         
                     # 로딩 메시지 표시
                     if hasattr(self.parent, 'show_message'):
-                        self.parent.show_message(f"RAW 이미지 로딩 중... {os.path.basename(image_path)}")
+                        self.parent.show_message(f"RAW image loading... {os.path.basename(image_path)}")  # RAW image loading... {os.path.basename(image_path)} // RAW 이미지 로딩 중... {os.path.basename(image_path)}
                     
-                    print(f"RAW 파일({file_ext}) 처리 시작: {os.path.basename(image_path)}")
-                    
-                    # rawpy 라이브러리를 사용하여 RAW 파일 로드
+                    # Load RAW file using rawpy library  // rawpy 라이브러리를 사용하여 RAW 파일 로드
                     with rawpy.imread(image_path) as raw:
                         if hasattr(self.parent, 'show_message'):
-                            self.parent.show_message(f"RAW 이미지 처리 중... {os.path.basename(image_path)}")
-                        
-                        print(f"RAW 이미지 처리 진행 중: {os.path.basename(image_path)}, 크기: {file_size_mb:.2f}MB")
+                            self.parent.show_message(f"RAW image processing... {os.path.basename(image_path)}")  # RAW image processing... {os.path.basename(image_path)} // RAW 이미지 처리 중... {os.path.basename(image_path)}
                         
                         # 이미지 처리 및 변환 (대용량 파일 처리를 위한 최적화)
                         # 파일 크기에 따라 처리 옵션 조정
@@ -316,7 +307,7 @@ class ImageHandler(MediaHandler):
                                     median_filter_passes=0    # 미디안 필터 패스 수
                                 )
                             except Exception as e:
-                                print(f"고품질 처리 실패, 대체 방식 시도: {e}")
+                                pass
                                 # 고품질 처리 실패 시 대체 방식 시도
                                 rgb = raw.postprocess(
                                     use_camera_wb=True,
@@ -326,7 +317,7 @@ class ImageHandler(MediaHandler):
                                     demosaic_algorithm=rawpy.DemosaicAlgorithm.AHD  # 더 안정적인 알고리즘
                                 )
                         
-                        print(f"RAW 처리 완료, 변환 진행 중: {os.path.basename(image_path)}")
+                        pass
                         
                         # RGB 배열을 QImage로 변환
                         height, width, channel = rgb.shape
@@ -336,7 +327,7 @@ class ImageHandler(MediaHandler):
                         qimg = QImage(rgb.data, width, height, bytes_per_line, QImage.Format_RGB888)
                         
                         if qimg.isNull():
-                            raise ValueError("RAW 이미지 변환 실패")
+                            raise ValueError("RAW image conversion failed")
                         
                         # QImage의 깊은 복사본 생성 (원본 데이터에 대한 참조 제거)
                         qimg_copy = qimg.copy()
@@ -355,7 +346,7 @@ class ImageHandler(MediaHandler):
                         import gc
                         gc.collect()
                         
-                        print(f"RAW 이미지 변환 완료, 표시 진행 중: {os.path.basename(image_path)}")
+                        print(f"RAW image conversion complete, displaying: {os.path.basename(image_path)}")
                         
                         # 이미지 표시
                         self.display_image(pixmap, image_path, file_size_mb)
@@ -366,13 +357,13 @@ class ImageHandler(MediaHandler):
                         
                         # 로딩 완료 메시지
                         if hasattr(self.parent, 'show_message'):
-                            self.parent.show_message(f"RAW 이미지 로드 완료: {os.path.basename(image_path)}, 크기: {file_size_mb:.2f}MB")
+                            self.parent.show_message(f"RAW image load complete: {os.path.basename(image_path)}, size: {file_size_mb:.2f}MB")
                         
                         return
                         
                 except ImportError as ie:
-                    print(f"RAW 처리 라이브러리 오류: {ie}")
-                    self.parent.show_message("RAW 이미지 처리를 위한 rawpy 라이브러리가 필요합니다.")
+                    print(f"RAW processing library error: {ie}")
+                    self.parent.show_message("rawpy library is required to process RAW files.")
                     # rawpy가 없을 경우 PIL 폴백 사용
                     try:
                         with Image.open(image_path) as pil_image:
@@ -382,18 +373,17 @@ class ImageHandler(MediaHandler):
                             qimg.loadFromData(img_data.getvalue())
                             
                             if qimg.isNull():
-                                raise ValueError("RAW 이미지 변환 실패")
+                                raise ValueError("RAW image conversion failed")
                             
                             pixmap = QPixmap.fromImage(qimg)
                             self.display_image(pixmap, image_path, file_size_mb)
                             return
                     except Exception as pil_error:
-                        self.parent.show_message(f"RAW 이미지 처리 실패: {pil_error}")
-                        # 계속 진행하여 일반 이미지 로드 방식 시도
+                        self.parent.show_message(f"RAW processing failed: {pil_error}")
+                        # Continue with regular image loading method
                 except Exception as e:
-                    print(f"RAW 이미지 처리 중 상세 오류: {e}")
-                    self.parent.show_message(f"RAW 이미지 처리 중 오류 발생: {e}")
-                    # 오류 발생 시 일반 이미지 로드 방식으로 진행
+                    pass
+                    # Continue with regular image loading method
             
             # HEIC/HEIF 파일 처리 (pillow-heif 라이브러리 필요)
             if file_ext in heic_heif_extensions:
@@ -404,7 +394,7 @@ class ImageHandler(MediaHandler):
                     
                     # 로딩 메시지 표시
                     if hasattr(self.parent, 'show_message'):
-                        self.parent.show_message(f"HEIC/HEIF 이미지 로딩 중... {os.path.basename(image_path)}")
+                        self.parent.show_message(f"HEIC/HEIF image loading... {os.path.basename(image_path)}")
                     
                     # pillow-heif 라이브러리를 사용
                     from pillow_heif import register_heif_opener
@@ -413,7 +403,7 @@ class ImageHandler(MediaHandler):
                     # PIL로 이미지 로드
                     with Image.open(image_path) as pil_image:
                         # 이미지 메타데이터 출력 (디버깅 용도)
-                        print(f"HEIC/HEIF 이미지 정보: {pil_image.format}, {pil_image.mode}, {pil_image.size}")
+                        pass
                         
                         # QImage로 변환
                         img_data = BytesIO()
@@ -422,7 +412,7 @@ class ImageHandler(MediaHandler):
                         qimg.loadFromData(img_data.getvalue())
                         
                         if qimg.isNull():
-                            raise ValueError("HEIC/HEIF 이미지 변환 실패")
+                            raise ValueError("HEIC/HEIF image conversion failed")
                         
                         # QPixmap으로 변환
                         pixmap = QPixmap.fromImage(qimg)
@@ -434,17 +424,17 @@ class ImageHandler(MediaHandler):
                         
                         # 로딩 완료 메시지
                         if hasattr(self.parent, 'show_message'):
-                            self.parent.show_message(f"HEIC/HEIF 이미지 로드 완료: {os.path.basename(image_path)}, 크기: {file_size_mb:.2f}MB")
+                            self.parent.show_message(f"HEIC/HEIF image load complete: {os.path.basename(image_path)}, size: {file_size_mb:.2f}MB")
                             
                         return
                 except ImportError:
                     if hasattr(self.parent, 'hide_loading_indicator'):
                         self.parent.hide_loading_indicator()
-                    raise ImportError("HEIC/HEIF 파일을 처리하기 위한 pillow-heif 라이브러리가 필요합니다")
+                    raise ImportError("pillow-heif library is required to process HEIC/HEIF files.")
                 except Exception as e:
                     if hasattr(self.parent, 'hide_loading_indicator'):
                         self.parent.hide_loading_indicator()
-                    raise Exception(f"HEIC/HEIF 이미지 처리 중 오류 발생: {e}")
+                    raise Exception(f"HEIC/HEIF image processing error: {e}")
             
             # 기본 이미지 로드 방식 (위의 모든 특수 처리가 적용되지 않은 경우)
             pixmap = QPixmap(image_path)
@@ -470,13 +460,13 @@ class ImageHandler(MediaHandler):
                             qimg.loadFromData(img_data.getvalue())
                         
                         if qimg.isNull():
-                            raise ValueError("이미지 변환 실패")
+                            raise ValueError("image conversion failed")
                         
                         # QPixmap으로 변환
                         pixmap = QPixmap.fromImage(qimg)
                 except Exception as pil_error:
                     # 모든 방법 실패 시 오류 발생
-                    raise ValueError(f"이미지 로드 실패: {pil_error}")
+                    raise ValueError(f"image loading failed: {pil_error}")
             
             # 이미지 표시
             self.display_image(pixmap, image_path, file_size_mb)
@@ -486,7 +476,7 @@ class ImageHandler(MediaHandler):
             self.on_error(image_path, str(e))
             # 오류가 발생한 경우 클라이언트에게 알림
             if hasattr(self.parent, 'show_message'):
-                self.parent.show_message(f"이미지 로드 중 오류 발생: {e}")
+                self.parent.show_message(f"image loading error: {e}")
     
     def unload(self):
         """현재 로드된 이미지를 언로드합니다."""
@@ -671,7 +661,6 @@ class ImageHandler(MediaHandler):
         if hasattr(self.parent, 'current_rotation') and self.parent.current_rotation != 0:
             transform = QTransform().rotate(self.parent.current_rotation)
             display_image = image.transformed(transform, Qt.SmoothTransformation)
-            print(f"이미지에 회전 적용됨: {self.parent.current_rotation}°")
         
         # 이미지 크기에 따라 스케일링 방식 결정
         # 작은 이미지는 고품질 변환, 큰 이미지는 빠른 변환 사용
@@ -733,7 +722,7 @@ class ImageHandler(MediaHandler):
                 # 회전 적용 상태 표시
                 self.rotation_applied = True
             except Exception as e:
-                self.parent.show_message(f"이미지 회전 중 오류 발생: {e}")
+                self.parent.show_message(f"image rotation error: {e}")
         else:
             # 회전이 없는 경우 원본 사용
             self.original_pixmap = self._plain_original_pixmap.copy()
@@ -750,9 +739,7 @@ class ImageHandler(MediaHandler):
             image_path (str): 실패한 이미지 파일 경로
             error_message (str): 오류 메시지
         """
-        print(f"이미지 로드 오류: {error_message}")
-        
-        # 로딩 인디케이터 숨김
+        # Hide loading indicator  // 로딩 인디케이터 숨김을 영어로 번역함
         if hasattr(self.parent, 'hide_loading_indicator'):
             self.parent.hide_loading_indicator()
     
@@ -781,7 +768,7 @@ class ImageHandler(MediaHandler):
                 # 원본 이미지를 캐시 (회전하지 않은 상태)
                 self.parent.image_cache.put(path, image, size_mb)
         else:
-            print(f"크기가 너무 큰 이미지는 캐시되지 않습니다: {os.path.basename(path)} ({size_mb:.2f}MB)")
+            pass
 
     def on_rotation_changed(self, angle):
         """회전 각도가 변경되었을 때 호출되는 메서드"""

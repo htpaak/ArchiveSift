@@ -123,9 +123,8 @@ class LRUCache:
                 
                 # 이벤트 처리를 강제로 수행하여 삭제 요청 처리
                 QApplication.processEvents()
-                print(f"캐시 항목(QMovie) 정리 완료")
         except Exception as e:
-            print(f"캐시 항목 정리 중 오류: {e}")
+            pass    
     
     def __len__(self):
         """
@@ -166,11 +165,10 @@ class LRUCache:
                         
                         # 이벤트 처리를 강제로 수행하여 삭제 요청 처리
                         QApplication.processEvents()
-                        print(f"캐시에서 QMovie 객체 정리 완료: {key}")
                     except Exception as e:
-                        print(f"캐시의 QMovie 객체 정리 중 오류: {e}")
+                        pass
         except Exception as e:
-            print(f"캐시 항목 정리 중 일반 오류: {e}")
+            pass
         
         # 메모리 정리를 위한 가비지 컬렉션 호출
         try:

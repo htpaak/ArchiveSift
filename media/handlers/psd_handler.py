@@ -58,7 +58,7 @@ class PSDHandler(MediaHandler):
             bool: 로드 성공 여부
         """
         if not os.path.exists(psd_path):
-            self.parent.show_message(f"파일을 찾을 수 없습니다: {psd_path}")
+            self.parent.show_message(f"file not found: {psd_path}")
             return False
             
         # 파일 이름과 확장자 추출
@@ -69,7 +69,6 @@ class PSDHandler(MediaHandler):
         for path, loader in list(self.loader_threads.items()):
             if path == psd_path and loader.isRunning():
                 loading_in_progress = True
-                print(f"이미 로딩 중: {os.path.basename(psd_path)}")
                 break
         
         if loading_in_progress:
@@ -83,15 +82,11 @@ class PSDHandler(MediaHandler):
         pixmap = self.psd_cache.get(psd_path)
         
         if pixmap is not None:
-            # 캐시에서 찾은 경우 바로 사용
-            print(f"PSD 캐시 히트: {os.path.basename(psd_path)}")
-            
-            # 회전 각도가 0이 아니면 회전 적용
+            # If found in cache, use it immediately
             if hasattr(self.parent, 'current_rotation') and self.parent.current_rotation != 0:
-                # 회전 변환 적용
+                # Apply rotation transformation
                 transform = QTransform().rotate(self.parent.current_rotation)
                 pixmap = pixmap.transformed(transform, Qt.SmoothTransformation)
-                print(f"PSD에 회전 적용됨: {self.parent.current_rotation}°")
             
             # 이미지 크기 조정 후 표시
             self.original_pixmap = pixmap
@@ -105,7 +100,7 @@ class PSDHandler(MediaHandler):
             
             # 로딩 완료 메시지
             size_mb = os.path.getsize(psd_path) / (1024 * 1024)  # 파일 크기 계산
-            self.parent.show_message(f"PSD 이미지 로드 완료: {filename}, 크기: {size_mb:.2f}MB")
+            self.parent.show_message(f"PSD image load complete: {filename}, size: {size_mb:.2f}MB")
             
             # 현재 미디어 타입 설정
             if hasattr(self.parent, 'current_media_type'):
@@ -131,7 +126,7 @@ class PSDHandler(MediaHandler):
             self.current_media_path = psd_path
             
             # 비동기 로딩 시작
-            self.parent.show_message(f"PSD 이미지 로딩 시작: {filename}")
+            self.parent.show_message(f"PSD image loading started: {filename}")
             
             # 로더 스레드 생성 및 시작
             loader = ImageLoaderThread(psd_path, file_type='psd')
@@ -161,19 +156,18 @@ class PSDHandler(MediaHandler):
         
         # 너무 큰 이미지는 캐시하지 않음
         if size_mb < large_image_threshold:
-            # 캐시에 이미지 저장
+            # Store image in cache  // 캐시에 이미지 저장
             self.psd_cache.put(path, image, size_mb)
         else:
-            print(f"크기가 너무 큰 이미지는 캐시되지 않습니다: {os.path.basename(path)} ({size_mb:.2f}MB)")
+            pass 
         
-        # 현재 경로가 로드된 이미지 경로와 일치하는 경우에만 표시
+        # Display only if the current path matches the loaded image path  // 현재 경로가 로드된 이미지 경로와 일치하는 경우에만 표시
         if path == self.current_media_path:
-            # 회전 각도가 0이 아니면 회전 적용
+            # Apply rotation if the rotation angle is non-zero  // 회전 각도가 0이 아니면 회전 적용
             if hasattr(self.parent, 'current_rotation') and self.parent.current_rotation != 0:
-                # 회전 변환 적용
+                # Apply rotation transform  // 회전 변환 적용
                 transform = QTransform().rotate(self.parent.current_rotation)
                 image = image.transformed(transform, Qt.SmoothTransformation)
-                print(f"PSD에 회전 적용됨: {self.parent.current_rotation}°")
             
             # 원본 픽스맵 저장
             self.original_pixmap = image
@@ -183,7 +177,7 @@ class PSDHandler(MediaHandler):
             
             # 로딩 완료 메시지
             filename = os.path.basename(path)
-            self.parent.show_message(f"PSD 이미지 로드 완료: {filename}, 크기: {size_mb:.2f}MB")
+            self.parent.show_message(f"PSD image load complete: {filename}, size: {size_mb:.2f}MB")
     
     def _on_psd_error(self, path, error_msg):
         """
@@ -196,11 +190,8 @@ class PSDHandler(MediaHandler):
         # 로딩 인디케이터 숨기기
         self.parent.hide_loading_indicator()
         
-        # 오류 메시지 표시
-        self.parent.show_message(f"PSD 파일 로드 오류: {error_msg}")
-        
-        # 오류 로그
-        print(f"PSD 로드 오류 발생: {path} - {error_msg}")
+        # Display error message  // 오류 메시지 표시
+        self.parent.show_message(f"PSD file load error: {error_msg}")
     
     def _apply_pixmap(self, pixmap):
         """

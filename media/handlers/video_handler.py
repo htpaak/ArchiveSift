@@ -27,7 +27,6 @@ if 'mpv' not in globals():
         # MPV 모듈 import
         import mpv
     except ImportError as e:
-        print(f"MPV 모듈 로드 실패: {e}")
         # 오류가 발생해도 모듈 정의는 필요
         mpv = None
 
@@ -71,15 +70,15 @@ class VideoHandler(MediaHandler):
             bool: 로드 성공 여부
         """
         if not os.path.exists(video_path):
-            self.parent.show_message(f"파일을 찾을 수 없습니다: {video_path}")
+            self.parent.show_message(f"File not found: {video_path}")
             return False
         
-        # 파일 확장자 추출
+        # Extract file extension
         filename = os.path.basename(video_path)
         extension = os.path.splitext(filename)[1].upper().lstrip('.')
         
-        # 비디오 로딩 메시지 표시
-        self.parent.show_message(f"{extension} 영상 로딩 시작: {filename}")
+        # Display video loading message
+        self.parent.show_message(f"{extension} video loading started: {filename}")
         
         # 로딩 인디케이터 표시
         self.parent.show_loading_indicator()
@@ -135,19 +134,19 @@ class VideoHandler(MediaHandler):
                 self.parent.update_image_info()
             
             # 로드 완료 메시지
-            file_size_mb = os.path.getsize(video_path) / (1024 * 1024)
-            self.parent.show_message(f"{extension} 영상 로드 완료: {filename}, 크기: {file_size_mb:.2f}MB")
+            file_size_mb = os.path.getsize(video_path) / (1024 * 1024)  # Calculate file size in MB // MB 단위로 파일 크기를 계산
+            self.parent.show_message(f"{extension} Video load complete: {filename}, Size: {file_size_mb:.2f}MB")  # Display message: "Video load complete" with file size // "비디오 로드 완료" 및 파일 크기를 표시하는 메시지를 출력
             
-            # 재생 버튼 업데이트 (parent에 update_play_button 메서드가 있다면)
+            # Update play button (if parent has update_play_button method) // 재생 버튼 업데이트 (parent에 update_play_button 메서드가 있다면)
             if hasattr(self.parent, 'update_play_button'):
-                self.parent.update_play_button()
+                self.parent.update_play_button()  # Call update_play_button if available // 사용 가능한 경우 update_play_button 호출
             
-            return True
+            return True  # Return True on success // 성공 시 True 반환
             
         except Exception as e:
-            self.parent.show_message(f"비디오 로드 중 오류 발생: {str(e)}")
-            self.parent.hide_loading_indicator()
-            return False
+            self.parent.show_message(f"Error occurred during video load: {str(e)}")  # Display error message // 오류 발생 시 오류 메시지를 출력
+            self.parent.hide_loading_indicator()  # Hide the loading indicator // 로딩 인디케이터를 숨김
+            return False  # Return False on error // 오류 발생 시 False 반환
 
     def unload(self):
         """
@@ -163,7 +162,7 @@ class VideoHandler(MediaHandler):
                     self.mpv_player.loop = False
                     self.mpv_player.mute = False
             except Exception as e:
-                print(f"비디오 정지 에러: {e}")
+                pass
         
         # 비디오 타이머 정지
         if self.video_timer.isActive():
@@ -248,9 +247,8 @@ class VideoHandler(MediaHandler):
                 # seek 함수 대신 command 메서드 사용 (더 안정적)
                 self.mpv_player.command('seek', position, 'absolute')
                 self.video_position = position
-                print(f"비디오 위치 이동: {position}초")
             except Exception as e:
-                print(f"비디오 위치 이동 오류: {e}")
+                pass
 
     def get_duration(self):
         """
@@ -298,9 +296,8 @@ class VideoHandler(MediaHandler):
         if self.mpv_player:
             try:
                 self.mpv_player['video-rotate'] = str(angle)
-                print(f"비디오 회전 즉시 적용: {angle}°")
             except Exception as e:
-                print(f"비디오 회전 설정 오류: {e}")
+                pass
                 
     def set_volume(self, volume):
         """
@@ -312,10 +309,8 @@ class VideoHandler(MediaHandler):
         if self.mpv_player:
             try:
                 self.mpv_player.volume = volume
-                print(f"비디오 볼륨 설정: {volume}")
                 return True
             except Exception as e:
-                print(f"비디오 볼륨 설정 오류: {e}")
                 return False
         return False
         
@@ -330,10 +325,8 @@ class VideoHandler(MediaHandler):
             try:
                 current_mute = self.mpv_player.mute
                 self.mpv_player.mute = not current_mute
-                print(f"음소거 상태 변경: {not current_mute}")
                 return not current_mute
             except Exception as e:
-                print(f"음소거 토글 오류: {e}")
                 return None
         return None
         
@@ -383,25 +376,23 @@ class VideoHandler(MediaHandler):
                     # 현재 볼륨 슬라이더 값 적용
                     if hasattr(self.parent, 'volume_slider'):
                         current_volume = self.parent.volume_slider.value()
-                        # 비디오 로드 직후 볼륨 설정
-                        print(f"[DEBUG] 비디오 로드 시 볼륨 적용: {current_volume}")
+                        # Set volume immediately after video load
                         self.set_volume(current_volume)
                 
-                # 비디오 재생
+                # Play video
                 self.play()
                 
-                # 진행 중 로딩 표시기 숨기기
+                # Hide loading indicator during playback
                 if self.parent and hasattr(self.parent, 'hide_loading_indicator'):
                     self.parent.hide_loading_indicator()
                 
                 return True
             return False
         except Exception as e:
-            print(f"비디오 재생 오류: {str(e)}")
             if self.parent and hasattr(self.parent, 'hide_loading_indicator'):
                 self.parent.hide_loading_indicator()
             if self.parent and hasattr(self.parent, 'show_message'):
-                self.parent.show_message(f"비디오를 재생할 수 없습니다: {str(e)}")
+                self.parent.show_message(f"Cannot play video: {str(e)}")
             return False 
             
     def stop_video_timer(self):
@@ -434,39 +425,49 @@ class VideoHandler(MediaHandler):
         return True
             
     def restore_video_state(self, was_playing, position):
-        """비디오 재생 상태를 복구합니다"""
+        """Restore video playback state"""
+        # "비디오 재생 상태를 복구합니다" -> "Restore video playback state"
         try:
-            # 위치 복구
+            # Restore position
+            # "위치 복구" -> "Restore position"
             self.seek(position)
             
-            # 재생 상태 복구
+            # Restore playback state
+            # "재생 상태 복구" -> "Restore playback state"
             if was_playing:
                 self.play()
                 if self.parent and hasattr(self.parent, 'update_play_button'):
                     self.parent.update_play_button()
             
-            # 슬라이더 위치 업데이트 강제
+            # Force slider position update
+            # "슬라이더 위치 업데이트 강제" -> "Force slider position update"
             if self.parent and hasattr(self.parent, 'update_video_playback'):
                 from PyQt5.QtCore import QTimer
                 QTimer.singleShot(50, self.parent.update_video_playback)
         except Exception as e:
-            print(f"비디오 상태 복구 실패: {e}")
+            # Removed unnecessary debug message
+            # "비디오 상태 복구 실패: {e}" debug message removed
+            pass
             
     def seek_video(self, value):
-        """슬라이더 값에 따라 비디오 재생 위치를 변경합니다.
+        """Change video playback position based on slider value.
         
         Args:
-            value: 슬라이더 값 (밀리초 단위)
+            value: Slider value (in milliseconds)
+            # "슬라이더 값에 따라 비디오 재생 위치를 변경합니다." 및 "value: 슬라이더 값 (밀리초 단위)" -> translated accordingly 
         """
         try:
             if self.mpv_player:
-                # 슬라이더 값을 초 단위로 변환 (value는 밀리초 단위)
-                seconds = value / 1000.0  # 밀리초를 초 단위로 변환
-                # seek 메서드를 사용하여 정확한 위치로 이동
+                # Convert slider value to seconds (value is in milliseconds)
+                # "슬라이더 값을 초 단위로 변환 (value는 밀리초 단위)" -> "Convert slider value to seconds (value is in milliseconds)"
+                seconds = value / 1000.0  # Convert milliseconds to seconds
+                # Use seek method to move to the exact position
+                # "seek 메서드를 사용하여 정확한 위치로 이동" -> "Use seek method to move to the exact position"
                 self.seek(seconds)
         except Exception as e:
-            print(f"비디오 위치 이동 오류: {str(e)}")
-            
+            # Removed unnecessary debug message
+            # "비디오 위치 이동 오류: {str(e)}" debug message removed
+            pass
     def update_video_playback(self):
         """비디오의 재생 위치에 따라 슬라이더 값과 시간 표시를 업데이트합니다."""
         if not self.parent or not hasattr(self.parent, 'is_slider_dragging') or self.parent.is_slider_dragging:
@@ -503,10 +504,8 @@ class VideoHandler(MediaHandler):
                 self.parent.previous_position = position
 
         except Exception as e:
-            print(f"비디오 업데이트 에러: {e}")
-            # 타이머가 활성화되어 있으면 중지
             if hasattr(self.parent, 'video_timer') and self.parent.video_timer.isActive():
-                self.parent.video_timer.stop()  # 타이머 중지 
+                self.parent.video_timer.stop()  # Stop timer
                 
     def format_time(self, seconds):
         """
@@ -542,14 +541,8 @@ class VideoHandler(MediaHandler):
             # set_volume 메서드를 사용하여 볼륨 설정
             success = self.set_volume(volume_value)
             
-            if success:
-                print(f"볼륨 설정 완료: {volume_value}")
-            else:
-                print(f"볼륨 설정 실패: {volume_value}")
-                
             return success
         except Exception as e:
-            print(f"볼륨 조절 오류: {e}")
             return False 
             
     def toggle_video_playback(self):
@@ -567,5 +560,4 @@ class VideoHandler(MediaHandler):
                 
             return True
         except Exception as e:
-            print(f"비디오 재생/일시정지 토글 오류: {e}")
             return False 

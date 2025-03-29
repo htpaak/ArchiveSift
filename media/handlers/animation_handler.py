@@ -59,101 +59,134 @@ class AnimationHandler(QObject):
     
     def load_gif(self, file_path):
         """
+        Load and display the GIF file.
         GIF 파일을 로드하고 표시합니다.
         
         Args:
-            file_path (str): GIF 파일 경로
+            file_path (str): GIF file path
+                             GIF 파일 경로
             
         Returns:
-            str: 미디어 타입 ('gif_animation' 또는 'gif_image')
+            str: Media type ('gif_animation' or 'gif_image')
+                 미디어 타입 ('gif_animation' 또는 'gif_image')
         """
+        # Initialize previous handler reference
         # 이전 핸들러 참조 초기화
         self.current_frame_changed_handler = None
         
+        # Calculate file size (in MB)
         # 파일 크기 계산 (MB 단위)
         size_mb = 0
         try:
             if os.path.exists(file_path):
-                size_mb = os.path.getsize(file_path) / (1024 * 1024)  # 바이트 -> 메가바이트
+                size_mb = os.path.getsize(file_path) / (1024 * 1024)  # Bytes -> Megabytes
+                # 바이트 -> 메가바이트
         except Exception as e:
-            print(f"파일 크기 계산 오류: {e}")
+            # Debug message removed: File size calculation error was omitted
+            # 디버깅 메시지 제거됨: 파일 크기 계산 오류 메시지 삭제됨
+            pass
         
+        # Display loading indicator
         # 로딩 인디케이터 표시
         if self.parent and hasattr(self.parent, 'show_loading_indicator'):
             self.parent.show_loading_indicator()
             filename = os.path.basename(file_path)
-            self.parent.show_message(f"GIF 로딩 시작: {filename}")
+            self.parent.show_message(f"Start loading GIF: {filename}")
+            # GIF 로딩 시작: {filename}
         
+        # Check GIF file
         # GIF 파일 확인
         reader = QImageReader(file_path)
-        media_type = 'gif_image'  # 기본값은 정적 이미지
+        media_type = 'gif_image'  # Default is static image
+                                  # 기본값은 정적 이미지
         
+        # Clean up existing resources
         # 기존 리소스 정리
         self.cleanup()
         
+        # Check if animation is supported
         # 애니메이션 지원 여부 확인
         if reader.supportsAnimation():
+            # Check if there is more than one frame (to determine if it's an animation)
             # 프레임 수가 1개 이상인지 확인 (애니메이션인지)
             frame_count = reader.imageCount()
             if frame_count > 1:
                 media_type = 'gif_animation'
                 
+                # Load GIF using QMovie
                 # QMovie로 GIF 로드
                 self.current_movie = QMovie(file_path)
                 self.current_movie.setCacheMode(QMovie.CacheAll)
                 self.current_movie.jumpToFrame(0)
                 
+                # Handle rotation
                 # 회전 처리
                 if self.current_rotation != 0:
+                    # Set transformation matrix for rotation
                     # 회전을 위한 변환 행렬 설정
                     transform = QTransform().rotate(self.current_rotation)
                     
+                    # Store the function to apply rotation on frame change as a class attribute
                     # 프레임 변경 시 회전을 적용하는 함수를 클래스 속성으로 저장
                     self.current_frame_changed_handler = lambda frame_number: self._handle_rotated_frame(frame_number, transform)
                     
+                    # Connect rotation function to frame changed event
                     # 프레임 변경 이벤트에 회전 함수 연결
                     self.current_movie.frameChanged.connect(self.current_frame_changed_handler)
                     self.current_movie.start()
-                    print(f"GIF에 회전 적용됨: {self.current_rotation}°")
+                    # Debug message removed: Rotation applied debug message was omitted
+                    # 디버깅 메시지 제거됨: 회전 적용 디버깅 메시지 삭제됨
                 else:
+                    # General processing when there is no rotation
                     # 회전이 없는 경우 일반적인 처리
                     self.scale_animation()
                     self.image_label.setMovie(self.current_movie)
                     self.current_movie.start()
                 
+                # Set slider and timer
                 # 슬라이더 설정 및 타이머 설정
                 if self.parent:
+                    # Set slider range
                     # 슬라이더 범위 설정
                     self.parent.playback_slider.setRange(0, frame_count - 1)
                     self.parent.playback_slider.setValue(0)
                     
+                    # Connect slider signals
                     # 슬라이더 시그널 연결
                     if hasattr(self.parent, 'disconnect_all_slider_signals'):
                         self.parent.disconnect_all_slider_signals()
                     
+                    # Set animation timer
                     # 애니메이션 타이머 설정
                     self._setup_animation_timer(file_path)
                     
+                    # Update play button status
                     # 재생 버튼 상태 업데이트
                     if hasattr(self.parent, 'play_button'):
-                        self.parent.play_button.setText("❚❚")  # 일시정지 아이콘 표시 (재생 중)
+                        self.parent.play_button.setText("❚❚")  # Display pause icon (playing)
+                        # 일시정지 아이콘 표시 (재생 중)
             else:
+                # Handle single frame GIF (not an animation)
                 # 단일 프레임 GIF 처리 (애니메이션 아님)
                 self._handle_static_image(file_path)
         else:
+            # If animation is not supported, process as static image
             # 애니메이션을 지원하지 않는 경우 정적 이미지로 처리
             self._handle_static_image(file_path)
         
+        # Hide loading indicator
         # 로딩 인디케이터 숨김
         if self.parent and hasattr(self.parent, 'hide_loading_indicator'):
             self.parent.hide_loading_indicator()
             filename = os.path.basename(file_path)
+            # Even if it is an animation, frame count information is not displayed
             # 애니메이션인 경우에도 프레임 수 정보 제거
             if media_type == 'gif_animation':
-                self.parent.show_message(f"GIF 이미지 로드 완료: {filename}, 크기: {size_mb:.2f}MB")
+                self.parent.show_message(f"GIF image load complete: {filename}, size: {size_mb:.2f}MB")
             else:
-                self.parent.show_message(f"GIF 이미지 로드 완료: {filename}, 크기: {size_mb:.2f}MB")
+                self.parent.show_message(f"GIF image load complete: {filename}, size: {size_mb:.2f}MB")
         
+        # Update image information (current media index/total count, etc.)
         # 이미지 정보 업데이트 (현재 미디어 인덱스/총 갯수 등)
         if self.parent and hasattr(self.parent, 'update_image_info'):
             self.parent.update_image_info()
@@ -179,13 +212,10 @@ class AnimationHandler(QObject):
             if os.path.exists(file_path):
                 size_mb = os.path.getsize(file_path) / (1024 * 1024)  # 바이트 -> 메가바이트
         except Exception as e:
-            print(f"파일 크기 계산 오류: {e}")
-        
-        # 로딩 인디케이터 표시
-        if self.parent and hasattr(self.parent, 'show_loading_indicator'):
-            self.parent.show_loading_indicator()
-            filename = os.path.basename(file_path)
-            self.parent.show_message(f"WEBP 로딩 시작: {filename}")
+            if self.parent and hasattr(self.parent, 'show_loading_indicator'):
+                self.parent.show_loading_indicator()
+                filename = os.path.basename(file_path)
+                self.parent.show_message(f"Start loading WEBP: {filename}")
         
         # WEBP 파일 확인
         reader = QImageReader(file_path)
@@ -214,10 +244,9 @@ class AnimationHandler(QObject):
                     # 프레임 변경 시 회전을 적용하는 함수를 클래스 속성으로 저장
                     self.current_frame_changed_handler = lambda frame_number: self._handle_rotated_frame(frame_number, transform)
                     
-                    # 프레임 변경 이벤트에 회전 함수 연결
+                    # Connect rotation function to frame change event
                     self.current_movie.frameChanged.connect(self.current_frame_changed_handler)
                     self.current_movie.start()
-                    print(f"WEBP에 회전 적용됨: {self.current_rotation}°")
                 else:
                     # 회전이 없는 경우 일반적인 처리
                     self.scale_animation()
@@ -241,13 +270,11 @@ class AnimationHandler(QObject):
                     if hasattr(self.parent, 'play_button'):
                         self.parent.play_button.setText("❚❚")  # 일시정지 아이콘 표시 (재생 중)
             else:
-                # 단일 프레임 WEBP 처리 (애니메이션 아님)
-                print("단일 프레임 WEBP 이미지 처리 시작")
+                # Single-frame WEBP processing (non-animated)
                 self._handle_static_image(file_path)
                 media_type = 'webp_image'
         else:
-            # 애니메이션을 지원하지 않는 경우 정적 이미지로 처리
-            print("정적 WEBP 이미지 처리 시작")
+            # If the animation is not supported, process as a static image
             self._handle_static_image(file_path)
             media_type = 'webp_image'
         
@@ -255,12 +282,11 @@ class AnimationHandler(QObject):
         if self.parent and hasattr(self.parent, 'hide_loading_indicator'):
             self.parent.hide_loading_indicator()
             filename = os.path.basename(file_path)
-            # 애니메이션인 경우에도 프레임 수 정보 제거
+            # Remove frame count info even for animations   // 애니메이션인 경우에도 프레임 수 정보 제거
             if media_type == 'webp_animation':
-                self.parent.show_message(f"WEBP 이미지 로드 완료: {filename}, 크기: {size_mb:.2f}MB")
+                self.parent.show_message(f"WEBP image load complete: {filename}, Size: {size_mb:.2f}MB")
             else:
-                self.parent.show_message(f"WEBP 이미지 로드 완료: {filename}, 크기: {size_mb:.2f}MB")
-        
+                self.parent.show_message(f"WEBP image load complete: {filename}, Size: {size_mb:.2f}MB")
         # 이미지 정보 업데이트 (현재 미디어 인덱스/총 갯수 등)
         if self.parent and hasattr(self.parent, 'update_image_info'):
             self.parent.update_image_info()
@@ -310,11 +336,9 @@ class AnimationHandler(QObject):
             # 원래 재생 상태로 복원
             if was_running and self.current_movie.state() != QMovie.Running:
                 self.current_movie.start()
-                print("애니메이션 리사이징 후 재생 재개")
                 
             return True
         except Exception as e:
-            print(f"애니메이션 크기 조정 중 오류 발생: {e}")
             return False
     
     def seek_to_frame(self, frame_number):
@@ -332,8 +356,7 @@ class AnimationHandler(QObject):
                 self.current_movie.jumpToFrame(frame_number)
                 return True
             except Exception as e:
-                print(f"프레임 이동 중 오류 발생: {e}")
-        return False
+                return False
     
     def _slider_pressed(self):
         """슬라이더 드래그 시작 시 호출"""
@@ -371,14 +394,13 @@ class AnimationHandler(QObject):
                 # 재생 상태 반환 (정지 상태의 반대)
                 return is_playing
             except Exception as e:
-                print(f"애니메이션 재생 상태 토글 중 오류 발생: {e}")
+                pass
         return False
     
     def cleanup(self):
         """
         리소스를 정리합니다. 애니메이션을 정지하고 메모리를 해제합니다.
         """
-        print("애니메이션 핸들러 리소스 정리 시작...")
         
         # 이미지 라벨 초기화를 명시적으로 수행
         if hasattr(self, 'image_label') and self.image_label:
@@ -389,46 +411,35 @@ class AnimationHandler(QObject):
                 
                 # 이벤트 처리 강제로 수행하여 UI 갱신 (중요)
                 QApplication.processEvents()
-                print("이미지 라벨 초기화 완료")
             except Exception as e:
-                print(f"이미지 라벨 정리 중 오류: {e}")
+                pass
                 
         # 애니메이션 타이머 별도 정리 (첫번째로 정리해야 함)
         if hasattr(self, 'animation_timer') and self.animation_timer:
             try:
-                print("애니메이션 타이머 정리 시작...")
                 if self.animation_timer.isActive():
-                    print("활성화된 타이머 중지")
                     self.animation_timer.stop()
-                
-                # 연결된 모든 슬롯 해제
+                # Disconnect all connected slots
                 try:
-                    print("타이머 timeout 시그널에서 _update_slider_timer 메서드 연결 해제 시도")
                     self.animation_timer.timeout.disconnect(self._update_slider_timer)
-                    print("특정 슬롯에서 타이머 연결 해제 성공")
                 except TypeError:
-                    # 연결된 슬롯이 없을 경우 발생하는 예외 무시
-                    print("타이머에 연결된 특정 슬롯이 없음, 모든 슬롯 연결 해제 시도")
+                    # Ignore exception if there are no connected slots
                     try:
                         self.animation_timer.timeout.disconnect()
-                        print("모든 슬롯 연결 해제 성공")
                     except TypeError:
-                        print("타이머에 연결된 슬롯이 없음")
+                        pass
                     
-                # 부모의 타이머 목록에서 제거
+                # Remove from parent's timer list
                 if hasattr(self.parent, 'timers') and self.animation_timer in self.parent.timers:
                     self.parent.timers.remove(self.animation_timer)
-                    print("부모 객체의 타이머 목록에서 제거 완료")
                 
-                # 삭제 예약
+                # Schedule deletion
                 self.animation_timer.deleteLater()
-                # 이벤트 처리 강제로 수행하여 삭제 요청 처리
+                # Force event processing to handle deletion request
                 QApplication.processEvents()
                 self.animation_timer = None
-                print("애니메이션 타이머 삭제 예약 완료")
             except Exception as e:
-                print(f"애니메이션 타이머 정리 중 오류: {e}")
-                # 오류가 발생해도 참조는 해제
+                # Release reference even if an error occurs
                 self.animation_timer = None
         
         # 다른 모든 타이머 정리
@@ -452,7 +463,7 @@ class AnimationHandler(QObject):
                     # 각 타이머마다 이벤트 처리
                     QApplication.processEvents()
                 except Exception as e:
-                    print(f"타이머 정리 중 오류: {e}")
+                    pass
         
         # 타이머 리스트 초기화
         self.timers.clear()
@@ -468,32 +479,31 @@ class AnimationHandler(QObject):
                 # 저장된 프레임 변경 핸들러가 있으면 명시적으로 연결 해제
                 if hasattr(self, 'current_frame_changed_handler') and self.current_frame_changed_handler:
                     try:
-                        print("프레임 변경 핸들러 연결 해제 시도...")
-                        # 시그널이 여전히 연결되어 있는지 먼저 확인
+                        # Check if the signal is still connected
                         is_connected = False
                         try:
-                            # disconnect 시도로 확인
+                            # Check by attempting to disconnect
                             self.current_movie.frameChanged.disconnect(self.current_frame_changed_handler)
                             is_connected = True
                         except (TypeError, RuntimeError):
-                            # 이미 연결이 해제되었거나 연결이 없는 경우
-                            print("프레임 변경 핸들러가 이미 연결 해제되었거나 연결되지 않았습니다.")
+                            # In case it is already disconnected or not connected
+                            pass
                             
                         if is_connected:
-                            print("프레임 변경 핸들러 연결 해제 완료")
+                            pass
                         
-                        # 참조 해제
+                        # Release reference
                         self.current_frame_changed_handler = None
                     except Exception as e:
-                        print(f"프레임 변경 핸들러 연결 해제 중 예상치 못한 오류: {e}")
-                        # 참조는 여전히 해제
+                        pass
+                        # Still release reference
                         self.current_frame_changed_handler = None
                 else:
-                    print("저장된 프레임 변경 핸들러가 없습니다.")
+                    pass
                 
-                # QMovie에 연결된 모든 시그널 해제
+                # Disconnect all signals connected to QMovie
                 try:
-                    print("QMovie의 모든 시그널 연결 해제 시도...")
+                    pass
                     
                     # 각 시그널의 모든 연결을 더 안전하게 해제
                     signal_names = {
@@ -507,15 +517,14 @@ class AnimationHandler(QObject):
                     for name, signal in signal_names.items():
                         try:
                             signal.disconnect()
-                            print(f"시그널 '{name}'의 모든 연결 해제 성공")
                         except (TypeError, RuntimeError):
                             # 연결된 슬롯이 없거나 이미 연결 해제됨 - 오류 메시지 출력하지 않음
                             pass
                     
-                    print("QMovie의 모든 시그널 연결 해제 완료")
+                    pass
                     
                 except Exception as e:
-                    print(f"QMovie 시그널 연결 해제 중 일반 오류: {e}")
+                    pass
                 
                 # 핸들러 참조 해제
                 self.current_frame_changed_handler = None
@@ -527,22 +536,21 @@ class AnimationHandler(QObject):
                         self.current_movie.deleteLater()
                         # 이벤트 처리를 강제로 수행하여 삭제 요청 처리
                         QApplication.processEvents()
-                        print("QMovie 객체 삭제 요청 완료")
                     except Exception as e:
-                        print(f"QMovie 객체 삭제 요청 중 오류: {e}")
+                        pass
                 
                 # 부모 클래스에도 current_movie가 있을 수 있으므로 정리 요청
                 if self.parent and hasattr(self.parent, 'current_movie'):
                     try:
                         if self.parent.current_movie == self.current_movie:
                             self.parent.current_movie = None
-                            print("부모 객체의 QMovie 참조 해제 완료")
+                            pass
                     except Exception as e:
-                        print(f"부모 객체의 QMovie 참조 해제 중 오류: {e}")
+                        pass
                 
-                print("애니메이션 리소스 정리 완료")
+                pass
             except Exception as e:
-                print(f"애니메이션 정리 중 오류 발생: {e}")
+                pass
             
             # 참조 해제
             self.current_movie = None
@@ -556,12 +564,12 @@ class AnimationHandler(QObject):
                 # 한번 더 수행
                 gc.collect()
                 QApplication.processEvents()
-                print("가비지 컬렉션 실행 완료")
+                pass
             except Exception as e:
-                print(f"가비지 컬렉션 호출 중 오류: {e}")
+                pass
                 
         else:
-            print("정리할 애니메이션 객체가 없습니다.")
+            pass
     
     def rotate_static_image(self, file_path=None):
         """
@@ -575,13 +583,11 @@ class AnimationHandler(QObject):
         """
         file_path = file_path or self.current_file_path
         if not file_path or not os.path.exists(file_path):
-            print("회전할 이미지 파일이 없습니다.")
             return False
         
         # 이미지 로드
         image = QImage(file_path)
         if image.isNull():
-            print("이미지 로드 실패")
             return False
             
         # 이미지를 QPixmap으로 변환
@@ -607,7 +613,6 @@ class AnimationHandler(QObject):
                 # 일반 QLabel인 경우 기존 방식으로 이미지 표시
                 self.image_label.setPixmap(scaled_pixmap)
             
-            print(f"회전된 이미지 표시 완료: {scaled_pixmap.width()}x{scaled_pixmap.height()}")
             
             # 이미지 정보 업데이트
             if self.parent and hasattr(self.parent, 'update_image_info'):
@@ -629,11 +634,10 @@ class AnimationHandler(QObject):
             if os.path.exists(file_path):
                 size_mb = os.path.getsize(file_path) / (1024 * 1024)  # 바이트 -> 메가바이트
         except Exception as e:
-            print(f"파일 크기 계산 오류: {e}")
+            pass
         
         # 로딩 시작 메시지 표시
         filename = os.path.basename(file_path)
-        print(f"정적 이미지 로딩 시작: {filename}")
         
         # 이미지 로드
         image = QImage(file_path)
@@ -671,19 +675,18 @@ class AnimationHandler(QObject):
             if self.parent and hasattr(self.parent, 'update_image_info'):
                 self.parent.update_image_info()
             
-            # 로딩 완료 메시지
+            # Loading complete message
             file_type = "GIF" if file_path.lower().endswith('.gif') else "WEBP"
-            self.parent.show_message(f"{file_type} 이미지 로드 완료: {filename}, 크기: {size_mb:.2f}MB")
+            self.parent.show_message(f"{file_type} image load complete: {filename}, size: {size_mb:.2f}MB")
         else:
-            print(f"이미지 로드 실패: {file_path}")
             if self.parent:
-                self.parent.show_message(f"이미지 로드 실패: {filename}")
+                self.parent.show_message(f"Image load failed: {filename}")
         
-        # 재생 슬라이더 초기화
+        # Playback slider initialization
         if self.parent and hasattr(self.parent, 'playback_slider'):
             self.parent.playback_slider.setValue(0)
         
-        # 로딩 인디케이터 숨김
+        # Hide loading indicator
         if self.parent and hasattr(self.parent, 'hide_loading_indicator'):
             self.parent.hide_loading_indicator()
     
@@ -700,7 +703,7 @@ class AnimationHandler(QObject):
                     self.parent.time_label.setText(f"{current_frame + 1} / {self.current_movie.frameCount()}")
         except Exception as e:
             # 오류 발생 시 타이머 중지
-            print(f"슬라이더 업데이트 중 오류, 타이머를 중지합니다: {e}")
+            pass
             try:
                 if hasattr(self, 'animation_timer') and self.animation_timer and self.animation_timer.isActive():
                     self.animation_timer.stop()
@@ -733,7 +736,7 @@ class AnimationHandler(QObject):
             # 타이머 간격 범위 제한 (최소 10ms, 최대 200ms)
             timer_interval = max(10, min(timer_interval, 200))
         except Exception as e:
-            print(f"GIF 프레임 레이트 계산 오류: {e}")
+            pass
             timer_interval = 50  # 오류 발생 시 기본값 (50ms)
         
         # 이전 타이머가 있으면 정리
@@ -756,7 +759,7 @@ class AnimationHandler(QObject):
                 if hasattr(self.parent, 'timers') and self.animation_timer in self.parent.timers:
                     self.parent.timers.remove(self.animation_timer)
             except Exception as e:
-                print(f"타이머 정리 중 오류: {e}")
+                pass
         
         # 타이머 생성 및 설정
         self.animation_timer = QTimer(self.parent)
@@ -793,7 +796,7 @@ class AnimationHandler(QObject):
             # QMovie.Running 상태이면 재생 중
             return self.current_movie.state() == QMovie.Running
         except Exception as e:
-            print(f"재생 상태 확인 오류: {e}")
+            pass
             return False
     
     def _handle_rotated_frame(self, frame_number, transform):
@@ -840,9 +843,9 @@ class AnimationHandler(QObject):
         if self.parent and self.parent.current_media_type == 'webp_animation':
             success = self.scale_animation()
             if success:
-                print("WEBP 애니메이션 크기 조정 완료")
+                pass
             else:
-                print("WEBP 애니메이션 크기 조정 실패")
+                pass
         return success
     
     def scale_gif(self):
@@ -850,8 +853,8 @@ class AnimationHandler(QObject):
         if self.parent and self.parent.current_media_type == 'gif_animation':
             success = self.scale_animation()
             if success:
-                print("GIF 애니메이션 크기 조정 완료")
+                pass
             else:
-                print("GIF 애니메이션 크기 조정 실패")
+                pass
         return success
     

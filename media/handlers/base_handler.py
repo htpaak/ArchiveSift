@@ -77,8 +77,8 @@ class MediaHandler(ABC):
         return self.current_media_path is not None
     
     def resize(self):
-        """창 크기가 변경되었을 때 미디어 크기를 조정합니다."""
-        raise NotImplementedError("서브클래스에서 구현해야 합니다.")
+        """Adjust the media size when the window is resized."""  # 창 크기가 변경되었을 때 미디어 크기를 조정합니다.
+        raise NotImplementedError("Must be implemented in subclass.")  # 서브클래스에서 구현해야 합니다.
         
     def get_original_size(self):
         """

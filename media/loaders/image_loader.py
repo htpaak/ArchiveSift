@@ -35,7 +35,8 @@ class ImageLoader(QObject):
         """
         # 이미 로딩 중인지 확인
         if image_path in self.loader_threads and self.loader_threads[image_path].isRunning():
-            print(f"이미 로딩 중인 이미지: {os.path.basename(image_path)}")
+            pass
+            # print(f"이미 로딩 중인 이미지: {os.path.basename(image_path)}")
             return self.loader_threads[image_path]
         
         # 새 로더 생성
@@ -56,9 +57,11 @@ class ImageLoader(QObject):
             try:
                 self.loader_threads[image_path].terminate()
                 self.loader_threads[image_path].wait(100)  # 최대 100ms 대기
-                print(f"이미지 로딩 취소: {os.path.basename(image_path)}")
+                pass
+                # print(f"이미지 로딩 취소: {os.path.basename(image_path)}")
             except Exception as e:
-                print(f"로딩 취소 실패: {e}")
+                pass
+                # print(f"로딩 취소 실패: {e}")
             finally:
                 del self.loader_threads[image_path]
     
@@ -75,9 +78,11 @@ class ImageLoader(QObject):
                     loader.terminate()
                     loader.wait(100)  # 최대 100ms 대기
                 except Exception as e:
-                    print(f"로딩 취소 실패: {e}")
+                    pass
+                    # print(f"로딩 취소 실패: {e}")
                 del self.loader_threads[path]
-                print(f"이미지 로딩 취소: {os.path.basename(path)}")
+                pass
+                # print(f"이미지 로딩 취소: {os.path.basename(path)}")
     
     def cleanup(self):
         """모든 로더 스레드를 취소하고 정리합니다."""
@@ -88,7 +93,7 @@ class ImageLoader(QObject):
                     loader.wait(100)
                 except:
                     pass
-                print(f"이미지 로딩 취소 (정리): {os.path.basename(path)}")
+                # print(f"이미지 로딩 취소 (정리): {os.path.basename(path)}")
         self.loader_threads.clear()
     
     def is_loading(self, image_path):
@@ -141,7 +146,8 @@ class ImageLoaderThread(QThread):
                 from io import BytesIO
                 
                 # PSD 파일을 PIL Image로 열기
-                print(f"PSD 파일 로딩 시작: {self.image_path}")
+                pass
+                # print(f"PSD 파일 로딩 시작: {self.image_path}")
                 
                 # 이미지 크기 사전 확인 (매우 큰 이미지인 경우 축소 사본 사용)
                 try:
@@ -155,23 +161,27 @@ class ImageLoaderThread(QThread):
                             max_size = (original_width // 2, original_height // 2)
                             image = Image.open(self.image_path)
                             image.thumbnail(max_size, Image.LANCZOS)
-                            print(f"대형 PSD 파일 크기 조정: {original_size_mb:.2f}MB → 약 {original_size_mb/4:.2f}MB")
+                            pass
+                            # print(f"대형 PSD 파일 크기 조정: {original_size_mb:.2f}MB → 약 {original_size_mb/4:.2f}MB")
                         else:
                             image = Image.open(self.image_path)
                 except Exception as e:
                     # 미리보기 로드 실패 시 일반적인 방법으로 로드
-                    print(f"이미지 크기 확인 실패: {e}")
+                    pass
+                    # print(f"이미지 크기 확인 실패: {e}")
                     image = Image.open(self.image_path)
                 
                 # RGB 모드로 변환
                 if image.mode != 'RGB':
-                    print(f"이미지 모드 변환: {image.mode} → RGB")
+                    pass
+                    # print(f"이미지 모드 변환: {image.mode} → RGB")
                     image = image.convert('RGB')
                 
                 # ICC 프로파일 처리
                 if 'icc_profile' in image.info:
                     try:
-                        print("ICC 프로파일 변환 중...")
+                        pass
+                        # print("ICC 프로파일 변환 중...")
                         srgb_profile = ImageCms.createProfile('sRGB')
                         icc_profile = BytesIO(image.info['icc_profile'])
                         image = ImageCms.profileToProfile(
@@ -181,12 +191,14 @@ class ImageLoaderThread(QThread):
                             outputMode='RGB'
                         )
                     except Exception as icc_e:
-                        print(f"ICC 프로파일 변환 실패: {icc_e}")
+                        pass
+                        # print(f"ICC 프로파일 변환 실패: {icc_e}")
                         image = image.convert('RGB')
                 
                 # 변환된 이미지를 QPixmap으로 변환
                 buffer = BytesIO()
-                print("이미지를 PNG로 변환하는 중...")
+                pass
+                # print("이미지를 PNG로 변환하는 중...")
                 
                 # 메모리 사용량 최적화 - 압축률 조정 (0이 최소 압축, 9가 최대 압축)
                 compression_level = 6  # 기본값 6: 속도와 크기의 균형
@@ -194,16 +206,19 @@ class ImageLoaderThread(QThread):
                 pixmap = QPixmap()
                 
                 buffer_value = buffer.getvalue()
-                print(f"Buffer 크기: {len(buffer_value) / 1024:.2f} KB")
+                pass
+                # print(f"Buffer 크기: {len(buffer_value) / 1024:.2f} KB")
                 
                 if not pixmap.loadFromData(buffer_value):
-                    raise ValueError("QPixmap에 이미지 데이터를 로드할 수 없습니다")
+                    raise ValueError("Unable to load image data into QPixmap")
                     
                 buffer.close()
-                print("PSD 변환 완료")
+                pass
+                # print("PSD 변환 완료")
                 
             else:  # 일반 이미지
-                print(f"일반 이미지 로딩 시작: {self.image_path}")
+                pass
+                # print(f"일반 이미지 로딩 시작: {self.image_path}")
                 
                 # 파일 크기 확인
                 file_size_mb = os.path.getsize(self.image_path) / (1024 * 1024)
@@ -225,10 +240,11 @@ class ImageLoaderThread(QThread):
                 # 로딩 완료 신호 발생
                 self.loaded.emit(self.image_path, pixmap, img_size_mb)
             else:
-                self.error.emit(self.image_path, "이미지 데이터가 유효하지 않습니다")
+                self.error.emit(self.image_path, "Image data is invalid")
                 
         except Exception as e:
             import traceback
             error_details = traceback.format_exc()
-            print(f"이미지 로딩 오류: {e}\n{error_details}")
+            pass
+            # print(f"이미지 로딩 오류: {e}\n{error_details}")
             self.error.emit(self.image_path, str(e))

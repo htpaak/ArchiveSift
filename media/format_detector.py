@@ -17,7 +17,8 @@ class FormatDetector:
         
         # FormatDetector를 사용하여 파일 형식 감지
         file_format = FormatDetector.detect_format(image_path)
-        print(f"FormatDetector 감지 결과: {file_format}")
+        pass
+        # print(f"FormatDetector 감지 결과: {file_format}")
         
         return file_format, file_ext
         
@@ -92,10 +93,12 @@ class FormatDetector:
                 with Image.open(file_path) as img:
                     return 'image'
             except ImportError:
-                print("pillow-heif 라이브러리가 설치되지 않았습니다.")
+                pass
+                # print("pillow-heif 라이브러리가 설치되지 않았습니다.")
                 return None
         except Exception as e:
-            print(f"HEIC/HEIF 파일 처리 중 오류 발생: {e}")
+            pass
+            # print(f"HEIC/HEIF 파일 처리 중 오류 발생: {e}")
             return None
     
     @staticmethod
@@ -147,15 +150,18 @@ class FormatDetector:
             str: 'webp_animation' 또는 'webp_image'
         """
         try:
-            print(f"WEBP 분석 시작: {file_path}")
+            pass
+            # print(f"WEBP 분석 시작: {file_path}")
             # QImageReader를 사용하여 애니메이션 지원 여부 확인
             reader = QImageReader(file_path)
             if reader.supportsAnimation():
                 # 프레임 수를 확인하여 1개 이상이면 애니메이션으로 간주
                 frame_count = reader.imageCount()
-                print(f"QImageReader 프레임 수: {frame_count}")
+                pass
+                # print(f"QImageReader 프레임 수: {frame_count}")
                 if frame_count > 1:
-                    print("WEBP 애니메이션으로 감지됨")
+                    pass
+                    # print("WEBP 애니메이션으로 감지됨")
                     return 'webp_animation'
             
             # PIL을 사용한 추가 확인 방법
@@ -165,24 +171,29 @@ class FormatDetector:
                     is_animated = False
                     if hasattr(img, "is_animated"):
                         is_animated = img.is_animated
-                        print(f"PIL is_animated: {is_animated}")
+                        pass
+                        # print(f"PIL is_animated: {is_animated}")
                     n_frames = 1
                     if hasattr(img, "n_frames"):
                         n_frames = img.n_frames
-                        print(f"PIL n_frames: {n_frames}")
+                        pass
+                        # print(f"PIL n_frames: {n_frames}")
                         
                     if is_animated or n_frames > 1:
-                        print("PIL에서 WEBP 애니메이션으로 감지됨")
+                        pass
+                        # print("PIL에서 WEBP 애니메이션으로 감지됨")
                         return 'webp_animation'
             except Exception as e:
                 # PIL로 확인 실패 시 QImageReader 결과 사용
-                print(f"PIL로 WEBP 확인 실패: {e}")
                 pass
+                # print(f"PIL로 WEBP 확인 실패: {e}")
                 
             # 애니메이션이 아닌 경우
-            print("정적 WEBP 이미지로 감지됨")
+            pass
+            # print("정적 WEBP 이미지로 감지됨")
             return 'webp_image'
         except Exception as e:
             # 오류 발생 시 기본값으로 정적 이미지 반환
-            print(f"WEBP 분석 중 오류 발생: {e}")
+            pass
+            # print(f"WEBP 분석 중 오류 발생: {e}")
             return 'webp_image' 
