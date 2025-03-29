@@ -12,3 +12,4 @@ from ui.components.control_buttons import (
 )
 from ui.components.media_display import MediaDisplay
 from ui.components.custom_tooltip import CustomTooltip, TooltipManager
+from ui.components.editable_index import EditableIndexLabel

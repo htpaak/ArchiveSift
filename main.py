@@ -482,9 +482,14 @@ class ArchiveSift(QWidget):
         self.image_label = MediaDisplay()
         
         # 이미지 정보 표시 레이블 (파일 이름, 크기 등 표시)
-        self.image_info_label = QLabel(self)
+        # QLabel 대신 EditableIndexLabel 사용
+        from ui.components import EditableIndexLabel
+        self.image_info_label = EditableIndexLabel(self)
         self.image_info_label.setAlignment(Qt.AlignCenter)  # 중앙 정렬
         self.image_info_label.hide()  # 처음에는 숨김 (이미지 로드 후 표시)
+        
+        # 인덱스 변경 시그널 연결
+        self.image_info_label.indexChanged.connect(self.go_to_index)
         
         # 하단 컨트롤 레이아웃
         bottom_layout = QVBoxLayout()
@@ -1261,12 +1266,9 @@ class ArchiveSift(QWidget):
 
         # 이미지 파일이 있을 때만 정보 표시
         if self.image_files and hasattr(self, 'current_image_path'):
-            # 기본 이미지 인덱스 정보
-            image_info = f"{self.current_index + 1} / {len(self.image_files)}"
-            
-            # 파일 크기 정보는 표시하지 않음
-            
-            self.image_info_label.setText(image_info)
+            # 인덱스 정보 업데이트
+            total_files = len(self.image_files)
+            self.image_info_label.update_index(self.current_index, total_files)
             
             self.image_info_label.setStyleSheet(f"""
                 QLabel {{
@@ -1276,6 +1278,19 @@ class ArchiveSift(QWidget):
                     padding: {padding}px {padding + 4}px;
                     border-radius: 3px;
                     font-weight: normal;
+                }}
+                QLabel:hover {{
+                    background-color: rgba(72, 93, 114, 0.9);
+                }}
+                QLineEdit {{
+                    color: white;
+                    background-color: rgba(52, 73, 94, 0.9);
+                    font-size: {font_size}px;
+                    padding: {padding}px {padding + 4}px;
+                    border-radius: 3px;
+                    border: 1px solid #7f8c8d;
+                    font-weight: normal;
+                    selection-background-color: #3498db;
                 }}
             """)
             
@@ -2246,6 +2261,28 @@ class ArchiveSift(QWidget):
         """GitHub Discussions 페이지를 웹 브라우저에서 엽니다."""
         feedback_url = "https://github.com/htpaak/ArchiveSift/discussions"
         QDesktopServices.openUrl(QUrl(feedback_url))
+
+    def go_to_index(self, index):
+        """Go to the specified index in the image list."""
+        if 0 <= index < len(self.image_files):
+            # 인덱스 및 상태 업데이트
+            self.current_index = index
+            self.state_manager.set_state("current_index", self.current_index)
+            
+            # 현재 경로 업데이트
+            current_path = self.image_files[self.current_index]
+            self.current_image_path = current_path
+            
+            # file_navigator와 동기화
+            if hasattr(self, 'file_navigator') and self.file_navigator:
+                self.file_navigator.set_current_index(self.current_index)
+            
+            # 이미지 표시
+            self.show_image(self.image_files[self.current_index])
+            
+            # UI 업데이트
+            self.update_image_info()
+            self.update_bookmark_ui()
 
 # Main function
 def main():

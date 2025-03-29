@@ -51,6 +51,26 @@ class FileNavigator:
             
         return True
     
+    def set_current_index(self, index):
+        """
+        현재 파일 인덱스를 직접 설정합니다.
+        
+        매개변수:
+            index (int): 설정할 인덱스
+            
+        반환값:
+            bool: 성공 여부
+        """
+        if not self.files:
+            return False
+            
+        # 유효한 인덱스 범위 확인
+        if 0 <= index < len(self.files):
+            self.current_index = index
+            return True
+        else:
+            return False
+    
     def get_current_file(self):
         """
         현재 선택된 파일 경로를 반환합니다.
