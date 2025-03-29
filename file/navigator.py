@@ -92,46 +92,56 @@ class FileNavigator:
     
     def next_file(self, show_message=True):
         """
-        다음 파일로 이동합니다.
+        Move to the next file.
+        이동할 다음 파일.
         
-        매개변수:
-            show_message (bool): 경계에 도달했을 때 메시지 표시 여부
+        Parameters:
+            show_message (bool): Whether to display a message when the boundary is reached.
+            show_message (bool): 경계에 도달했을 때 메시지 표시 여부.
             
-        반환값:
+        Returns:
+            tuple: (success status, file path)
             tuple: (성공 여부, 파일 경로)
         """
         if not self.files:
             return False, None
             
+        # If last file
         # 마지막 파일인 경우
         if self.current_index >= len(self.files) - 1:
             if show_message and self.parent and hasattr(self.parent, 'show_message'):
-                self.parent.show_message("마지막 이미지입니다.")
+                self.parent.show_message("This is the last image.")
             return False, None
             
+        # Move to the next file
         # 다음 파일로 이동
         self.current_index += 1
         return True, self.files[self.current_index]
     
     def previous_file(self, show_message=True):
         """
-        이전 파일로 이동합니다.
+        Move to the previous file.
+        이전 파일로 이동.
         
-        매개변수:
-            show_message (bool): 경계에 도달했을 때 메시지 표시 여부
+        Parameters:
+            show_message (bool): Whether to display a message when the boundary is reached.
+            show_message (bool): 경계에 도달했을 때 메시지 표시 여부.
             
-        반환값:
+        Returns:
+            tuple: (success status, file path)
             tuple: (성공 여부, 파일 경로)
         """
         if not self.files:
             return False, None
             
+        # If first file
         # 첫 번째 파일인 경우
         if self.current_index <= 0:
             if show_message and self.parent and hasattr(self.parent, 'show_message'):
-                self.parent.show_message("첫 번째 이미지입니다.")
+                self.parent.show_message("This is the first image.")
             return False, None
             
+        # Move to the previous file
         # 이전 파일로 이동
         self.current_index -= 1
         return True, self.files[self.current_index]
@@ -167,33 +177,33 @@ class FileNavigator:
         
     def go_to_index(self, index, show_message=True):
         """
-        특정 인덱스로 이동합니다.
+        Move to a specific index.
         
-        매개변수:
-            index (int): 이동할 인덱스
-            show_message (bool): 경계에 도달했을 때 메시지 표시 여부
+        Parameters:
+            index (int): Index to move to
+            show_message (bool): Whether to display a message when boundaries are reached
             
-        반환값:
-            tuple: (성공 여부, 파일 경로)
+        Returns:
+            tuple: (success status, file path)
         """
         if not self.files:
             return False, None
             
-        # 인덱스 범위 확인
+        # Check index range
         if index < 0:
             if show_message and self.parent and hasattr(self.parent, 'show_message'):
-                self.parent.show_message("첫 번째 이미지입니다.")
+                self.parent.show_message("This is the first image.")
             index = 0
         elif index >= len(self.files):
             if show_message and self.parent and hasattr(self.parent, 'show_message'):
-                self.parent.show_message("마지막 이미지입니다.")
+                self.parent.show_message("This is the last image.")
             index = len(self.files) - 1
             
-        # 인덱스가 변경되지 않았으면 현재 파일 반환
+        # If index is unchanged, return current file
         if index == self.current_index:
             return False, self.files[self.current_index]
             
-        # 인덱스 변경
+        # Update index
         self.current_index = index
         return True, self.files[self.current_index]
         
@@ -214,19 +224,25 @@ class FileNavigator:
             
     def go_to_file(self, file_path, show_message=True):
         """
-        특정 파일로 이동합니다.
+        Navigate to a specific file.  
+        특정 파일로 이동합니다.  
         
-        매개변수:
-            file_path (str): 이동할 파일 경로
+        Parameters:  
+        매개변수:  
+            file_path (str): file path to navigate to  
+            file_path (str): 이동할 파일 경로  
+            show_message (bool): whether to display a message when the boundary is reached  
             show_message (bool): 경계에 도달했을 때 메시지 표시 여부
             
-        반환값:
+        Returns:  
+        반환값:  
+            tuple: (success status, file path)  
             tuple: (성공 여부, 파일 경로)
         """
         index = self.find_file_index(file_path)
         if index == -1:
             if show_message and self.parent and hasattr(self.parent, 'show_message'):
-                self.parent.show_message("파일을 찾을 수 없습니다.")
+                self.parent.show_message("File not found.")
             return False, None
             
         return self.go_to_index(index, show_message)

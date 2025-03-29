@@ -49,139 +49,138 @@ class FileOperations:
     
     def copy_file_to_folder(self, file_path, folder_path):
         """
+        Copies the file to the specified folder.
         파일을 지정된 폴더로 복사합니다.
         
-        매개변수:
+        Parameters:
+            file_path: the source file path to copy
             file_path: 복사할 파일 경로
+            folder_path: the target folder path
             folder_path: 대상 폴더 경로
             
-        반환값:
-            성공 여부(bool)와 복사된 파일 경로(string)
+        Return value:
+            A tuple containing a boolean indicating success and the copied file path (string)
+            성공 여부(bool)와 복사된 파일 경로(string)를 포함하는 튜플
         """
         if not file_path or not folder_path:
             return False, None
             
         try:
+            # Generate a unique file path
             # 고유한 파일 경로 생성
             target_path = self.get_unique_file_path(folder_path, file_path)
             
+            # Copy the file (including metadata)
             # 파일 복사 (메타데이터 포함)
             shutil.copy2(file_path, target_path)
             
+            # If the full path is too long, shorten the displayed path
             # 전체 경로가 너무 길 경우 표시용 경로 축약
             path_display = target_path
             if len(path_display) > 60:
+                # Display only the drive and the last 2 folders
                 # 드라이브와 마지막 2개 폴더만 표시
                 drive, tail = os.path.splitdrive(path_display)
                 parts = tail.split(os.sep)
                 if len(parts) > 2:
+                    # Drive + '...' + the last 2 folders
                     # 드라이브 + '...' + 마지막 2개 폴더
                     path_display = f"{drive}{os.sep}...{os.sep}{os.sep.join(parts[-2:])}"
             
+            # Display message
             # 메시지 표시
-            self.viewer.show_message(f"{path_display} 으로 파일 복사")
+            self.viewer.show_message(f"Copied file to {path_display}")
             
             return True, target_path
             
         except Exception as e:
+            # Log error
             # 오류 발생 시 로그 출력
-            print(f"파일 복사 중 오류 발생: {e}")
-            self.viewer.show_message(f"파일 복사 실패: {str(e)}")
+            self.viewer.show_message(f"File copy failed: {str(e)}")
             return False, None
     
     def delete_file(self, file_path, confirm=True):
         """
-        파일을 삭제합니다 (휴지통으로 이동).
+        Deletes the file (moves to recycle bin).
         
-        이 메서드는 파일을 안전하게 휴지통으로 이동합니다. 특히 GIF 및 애니메이션 파일에 대한
-        특별 처리 로직을 포함하여 파일 핸들 관련 문제를 해결합니다.
+        This method safely moves the file to the recycle bin. It includes special handling logic for GIF and animated files to resolve file handle issues.
         
-        매개변수:
-            file_path: 삭제할 파일 경로
-            confirm: 삭제 전 확인 대화상자 표시 여부
+        Parameters:
+            file_path: the file path to delete
+            confirm: whether to display a confirmation dialog before deletion
             
-        반환값:
-            성공 여부(bool)와 다음 표시할 파일 경로(string)
+        Returns:
+            A tuple containing a boolean indicating success and the next file path to display (string)
         """
-        log_info(f"삭제 시도: {file_path}")
         
         if not file_path:
-            self.viewer.show_message("삭제할 이미지가 없습니다")
+            self.viewer.show_message("No image to delete")
             return False, None
             
         try:
-            # Path 객체 사용 (크로스 플랫폼 호환성 향상)
+            # Using Path object (Enhanced cross-platform compatibility)
             file_path_obj = Path(file_path).resolve()
             file_name = file_path_obj.name
             file_path_str = str(file_path_obj)
             
-            log_debug(f"경로 해석: {file_path_obj}")
+            log_debug(f"Path resolved: {file_path_obj}")
             
-            # 파일이 존재하는지 확인
+            # Check if file exists
             if not file_path_obj.is_file():
-                self.viewer.show_message(f"파일이 존재하지 않습니다: {file_name}")
-                log_error(f"파일 없음: {file_path_obj}")
+                self.viewer.show_message(f"File does not exist: {file_name}")
+                log_error(f"File not found: {file_path_obj}")
                 return False, None
                 
-            # 삭제 전 확인 메시지
+            # Confirmation message before deletion
             if confirm:
                 msg_box = QMessageBox(self.viewer)
-                msg_box.setWindowTitle('파일 삭제')
-                msg_box.setText(f"정말로 파일을 휴지통으로 이동하시겠습니까?\n{file_name}")
+                msg_box.setWindowTitle('File Deletion')
+                msg_box.setText(f"Are you sure you want to move this file to the recycle bin?\n{file_name}")
                 msg_box.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
                 msg_box.setDefaultButton(QMessageBox.No)
                 
                 reply = msg_box.exec_()
-                print(f"사용자 응답: {reply == QMessageBox.Yes}")  # 디버깅 로그
                 
                 if reply != QMessageBox.Yes:
                     return False, None
-            
-            print(f"파일 삭제 시작: {file_path_str}")
             
             # 타이머 정지 (있는 경우)
             if hasattr(self.viewer, 'pause_all_timers'):
                 self.viewer.pause_all_timers()
             
-            # GIF/애니메이션 관련 명시적 정리를 위한 특별 처리
+            # Special handling for explicit cleanup related to GIF/animation
             file_ext = os.path.splitext(file_path_str)[1].lower()
             if file_ext in ['.gif', '.webp']:
-                print(f"GIF/애니메이션 파일 특별 정리 시작: {file_ext}")
-                
-                # 1. 애니메이션 핸들러의 QMovie 중지 및 해제
+                # 1. Stop and release the QMovie of the animation handler
                 if hasattr(self.viewer, 'animation_handler'):
-                    print("애니메이션 핸들러 특별 정리...")
                     if hasattr(self.viewer.animation_handler, 'stop_animation'):
                         self.viewer.animation_handler.stop_animation()
                     
-                    # 애니메이션 핸들러의 QMovie 객체 정리
+                    # Clean up the QMovie object of the animation handler
                     if hasattr(self.viewer.animation_handler, 'current_movie') and self.viewer.animation_handler.current_movie:
-                        print("현재 QMovie 객체 정리...")
                         try:
                             movie = self.viewer.animation_handler.current_movie
                             movie.stop()
-                            # 시그널 연결 해제
+                            # Disconnect signal connections
                             try:
                                 movie.frameChanged.disconnect()
                                 movie.stateChanged.disconnect()
                                 movie.finished.disconnect()
                             except:
                                 pass
-                            movie.setDevice(None)  # 파일에서 연결 해제
+                            movie.setDevice(None)  # Disconnect from file
                             movie.deleteLater()
                             self.viewer.animation_handler.current_movie = None
                         except Exception as e:
-                            print(f"QMovie 객체 정리 오류: {e}")
+                            pass
                             
                 # 2. 이미지 레이블에서 QMovie 객체 제거
                 if hasattr(self.viewer, 'image_label'):
-                    print("이미지 레이블에서 QMovie 연결 해제...")
                     self.viewer.image_label.setMovie(None)
                     self.viewer.image_label.clear()
                 
                 # 3. GIF 캐시에서 해당 파일 항목 제거
                 if hasattr(self.viewer, 'gif_cache') and self.viewer.gif_cache:
-                    print("GIF 캐시에서 항목 제거...")
                     for key in list(self.viewer.gif_cache.cache.keys()):
                         if isinstance(key, str) and file_path_str in key:
                             try:
@@ -195,10 +194,9 @@ class FileOperations:
                                     except:
                                         pass
                                     item.deleteLater()
-                                print(f"GIF 캐시에서 항목 제거 완료: {key}")
                                 del self.viewer.gif_cache.cache[key]
                             except Exception as e:
-                                print(f"GIF 캐시 항목 제거 오류: {key} - {e}")
+                                pass
             
             # 완전한 정리를 위한 이벤트 처리와 가비지 컬렉션
             for _ in range(3):
@@ -211,46 +209,36 @@ class FileOperations:
             next_file = None
             
             try:
-                # 휴지통으로 이동 시도
+                # Attempt to move to trash  // 휴지통으로 이동 시도 → 영어로 번역됨
                 from send2trash import send2trash
-                log_info(f"send2trash로 휴지통 이동 시도: {file_path_str}")
-                
-                # 파일 삭제 실행
+                # Execute file deletion  // 파일 삭제 실행 → 영어로 번역됨
                 send2trash(file_path_str)
                 deleted = not os.path.exists(file_path_str)
-                
-                log_info(f"휴지통 이동 결과: {'성공' if deleted else '실패'}")
             except Exception as e:
-                log_error(f"휴지통 이동 실패: {e}")
-                # 그냥 실패 처리
+                # Just handle failure  // 그냥 실패 처리 → 영어로 번역됨
                 deleted = False
-                self.viewer.show_message("파일을 휴지통으로 이동할 수 없습니다")
-                # 이벤트 처리
+                self.viewer.show_message("Cannot move file to trash")  
+                # Process events  // 이벤트 처리 → 영어로 번역됨
                 QApplication.processEvents()
                 time.sleep(0.1)
             
-            # 삭제 성공 시 후처리
+            # Post-processing after successful deletion  // 삭제 성공 시 후처리 → 영어로 번역됨
             if deleted:
-                log_info("파일이 성공적으로 삭제되었습니다")
-                
-                # 북마크에서 제거 (있는 경우)
+                # Remove from bookmarks (if exists)  // 북마크에서 제거 (있는 경우) → 영어로 번역됨
                 if hasattr(self.viewer, 'bookmark_manager') and file_path in self.viewer.bookmark_manager.bookmarks:
                     self.viewer.bookmark_manager.bookmarks.discard(file_path)
                     self.viewer.bookmark_manager.save_bookmarks()
                     if hasattr(self.viewer.bookmark_manager, 'update_bookmark_button_state'):
                         self.viewer.bookmark_manager.update_bookmark_button_state()
                 
-                self.viewer.show_message("파일이 휴지통으로 이동되었습니다")
+                self.viewer.show_message("The file has been moved to trash") 
             else:
-                self.viewer.show_message("파일 삭제에 실패했습니다. 다른 프로그램에서 사용 중일 수 있습니다.")
+                self.viewer.show_message("File deletion failed. It may be in use by another program.")  
                 
             return deleted, next_file
                 
         except Exception as e:
-            import traceback
-            error_details = traceback.format_exc()
-            print(f"삭제 중 예외 발생: {e}\n{error_details}")
-            self.viewer.show_message(f"삭제 중 오류 발생: {str(e)}")
+            self.viewer.show_message(f"Error occurred during deletion: {str(e)}")
             return False, None
     
     def _cleanup_resources_for_file(self, file_path):
@@ -305,66 +293,81 @@ class FileOperations:
     
     def delete_current_image(self, confirm=True):
         """
+        Deletes the current image and moves to the next image.
         현재 이미지를 삭제하고 다음 이미지로 이동합니다.
         
-        매개변수:
+        Parameters:
+            confirm (bool): Whether to display a confirmation dialog before deletion
             confirm (bool): 삭제 전 확인 대화상자 표시 여부
             
-        반환값:
+        Return Value:
+            bool: Deletion success status
             bool: 삭제 성공 여부
         """
+        # Get the current file
         # 현재 파일 가져오기
         if not hasattr(self.viewer, 'file_navigator') or not self.viewer.file_navigator:
-            self.viewer.show_message("파일 네비게이터가 초기화되지 않았습니다")
+            self.viewer.show_message("File navigator is not initialized")
+            # 파일 네비게이터가 초기화되지 않았습니다 -> File navigator is not initialized
             return False
             
         current_file = self.viewer.file_navigator.get_current_file()
         if not current_file:
-            self.viewer.show_message("삭제할 이미지가 없습니다")
+            self.viewer.show_message("No image available for deletion")
+            # 삭제할 이미지가 없습니다 -> No image available for deletion
             return False
         
         try:
+            # Get the next file information before deletion (if needed)
             # 삭제 전에 미리 다음 파일 정보 가져오기 (필요한 경우)
             next_file = None
             if hasattr(self.viewer, 'image_files') and len(self.viewer.image_files) > 1:
                 _, next_file = self.viewer.file_navigator.peek_next_file()
                 
+            # Attempt to delete the file
             # 파일 삭제 시도
             success, _ = self.delete_file(current_file, confirm=confirm)
             
             if not success:
                 return False
                 
+            # Remove the file from the navigator
             # 내비게이터에서 파일 제거
             nav_success, next_file_after_deletion = self.viewer.file_navigator.delete_current_file()
             
             if not nav_success:
-                self.viewer.show_message("파일 목록 업데이트 실패")
+                self.viewer.show_message("Failed to update file list")
+                # 파일 목록 업데이트 실패 -> Failed to update file list
                 return False
                 
+            # Update current index and file list
             # 현재 인덱스와 파일 목록 업데이트
             self.viewer.current_index = self.viewer.file_navigator.get_current_index()
             self.viewer.image_files = self.viewer.file_navigator.get_files()
             
+            # Check if any images remain
             # 이미지가 남아있는지 확인
             if not self.viewer.image_files:
+                # No images left to display
                 # 더 이상 표시할 이미지가 없음
                 self.viewer.image_label.clear()
                 self.viewer.current_image_path = ""
-                self.viewer.show_message("모든 이미지가 삭제되었습니다")
+                self.viewer.show_message("All images have been deleted")
+                # 모든 이미지가 삭제되었습니다 -> All images have been deleted
                 return True
                 
+            # Display the next image if available
             # 새로운 다음 파일 있으면 표시
             if next_file_after_deletion:
-                print(f"삭제 후 다음 이미지로 이동: {next_file_after_deletion}")
                 self.viewer.show_image(next_file_after_deletion)
             else:
+                # If no next file, display the file at the current index
                 # 다음 파일이 없으면 현재 인덱스의 파일 표시
                 current_file = self.viewer.file_navigator.get_current_file()
                 if current_file:
-                    print(f"현재 인덱스의 파일 표시: {current_file}")
                     self.viewer.show_image(current_file)
                 else:
+                    # If no file exists, display only a message
                     # 파일이 없으면 메시지만 표시
                     self.viewer.image_label.clear()
                     self.viewer.current_image_path = ""
@@ -374,6 +377,6 @@ class FileOperations:
         except Exception as e:
             import traceback
             error_details = traceback.format_exc()
-            print(f"이미지 삭제 중 오류 발생: {e}\n{error_details}")
-            self.viewer.show_message(f"이미지 삭제 실패: {str(e)}")
+            self.viewer.show_message(f"Image deletion failed: {str(e)}")
+            # 이미지 삭제 중 오류 발생 -> Image deletion failed
             return False 

@@ -115,25 +115,30 @@ class FileBrowser:
     
     def get_media_files(self, folder_path):
         """
+        Retrieves a list of all supported media files from the specified folder.
         지정된 폴더에서 지원하는 모든 미디어 파일 목록을 가져옵니다.
         
-        매개변수:
-            folder_path (str): 미디어 파일을 검색할 폴더 경로
+        Parameters:
+            folder_path (str): Folder path to search for media files
+            매개변수:
+                folder_path (str): 미디어 파일을 검색할 폴더 경로
             
-        반환값:
-            list: 미디어 파일 경로 목록
+        Returns:
+            list: List of media file paths
+            반환값:
+                list: 미디어 파일 경로 목록
         """
+        # Return an empty list if the folder does not exist
         # 폴더가 존재하지 않으면 빈 목록 반환
         if not os.path.exists(folder_path):
-            print(f"폴더가 존재하지 않습니다: {folder_path}")
             return []
             
         try:
+            # Return a list of all file paths with supported extensions in the folder
             # 폴더 내에서 지원하는 확장자를 가진 모든 파일 경로 목록 반환
             return [os.path.join(folder_path, f) for f in os.listdir(folder_path) 
                     if any(f.lower().endswith(ext) for ext in self.valid_extensions)]
         except Exception as e:
-            print(f"폴더에서 파일을 가져오는 중 오류 발생: {e}")
             return []
             
     def get_folder_name(self, path):
