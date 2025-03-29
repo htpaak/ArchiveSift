@@ -132,7 +132,7 @@ class BookmarkButton(ControlButton):
         """북마크 버튼 전용 스타일 설정"""
         self.setStyleSheet("""
             QPushButton {
-                background-color: rgba(52, 73, 94, 0.6);  /* 노란색 배경 */
+                background-color: rgba(52, 73, 94, 0.6); 
                 color: white;
                 border: none;
                 padding: 8px;
@@ -140,7 +140,7 @@ class BookmarkButton(ControlButton):
                 font-size: 12px;
             }
             QPushButton:hover {
-                background-color: rgba(52, 73, 94, 1.0);  /* 호버 시 더 진한 노란색 */
+                background-color: rgba(52, 73, 94, 1.0); 
             }
         """)
         
@@ -154,7 +154,7 @@ class BookmarkButton(ControlButton):
         if is_bookmarked:
             self.setStyleSheet("""
                 QPushButton {
-                    background-color: rgba(241, 196, 15, 0.9);  /* 활성화 시 진한 노란색 */
+                    background-color: rgba(241, 196, 15, 0.9);
                     color: white;
                     border: none;
                     padding: 8px;
@@ -162,7 +162,7 @@ class BookmarkButton(ControlButton):
                     font-size: 12px;
                 }
                 QPushButton:hover {
-                    background-color: rgba(241, 196, 15, 1.0);  /* 호버 시 주황색 */
+                    background-color: rgba(241, 196, 15, 1.0); 
                 }
             """)
         else:
@@ -204,7 +204,7 @@ class UILockButton(ControlButton):
             self.setText("🔒")  # 잠금 아이콘
             self.setStyleSheet("""
                 QPushButton {
-                    background-color: rgba(231, 76, 60, 0.9);  /* 빨간색 배경 */
+                    background-color: rgba(231, 76, 60, 0.9); 
                     color: white;
                     border: none;
                     padding: 8px;
@@ -212,7 +212,7 @@ class UILockButton(ControlButton):
                     font-size: 12px;
                 }
                 QPushButton:hover {
-                    background-color: rgba(231, 76, 60, 1.0);  /* 호버 시 더 진한 빨간색 */
+                    background-color: rgba(231, 76, 60, 1.0); 
                 }
             """)
         else:
@@ -361,7 +361,7 @@ class TitleLockButton(TitleBarButton):
             self.setText("🔒")  # 잠금 아이콘
             self.setStyleSheet("""
                 QPushButton {
-                    background-color: rgba(231, 76, 60, 0.9);  /* 빨간색 배경 */
+                    background-color: rgba(231, 76, 60, 0.9); 
                     color: white;
                     border: none;
                     padding: 8px;
@@ -369,7 +369,7 @@ class TitleLockButton(TitleBarButton):
                     font-size: 12px;
                 }
                 QPushButton:hover {
-                    background-color: rgba(231, 76, 60, 1.0);  /* 호버 시 더 진한 빨간색 */
+                    background-color: rgba(231, 76, 60, 1.0); 
                 }
             """)
         else:

@@ -32,7 +32,7 @@ class PreferencesDialog(QDialog):
             mouse_settings: 현재 저장된 마우스 설정 (없으면 기본값 사용)
         """
         super().__init__(parent)
-        self.setWindowTitle("환경 설정")  # 창의 제목을 설정해요
+        self.setWindowTitle("Environment Settings")  # 창의 제목을 설정해요
         self.setMinimumWidth(900)  # 창의 최소 너비
         self.setMinimumHeight(600)  # 창의 최소 높이
         
@@ -143,30 +143,30 @@ class PreferencesDialog(QDialog):
         # 키 이름 매핑은 그대로 유지
         # 코드에서 사용하는 키 이름을 사용자에게 보여줄 때 이 이름으로 바꿔요
         self.key_names = {
-            "play_pause": "재생/일시정지",
-            "next_image": "다음 이미지",
-            "prev_image": "이전 이미지",
-            "rotate_clockwise": "시계 방향 회전",
-            "rotate_counterclockwise": "반시계 방향 회전",
-            "volume_up": "볼륨 증가",
-            "volume_down": "볼륨 감소",
-            "toggle_mute": "음소거 토글",
-            "delete_image": "이미지 삭제",
-            "toggle_fullscreen": "전체화면 전환",
-            "toggle_maximize_state": "최대화 전환"
+            "play_pause": "Play/Pause",
+            "next_image": "Next Image",
+            "prev_image": "Previous Image",
+            "rotate_clockwise": "Rotate Clockwise",
+            "rotate_counterclockwise": "Rotate Counterclockwise",
+            "volume_up": "Volume Up",
+            "volume_down": "Volume Down",
+            "toggle_mute": "Toggle Mute",
+            "delete_image": "Delete Image",
+            "toggle_fullscreen": "Toggle Fullscreen",
+            "toggle_maximize_state": "Toggle Maximize"
         }
         
         # 마우스 버튼 이름 매핑
         self.mouse_button_names = {
-            "middle_click": "중간 버튼 클릭",
-            "right_click": "오른쪽 버튼 클릭",
-            "double_click": "더블 클릭",
-            "wheel_up": "휠 위로",
-            "wheel_down": "휠 아래로",
-            "ctrl_wheel_up": "Ctrl + 휠 위로",
-            "ctrl_wheel_down": "Ctrl + 휠 아래로",
-            "shift_wheel_up": "Shift + 휠 위로",
-            "shift_wheel_down": "Shift + 휠 아래로"
+            "middle_click": "Middle Click",
+            "right_click": "Right Click",
+            "double_click": "Double Click",
+            "wheel_up": "Wheel Up",
+            "wheel_down": "Wheel Down",
+            "ctrl_wheel_up": "Ctrl + Wheel Up",
+            "ctrl_wheel_down": "Ctrl + Wheel Down",
+            "shift_wheel_up": "Shift + Wheel Up",
+            "shift_wheel_down": "Shift + Wheel Down"
         }
         
         # 메인 레이아웃 - 수평 레이아웃으로 변경
@@ -204,7 +204,7 @@ class PreferencesDialog(QDialog):
         self.left_buttons = []
         
         # 키보드 단축키 버튼
-        self.keyboard_button = QPushButton("키보드 단축키")
+        self.keyboard_button = QPushButton("Keyboard Shortcuts")
         self.keyboard_button.setCheckable(True)  # 버튼을 체크 가능하게 만들어요 (눌렀을 때 눌린 상태 유지)
         self.keyboard_button.setChecked(True)    # 처음에는 이 버튼이 선택된 상태로 시작해요
         self.keyboard_button.setStyleSheet(button_style)
@@ -215,7 +215,7 @@ class PreferencesDialog(QDialog):
         self.left_buttons.append(self.keyboard_button)
         
         # 테마 버튼 (지금은 작동하지 않지만 나중에 추가할 기능이에요)
-        self.theme_button = QPushButton("마우스 설정")
+        self.theme_button = QPushButton("Mouse Settings")
         self.theme_button.setCheckable(True)
         self.theme_button.setStyleSheet(button_style)
         self.theme_button.setIcon(QIcon("./icons/theme.png"))
@@ -225,7 +225,7 @@ class PreferencesDialog(QDialog):
         self.left_buttons.append(self.theme_button)
         
         # 일반 설정 버튼 (지금은 작동하지 않지만 나중에 추가할 기능이에요)
-        self.general_button = QPushButton("일반 설정")
+        self.general_button = QPushButton("General Settings")
         self.general_button.setCheckable(True)
         self.general_button.setStyleSheet(button_style)
         self.general_button.setIcon(QIcon("./icons/settings.png"))
@@ -250,7 +250,7 @@ class PreferencesDialog(QDialog):
         # 키 설정 테이블 생성
         self.table = QTableWidget()
         self.table.setColumnCount(2)  # 2개 열: 기능, 단축키
-        self.table.setHorizontalHeaderLabels(["기능", "단축키"])  # 열 제목 설정
+        self.table.setHorizontalHeaderLabels(["Function", "Shortcut"])  # Set column header titles
         
         # 테이블 설정
         self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)  # 첫 번째 열도 늘려서 채워요
@@ -308,7 +308,7 @@ class PreferencesDialog(QDialog):
         # self.table.setItemDelegateForColumn(1, self.key_input)
         
         # 설명 라벨 추가 - 여백 추가
-        help_label = QLabel("단축키를 변경하려면 해당 행을 클릭하세요. 그런 다음 원하는 키를 누르면 됩니다.")
+        help_label = QLabel("To change the shortcut, click the row. Then press the desired key.")
         help_label.setStyleSheet("color: #555; margin-top: 15px;")
         
         # 버튼 생성 - 여백 추가
@@ -316,7 +316,7 @@ class PreferencesDialog(QDialog):
         button_layout.setContentsMargins(0, 15, 0, 0)  # 위쪽 여백 15픽셀 추가
         
         # 기본값으로 초기화 버튼
-        self.reset_button = QPushButton("기본값으로 초기화")
+        self.reset_button = QPushButton("Reset to Default")
         self.reset_button.setObjectName("resetButton")  # CSS에서 참조할 이름
         self.reset_button.clicked.connect(self.reset_to_default)
         button_layout.addWidget(self.reset_button)
@@ -324,13 +324,13 @@ class PreferencesDialog(QDialog):
         button_layout.addStretch()  # 중간에 빈 공간 추가
         
         # 취소 버튼
-        self.cancel_button = QPushButton("취소")
+        self.cancel_button = QPushButton("Cancel")
         self.cancel_button.setObjectName("cancelButton")
         self.cancel_button.clicked.connect(self.reject)  # 취소 버튼은 대화상자를 닫아요
         button_layout.addWidget(self.cancel_button)
         
         # 저장 버튼
-        self.save_button = QPushButton("저장")
+        self.save_button = QPushButton("Save")
         self.save_button.setObjectName("saveButton")
         self.save_button.clicked.connect(self.accept)  # 저장 버튼은 대화상자를 수락하고 닫아요
         button_layout.addWidget(self.save_button)
@@ -347,7 +347,7 @@ class PreferencesDialog(QDialog):
         # 마우스 설정 테이블 생성
         self.mouse_table = QTableWidget()
         self.mouse_table.setColumnCount(2)  # 2개 열: 기능, 단축키
-        self.mouse_table.setHorizontalHeaderLabels(["기능", "단축키"])  # 열 제목 설정
+        self.mouse_table.setHorizontalHeaderLabels(["Function", "Shortcut"])  # Set column headers
         
         # 테이블 설정
         self.mouse_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)  # 첫 번째 열 늘려서 채움
@@ -364,18 +364,18 @@ class PreferencesDialog(QDialog):
         
         # 마우스 버튼과 액션 매핑 설정
         mouse_action_names = {
-            "prev_image": "이전 이미지",
-            "next_image": "다음 이미지",
-            "rotate_clockwise": "시계 방향 회전",
-            "rotate_counterclockwise": "반시계 방향 회전",
-            "toggle_play": "재생/일시정지",
-            "volume_up": "볼륨 증가",
-            "volume_down": "볼륨 감소",
-            "toggle_mute": "음소거 토글",
-            "toggle_fullscreen": "전체화면 전환",
-            "toggle_maximize_state": "최대화 전환",
-            "context_menu": "컨텍스트 메뉴",
-            "delete_image": "이미지 삭제"
+            "prev_image": "Previous Image",
+            "next_image": "Next Image",
+            "rotate_clockwise": "Rotate Clockwise",
+            "rotate_counterclockwise": "Rotate Counterclockwise",
+            "toggle_play": "Play/Pause",
+            "volume_up": "Volume Up",
+            "volume_down": "Volume Down",
+            "toggle_mute": "Toggle Mute",
+            "toggle_fullscreen": "Toggle Fullscreen",
+            "toggle_maximize_state": "Toggle Maximize",
+            "context_menu": "Context Menu",
+            "delete_image": "Delete Image"
         }
         
         # 테이블 채우기
@@ -412,7 +412,7 @@ class PreferencesDialog(QDialog):
         theme_layout.addWidget(self.mouse_table)
         
         # 설명 라벨 추가
-        help_label = QLabel("단축키를 변경하려면 해당 셀을 클릭하세요. 그런 다음 원하는 키를 누르면 됩니다.")
+        help_label = QLabel("To change the shortcut, click the cell and then press the desired key.")
         help_label.setStyleSheet("color: #555; margin-top: 15px;")
         theme_layout.addWidget(help_label)
         
@@ -420,7 +420,7 @@ class PreferencesDialog(QDialog):
         cooldown_layout = QHBoxLayout()
         cooldown_layout.setContentsMargins(0, 15, 0, 0)  # 위쪽 여백 15픽셀 추가
         
-        cooldown_label = QLabel("휠 이벤트 쿨다운 (밀리초):")
+        cooldown_label = QLabel("Wheel event cooldown (milliseconds):")
         cooldown_label.setStyleSheet("min-width: 120px; padding: 5px;")
         
         from PyQt5.QtWidgets import QSpinBox
@@ -442,7 +442,7 @@ class PreferencesDialog(QDialog):
         mouse_button_layout.setContentsMargins(0, 15, 0, 0)  # 위쪽 여백 15픽셀 추가
         
         # 기본값으로 초기화 버튼
-        self.mouse_reset_button = QPushButton("기본값으로 초기화")
+        self.mouse_reset_button = QPushButton("Reset to Default")
         self.mouse_reset_button.setObjectName("resetButton")
         self.mouse_reset_button.clicked.connect(self.reset_mouse_to_default)
         mouse_button_layout.addWidget(self.mouse_reset_button)
@@ -451,13 +451,13 @@ class PreferencesDialog(QDialog):
         mouse_button_layout.addStretch()
         
         # 취소 버튼
-        self.mouse_cancel_button = QPushButton("취소")
+        self.mouse_cancel_button = QPushButton("Cancel")
         self.mouse_cancel_button.setObjectName("cancelButton")
         self.mouse_cancel_button.clicked.connect(self.reject)
         mouse_button_layout.addWidget(self.mouse_cancel_button)
         
         # 저장 버튼
-        self.mouse_save_button = QPushButton("저장")
+        self.mouse_save_button = QPushButton("Save")
         self.mouse_save_button.setObjectName("saveButton")
         self.mouse_save_button.clicked.connect(self.accept)
         mouse_button_layout.addWidget(self.mouse_save_button)
@@ -468,7 +468,7 @@ class PreferencesDialog(QDialog):
         # 일반 설정 페이지 (미구현 - 나중에 추가될 기능)
         general_page = QWidget()
         general_layout = QVBoxLayout(general_page)
-        general_layout.addWidget(QLabel("일반 설정은 아직 개발 중입니다."))
+        general_layout.addWidget(QLabel("General settings are still under development."))
         
         # 스택 위젯에 페이지 추가
         self.stack.addWidget(keyboard_page)  # 인덱스 0: 키보드 설정
@@ -726,7 +726,6 @@ class PreferencesDialog(QDialog):
         """
         # 설정 업데이트
         self.mouse_settings[button_name] = new_action
-        print(f"마우스 설정 변경: {button_name} -> {new_action}")
     
     def on_cooldown_changed(self, value):
         """
@@ -737,7 +736,6 @@ class PreferencesDialog(QDialog):
         """
         # 설정 업데이트
         self.mouse_settings["wheel_cooldown_ms"] = value
-        print(f"휠 쿨다운 설정 변경: {value} ms")
     
     def reset_mouse_to_default(self):
         """
@@ -763,18 +761,18 @@ class PreferencesDialog(QDialog):
         # UI 업데이트 - 테이블 형식에 맞게 변경
         # 마우스 버튼과 액션 매핑 설정
         mouse_action_names = {
-            "prev_image": "이전 이미지",
-            "next_image": "다음 이미지",
-            "rotate_clockwise": "시계 방향 회전",
-            "rotate_counterclockwise": "반시계 방향 회전",
-            "toggle_play": "재생/일시정지",
-            "volume_up": "볼륨 증가",
-            "volume_down": "볼륨 감소",
-            "toggle_mute": "음소거 토글",
-            "toggle_fullscreen": "전체화면 전환",
-            "toggle_maximize_state": "최대화 전환",
-            "context_menu": "컨텍스트 메뉴",
-            "delete_image": "이미지 삭제"
+            "prev_image": "Previous Image",
+            "next_image": "Next Image",
+            "rotate_clockwise": "Rotate Clockwise",
+            "rotate_counterclockwise": "Rotate Counterclockwise",
+            "toggle_play": "Toggle Play/Pause",
+            "volume_up": "Volume Up",
+            "volume_down": "Volume Down",
+            "toggle_mute": "Toggle Mute",
+            "toggle_fullscreen": "Toggle Fullscreen",
+            "toggle_maximize_state": "Toggle Maximize State",
+            "context_menu": "Context Menu",
+            "delete_image": "Delete Image"
         }
         
         # 테이블 업데이트

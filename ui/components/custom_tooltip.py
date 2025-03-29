@@ -122,7 +122,6 @@ class TooltipManager(QObject):
             text (str): 툴팁 텍스트
         """
         if not widget:
-            print("등록할 위젯이 없습니다.")
             return
             
         # 내장 툴팁 비활성화 (Qt 기본 툴팁과의 충돌 방지)
@@ -137,8 +136,6 @@ class TooltipManager(QObject):
         # 이벤트 필터 설치 (이미 설치되어 있지 않은 경우)
         if not widget.eventFilter == self.eventFilter:
             widget.installEventFilter(self)
-            
-        print(f"툴팁 등록: {text} (위젯: {widget.__class__.__name__})")  # 디버깅용
     
     def eventFilter(self, obj, event):
         """이벤트 필터 - 마우스 이벤트 처리"""
@@ -158,7 +155,6 @@ class TooltipManager(QObject):
                     pos = obj.mapToGlobal(QPoint(event.pos().x(), event.pos().y()))
                 self.tooltip.showText(pos, obj._tooltip_text, obj)
             except Exception as e:
-                print(f"툴팁 표시 오류: {e}")
                 pos = obj.mapToGlobal(QPoint(0, obj.height()))
                 self.tooltip.showText(pos, obj._tooltip_text, obj)
             return False  # 이벤트를 계속 전파하여 다른 이벤트도 처리될 수 있게 함

@@ -43,7 +43,7 @@ class ScrollableMenu(QMenu):
                 border: 1px solid transparent;
                 color: #ecf0f1;
                 max-width: 600px;
-                font-size: 9pt;  /* 글자 크기 축소 */
+                font-size: 9pt;  
             }
             QMenu::item:selected {
                 background-color: #34495e;
@@ -52,7 +52,7 @@ class ScrollableMenu(QMenu):
             QMenu::separator {
                 height: 1px;
                 background: #34495e;
-                margin: 3px 0;  /* 구분선 간격 축소 */
+                margin: 3px 0; 
             }
             QMenu::item:disabled {
                 color: #7f8c8d;

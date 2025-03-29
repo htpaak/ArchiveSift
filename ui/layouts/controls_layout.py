@@ -31,8 +31,7 @@ class ControlsLayout(QWidget):
                 self.parent.play_button.set_play_state(is_playing)
                 self.parent.update_video_playback()  # 슬라이더 업데이트 호출
             except Exception as e:
-                print(f"재생 버튼 업데이트 오류: {e}")
-                self.parent.play_button.setEnabled(False)  # 버튼 비활성화
+                self.parent.play_button.setEnabled(False)  # Disable button
                 
     def toggle_mute(self):
         """음소거 상태를 토글합니다."""
@@ -43,7 +42,6 @@ class ControlsLayout(QWidget):
             # 버튼 아이콘 변경 (음소거 상태에 따라)
             self.parent.mute_button.set_mute_state(is_muted)
         except Exception as e:
-            print(f"음소거 토글 오류: {e}")
             pass
             
     def adjust_volume(self, volume):
@@ -52,7 +50,6 @@ class ControlsLayout(QWidget):
             # VideoHandler의 adjust_volume 메서드 사용
             self.parent.video_handler.adjust_volume(volume)
         except Exception as e:
-            print(f"볼륨 조절 오류: {e}")
             pass
             
     def toggle_animation_playback(self):
@@ -176,31 +173,31 @@ class ControlsLayout(QWidget):
         if hasattr(self.parent, 'slider_controls'):
             for control in self.parent.slider_controls:
                 if control == self.parent.open_button:
-                    self.tooltip_manager.register(control, "폴더 열기")
+                    self.tooltip_manager.register(control, "Open Folder")
                 elif control == self.parent.set_base_folder_button:
-                    self.tooltip_manager.register(control, "기본 폴더 설정")
+                    self.tooltip_manager.register(control, "Set Base Folder")
                 elif control == self.parent.play_button:
-                    self.tooltip_manager.register(control, "재생/일시정지")
+                    self.tooltip_manager.register(control, "Play/Pause")
                 elif control == self.parent.rotate_ccw_button:
-                    self.tooltip_manager.register(control, "시계 반대 방향으로 회전")
+                    self.tooltip_manager.register(control, "Rotate Counterclockwise")
                 elif control == self.parent.rotate_cw_button:
-                    self.tooltip_manager.register(control, "시계 방향으로 회전")
+                    self.tooltip_manager.register(control, "Rotate Clockwise")
                 elif control == self.parent.mute_button:
-                    self.tooltip_manager.register(control, "음소거/음소거 해제")
+                    self.tooltip_manager.register(control, "Mute/Unmute")
                 elif control == self.parent.menu_button:
-                    self.tooltip_manager.register(control, "메뉴")
+                    self.tooltip_manager.register(control, "Menu")
                 elif control == self.parent.slider_bookmark_btn:
-                    self.tooltip_manager.register(control, "북마크 추가/제거")
+                    self.tooltip_manager.register(control, "Add/Remove Bookmark")
                 elif control == self.parent.ui_lock_btn:
-                    self.tooltip_manager.register(control, "UI 잠금/해제")
+                    self.tooltip_manager.register(control, "Lock/Unlock UI")
                 elif control == self.parent.time_label:
-                    self.tooltip_manager.register(control, "재생 시간 정보")
+                    self.tooltip_manager.register(control, "Playback Time Info")
                   
-        # 슬라이더에 툴팁 등록
+        # Register tooltips for sliders
         if hasattr(self.parent, 'playback_slider'):
-            self.tooltip_manager.register(self.parent.playback_slider, "재생 위치 조절")
+            self.tooltip_manager.register(self.parent.playback_slider, "Adjust Playback Position")
         if hasattr(self.parent, 'volume_slider'):
-            self.tooltip_manager.register(self.parent.volume_slider, "볼륨 조절")
+            self.tooltip_manager.register(self.parent.volume_slider, "Adjust Volume")
 
     def update_button_sizes(self):
         """버튼 및 컨트롤 요소의 크기를 창 크기에 맞게 업데이트"""
@@ -334,26 +331,26 @@ class ControlsLayout(QWidget):
                 seconds = value / 1000.0  # 밀리초를 초 단위로 변환
                 self.parent.video_handler.seek(seconds)
             except Exception as e:
-                print(f"비디오 Seek 오류: {e}")
+                pass
         
-        # 애니메이션 처리
+        # Animation handling
         elif self.parent.current_media_type in ['gif_animation', 'webp_animation'] and hasattr(self.parent, 'animation_handler'):
             try:
                 value = self.parent.playback_slider.value()
                 self.parent.animation_handler.seek_to_frame(value)
             except Exception as e:
-                print(f"애니메이션 Seek 오류: {e}")
+                pass
 
     def seek_video(self, value):
-        """슬라이더 값에 따라 비디오 재생 위치를 변경합니다."""
+        """Change video playback position based on slider value."""
         if self.parent.is_slider_dragging:
             try:
-                # 슬라이더 값을 초 단위로 변환 (value는 밀리초 단위)
-                seconds = value / 1000.0  # 밀리초를 초 단위로 변환
-                # VideoHandler의 seek 함수를 사용하여 정확한 위치로 이동
+                # Convert the slider value to seconds (value is in milliseconds)
+                seconds = value / 1000.0  # Convert milliseconds to seconds
+                # Use the VideoHandler's seek function to move to the precise position
                 self.parent.video_handler.seek(seconds)
             except Exception as e:
-                print(f"비디오 위치 이동 오류: {str(e)}")
+                pass
 
     def seek_animation(self, value):
         """슬라이더 값에 따라 애니메이션 재생 위치를 변경합니다."""
@@ -382,9 +379,8 @@ class ControlsLayout(QWidget):
             if animation_handler:
                 # 재생 상태 변경 시그널 연결
                 animation_handler.playback_state_changed.connect(self.on_animation_playback_changed)
-                print("애니메이션 핸들러 시그널 연결 완료")
         except Exception as e:
-            print(f"애니메이션 핸들러 시그널 연결 오류: {e}")
+            pass
             
     def on_animation_playback_changed(self, is_playing):
         """
@@ -399,9 +395,8 @@ class ControlsLayout(QWidget):
                 if is_playing:
                     self.play_button.setText("❚❚")  # 일시정지 아이콘 (현재 재생 중)
                 else:
-                    self.play_button.setText("▶")  # 재생 아이콘 (현재 일시정지됨)
-            print(f"애니메이션 재생 상태 변경: {'재생 중' if is_playing else '일시정지'}")
+                    self.play_button.setText("▶")  # play icon (currently paused)
         except Exception as e:
-            print(f"애니메이션 재생 상태 변경 처리 오류: {e}")
+            pass
 
     # 여기에 main.py에서 옮겨올 메서드들이 추가될 예정 
