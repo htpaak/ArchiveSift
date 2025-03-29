@@ -2123,7 +2123,7 @@ class ArchiveSift(QWidget):
             if self.current_media_type == 'animation' and hasattr(self, 'animation_handler'):
                 is_playing = self.animation_handler.is_playing()
             elif self.current_media_type == 'video' and hasattr(self, 'video_handler'):
-                is_playing = self.video_handler.is_playing()
+                is_playing = self.video_handler.is_video_playing()
                 
             play_pause_text = "Pause" if is_playing else "Play"
             play_pause_action = QAction(play_pause_text, self)
