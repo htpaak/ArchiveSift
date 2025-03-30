@@ -2,6 +2,10 @@
 
 ArchiveSift is a program that helps you sort and organize media files (images, animations, videos, and audio) into folders of your choice.
 
+[![release](https://img.shields.io/github/v/release/htpaak/ArchiveSift?label=release&color=blue)](https://github.com/htpaak/ArchiveSift/releases/latest)
+[![downloads@latest](https://img.shields.io/github/downloads/htpaak/ArchiveSift/latest/total?label=downloads%40latest&color=brightgreen)](https://github.com/htpaak/ArchiveSift/releases/latest)
+[![downloads](https://img.shields.io/github/downloads/htpaak/ArchiveSift/total?label=downloads&color=brightgreen)](https://github.com/htpaak/ArchiveSift/releases)
+
 ## Links
 
 - [Download](https://github.com/htpaak/ArchiveSift/releases/tag/v1.0.0)
