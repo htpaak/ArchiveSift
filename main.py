@@ -76,33 +76,71 @@ from file import FileBrowser, FileNavigator
 from file.operations import FileOperations
 
 # Add MPV DLL path to PATH environment variable (required before importing mpv module)
-mpv_path = os.path.join(get_app_directory(), 'mpv')
+# 현재 실행 중인 디렉토리를 PATH에 추가 (PyInstaller로 패키징된 경우를 위한 코드)
+if getattr(sys, 'frozen', False):
+    # PyInstaller로 패키징된 경우
+    application_path = os.path.dirname(sys.executable)
+    
+    # 임시 디렉토리 경로 (PyInstaller의 _MEI로 시작하는 폴더)
+    # sys._MEIPASS는 PyInstaller가 생성하는 임시 디렉토리
+    temp_dir = getattr(sys, '_MEIPASS', application_path)
+    
+    # 다양한 가능성 있는 mpv DLL 경로들
+    possible_paths = [
+        os.path.join(temp_dir, 'mpv'),
+        os.path.join(temp_dir, '_internal', 'mpv'),
+        os.path.join(temp_dir, 'core', 'mpv'),
+        temp_dir,
+        application_path
+    ]
+    
+    for p in possible_paths:
+        if os.path.exists(p):
+            if p not in os.environ['PATH']:
+                os.environ['PATH'] = p + os.pathsep + os.environ['PATH']
+                print(f"Added {p} to PATH")
+
+    # DLL 파일이 실행 파일과 같은 디렉토리에 있는지 확인
+    dll_files = ['libmpv-2.dll', 'mpv-2.dll', 'mpv-1.dll']
+    dll_found = False
+    
+    for dll in dll_files:
+        for p in possible_paths:
+            dll_path = os.path.join(p, dll)
+            if os.path.exists(dll_path):
+                print(f"Found DLL: {dll_path}")
+                dll_found = True
+                break
+        if dll_found:
+            break
+            
+    if not dll_found:
+        print("WARNING: No MPV DLL found in any potential location")
+else:
+    # 일반 Python 스크립트로 실행된 경우
+    mpv_path = os.path.join(get_app_directory(), 'core', 'mpv')
+    if not os.path.exists(mpv_path):
+        mpv_path = os.path.join(get_app_directory(), 'mpv')
+    
+    # 경로를 PATH에 추가
+    if mpv_path not in os.environ['PATH']:
+        os.environ['PATH'] = mpv_path + os.pathsep + os.environ['PATH']
+        print(f"Added {mpv_path} to PATH (dev mode)")
+
+print(f"Current PATH: {os.environ['PATH']}")
+
 # 로거 인스턴스 생성 (전역 로거)
+from core.logger import Logger
 logger = Logger("main")
 logger.info(f"Application start - Version: {get_version_string()}")
-logger.debug(f"MPV path: {mpv_path}")
-
-# MPV 경로가 없으면 생성
-if not os.path.exists(mpv_path):
-    os.makedirs(mpv_path, exist_ok=True)
-    logger.debug(f"MPV directory created: {mpv_path}")
-
-# DLL 파일 확인
-dll_path = os.path.join(mpv_path, 'libmpv-2.dll')
-if not os.path.exists(dll_path):
-    logger.warning(f"DLL file does not exist: {dll_path}")
-
-if mpv_path not in os.environ['PATH']:
-    os.environ['PATH'] = mpv_path + os.pathsep + os.environ['PATH']
-    logger.debug(f"MPV path added to PATH environment variable")
-
-print(f"MPV path: {mpv_path}")
-if os.path.exists(dll_path):
-    print(f"DLL file existence: True")
-    print(f"DLL file size: {os.path.getsize(dll_path)}")
 
 # MPV 모듈 import (경로 설정 후에 가능)
-import mpv  # 비디오 재생 라이브러리 (고성능 미디어 플레이어)
+try:
+    import mpv  # 비디오 재생 라이브러리 (고성능 미디어 플레이어)
+    logger.info("MPV module imported successfully")
+except Exception as e:
+    logger.error(f"Error importing MPV: {str(e)}")
+    print(f"Error importing MPV: {str(e)}")
 
 # 디버깅 모듈
 from core.debug import QMovieDebugger, MemoryProfiler
