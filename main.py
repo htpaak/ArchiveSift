@@ -136,11 +136,28 @@ logger.info(f"Application start - Version: {get_version_string()}")
 
 # MPV 모듈 import (경로 설정 후에 가능)
 try:
-    import mpv  # 비디오 재생 라이브러리 (고성능 미디어 플레이어)
+    # 래퍼 모듈을 통해 mpv 가져오기 (DLL 경로 문제 해결)
+    from mpv_wrapper import mpv
     logger.info("MPV module imported successfully")
 except Exception as e:
     logger.error(f"Error importing MPV: {str(e)}")
     print(f"Error importing MPV: {str(e)}")
+    
+    # 더미 MPV 클래스 정의 (비디오 기능 없이도 실행될 수 있도록)
+    class DummyMPV:
+        def __init__(self, *args, **kwargs):
+            print("WARNING: Using dummy MPV implementation")
+            self.dummy = True
+        
+        def __getattr__(self, name):
+            return lambda *args, **kwargs: None
+    
+    # mpv 모듈 객체 생성
+    class DummyMPVModule:
+        def __init__(self):
+            self.MPV = DummyMPV
+    
+    mpv = DummyMPVModule()
 
 # 디버깅 모듈
 from core.debug import QMovieDebugger, MemoryProfiler
@@ -164,7 +181,31 @@ class ArchiveSift(QWidget):
         self.tooltip_manager = TooltipManager(self)
         
         self.setWindowTitle('Image Viewer')  # 창 제목 설정
-        self.setWindowIcon(QIcon('./core/ArchiveSift.ico'))  # 앱 아이콘 설정
+        
+        # 작업 표시줄 아이콘 설정 (절대 경로와 여러 대체 경로 시도)
+        icon_paths = [
+            './core/ArchiveSift.ico',
+            'core/ArchiveSift.ico',
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), 'core', 'ArchiveSift.ico'),
+            'ArchiveSift.ico',
+            './ArchiveSift.ico'
+        ]
+        
+        # 찾은 첫 번째 유효한 아이콘 경로 사용
+        icon_path = None
+        for path in icon_paths:
+            if os.path.exists(path):
+                icon_path = path
+                print(f"Found window icon at: {path}")
+                break
+        
+        if icon_path:
+            self.setWindowIcon(QIcon(icon_path))  # 앱 아이콘 설정
+        else:
+            # 기본 경로로 설정 (존재하지 않더라도)
+            self.setWindowIcon(QIcon('./core/ArchiveSift.ico'))
+            print("Warning: Could not find icon file, using default path")
+            
         self.setGeometry(100, 100, 800, 600)  # 창 위치와 크기 설정
         
         # 키 설정 로드 - 키보드 단축키를 저장하는 사전
@@ -281,24 +322,60 @@ class ArchiveSift(QWidget):
 
         # MPV DLL 경로 설정 (동적 라이브러리 로드 경로)
         system = platform.system()
-        mpv_path = os.path.join(get_app_directory(), 'mpv')
 
-        if system == 'Windows':
-            mpv_dll_path = os.path.join(mpv_path, "libmpv-2.dll")
-            if not os.path.exists(mpv_dll_path):
-                print(f"Warning: File {mpv_dll_path} does not exist.")
-            os.environ["MPV_DYLIB_PATH"] = mpv_dll_path
-        elif system == 'Darwin':  # macOS
-            mpv_dll_path = os.path.join(mpv_path, "libmpv.dylib")
-            if not os.path.exists(mpv_dll_path):
-                print(f"Warning: File {mpv_dll_path} does not exist.")
-            os.environ["MPV_DYLIB_PATH"] = mpv_dll_path
-        else:  # Linux
-            mpv_dll_path = os.path.join(mpv_path, "libmpv.so")
-            if not os.path.exists(mpv_dll_path):
-                print(f"Warning: File {mpv_dll_path} does not exist.")
-            os.environ["MPV_DYLIB_PATH"] = mpv_dll_path
-        
+        # PyInstaller로 패키징된 경우 처리
+        if getattr(sys, 'frozen', False):
+            # PyInstaller로 패키징된 경우 실행 파일과 같은 디렉토리에 DLL이 있어야 함
+            application_path = os.path.dirname(sys.executable)
+            
+            if system == 'Windows':
+                # 여러 가능한 DLL 파일명 검색
+                possible_dlls = ['libmpv-2.dll', 'mpv-2.dll', 'mpv-1.dll']
+                dll_found = False
+                
+                for dll_name in possible_dlls:
+                    mpv_dll_path = os.path.join(application_path, dll_name)
+                    if os.path.exists(mpv_dll_path):
+                        os.environ["MPV_DYLIB_PATH"] = mpv_dll_path
+                        print(f"Found DLL in packaged app: {mpv_dll_path}")
+                        dll_found = True
+                        break
+                
+                if not dll_found:
+                    # PATH에 현재 디렉토리를 추가하여 DLL을 찾을 수 있도록 함
+                    print("No DLL found, adding application directory to PATH")
+                    os.environ["PATH"] = application_path + os.pathsep + os.environ["PATH"]
+            
+            elif system == 'Darwin':  # macOS
+                mpv_dll_path = os.path.join(application_path, "libmpv.dylib")
+                if os.path.exists(mpv_dll_path):
+                    os.environ["MPV_DYLIB_PATH"] = mpv_dll_path
+            else:  # Linux
+                mpv_dll_path = os.path.join(application_path, "libmpv.so")
+                if os.path.exists(mpv_dll_path):
+                    os.environ["MPV_DYLIB_PATH"] = mpv_dll_path
+        else:
+            # 일반 Python 스크립트로 실행된 경우 (개발 환경)
+            mpv_path = os.path.join(get_app_directory(), 'mpv')
+            if not os.path.exists(mpv_path):
+                mpv_path = os.path.join(get_app_directory(), 'core', 'mpv')
+
+            if system == 'Windows':
+                mpv_dll_path = os.path.join(mpv_path, "libmpv-2.dll")
+                if not os.path.exists(mpv_dll_path):
+                    print(f"Warning: File {mpv_dll_path} does not exist.")
+                os.environ["MPV_DYLIB_PATH"] = mpv_dll_path
+            elif system == 'Darwin':  # macOS
+                mpv_dll_path = os.path.join(mpv_path, "libmpv.dylib")
+                if not os.path.exists(mpv_dll_path):
+                    print(f"Warning: File {mpv_dll_path} does not exist.")
+                os.environ["MPV_DYLIB_PATH"] = mpv_dll_path
+            else:  # Linux
+                mpv_dll_path = os.path.join(mpv_path, "libmpv.so")
+                if not os.path.exists(mpv_dll_path):
+                    print(f"Warning: File {mpv_dll_path} does not exist.")
+                os.environ["MPV_DYLIB_PATH"] = mpv_dll_path
+
         # MPV 플레이어 초기화
         try:
             self.player = mpv.MPV(log_handler=print, 
@@ -2326,6 +2403,24 @@ class ArchiveSift(QWidget):
 def main():
     app = QApplication(sys.argv)  # Qt application instance creation
     app.setApplicationName("ArchiveSift")  # Set application name
+    
+    # 작업 표시줄 아이콘 설정
+    icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'core', 'ArchiveSift.ico')
+    if not os.path.exists(icon_path):
+        icon_path = 'core/ArchiveSift.ico'
+    
+    app_icon = QIcon(icon_path)
+    app.setWindowIcon(app_icon)
+    
+    # Windows에서 작업 표시줄 아이콘 설정
+    if platform.system() == 'Windows':
+        try:
+            import ctypes
+            myappid = 'ArchiveSift.ImageViewer.1.0'
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+        except Exception as e:
+            print(f"Windows taskbar icon setting error: {e}")
+    
     viewer = ArchiveSift()  # Create instance of ArchiveSift class
     viewer.show()  # Display viewer window
     exit_code = app.exec_()  # Execute event loop
