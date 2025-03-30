@@ -4,9 +4,9 @@
 a = Analysis(
     ['main.py'],
     pathex=[],
-    binaries=[],
-    datas=[],
-    hiddenimports=[],
+    binaries=[('core/mpv/libmpv-2.dll', '.')],
+    datas=[('core/ArchiveSift.ico', '.'), ('mpv_wrapper.py', '.')],
+    hiddenimports=['mpv_wrapper', 'mpv'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
