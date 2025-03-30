@@ -8,7 +8,10 @@
 
 ## Demo
 
-![Demo Video](./assets/Demo.mp4)
+https://github.com/htpaak/ArchiveSift/assets/Demo.mp4
+
+<video src="assets/Demo.mp4" controls="controls" muted="muted" width="640" height="480">
+</video>
 
 ## Supported Extensions
 
