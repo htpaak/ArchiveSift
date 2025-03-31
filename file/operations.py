@@ -127,6 +127,9 @@ class FileOperations:
             return False, None
             
         try:
+            # 디버그 로그만 출력 (DEBUG=True 일 때만 표시됨)
+            log_debug(f"Moving file: {file_path} -> {folder_path}")
+            
             # 현재 인덱스 백업
             current_index = -1
             if hasattr(self.viewer, 'current_index'):

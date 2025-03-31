@@ -91,7 +91,6 @@ class ButtonEventHandler(QObject):
         Args:
             folder_path: 대상 폴더 경로
         """
-        print(f"Copy to folder: {folder_path}")
         if hasattr(self.parent, 'copy_image_to_folder'):
             self.parent.copy_image_to_folder(folder_path)
     
@@ -102,7 +101,6 @@ class ButtonEventHandler(QObject):
         Args:
             folder_path: 대상 폴더 경로
         """
-        print(f"Move to folder: {folder_path}")
         if hasattr(self.parent, 'move_image_to_folder'):
             self.parent.move_image_to_folder(folder_path)
     

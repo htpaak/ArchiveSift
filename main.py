@@ -2440,7 +2440,7 @@ class ArchiveSift(QWidget):
             # 복사 성공 시 다음 이미지로 이동
             if success:
                 self.show_next_image()
-    
+
     def move_image_to_folder(self, folder_path):
         """
         Moves the current image to the specified folder.
@@ -2450,8 +2450,6 @@ class ArchiveSift(QWidget):
             folder_path: Target folder path
         """
         if self.current_image_path and folder_path:
-            print(f"Move to folder: {folder_path}")
-            
             # Move the file using FileOperations
             self.file_operations.move_file_to_folder(self.current_image_path, folder_path)
             
