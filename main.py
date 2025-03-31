@@ -6,7 +6,23 @@ import shutil  # 파일 복사 및 이동 기능 제공 (고급 파일 작업)
 import re  # 정규표현식 처리 기능 제공 (패턴 검색 및 문자열 처리)
 import json  # JSON 파일 처리를 위한 모듈
 from collections import OrderedDict  # LRU 캐시 구현을 위한 정렬된 딕셔너리
-from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout, QPushButton, QFileDialog, QHBoxLayout, QSizePolicy, QSlider, QLayout, QSpacerItem, QStyle, QStyleOptionSlider, QMenu, QAction, QScrollArea, QListWidgetItem, QListWidget, QAbstractItemView, QInputDialog, QMessageBox, QDialog, QTableWidget, QTableWidgetItem, QHeaderView, QFrame, QLineEdit, QStackedWidget, QGroupBox  # PyQt5 UI 위젯 (사용자 인터페이스 구성 요소)
+from PyQt5.QtWidgets import (
+    QApplication, QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, 
+    QFileDialog, QStyle, QListWidget, QListWidgetItem, QSlider, QMenu, QAction, 
+    QSizePolicy, QMessageBox, QFrame, QMainWindow, QDialog, QTabWidget, QCheckBox,
+    QRadioButton, QLineEdit, QTextEdit, QProgressBar, QComboBox, QShortcut,
+    QScrollArea, QSpacerItem, QLayout, QStyleOptionSlider, QAbstractItemView,
+    QInputDialog, QTableWidget, QTableWidgetItem, QHeaderView, QStackedWidget, QGroupBox
+)
+from PyQt5.QtGui import (
+    QPixmap, QImage, QImageReader, QFont, QMovie, QCursor, QIcon, QColor, 
+    QPalette, QFontMetrics, QTransform, QKeySequence, QWheelEvent, QDesktopServices
+)
+from PyQt5.QtCore import (
+    Qt, QSize, QTimer, QEvent, QPoint, pyqtSignal, QRect, QMetaObject, 
+    QObject, QUrl, QThread, QBuffer
+)
+
 # main.py 파일의 임포트 부분에서
 from PyQt5.QtGui import QPixmap, QImage, QImageReader, QFont, QMovie, QCursor, QIcon, QColor, QPalette, QFontMetrics, QTransform, QKeySequence, QWheelEvent, QDesktopServices  # 그래픽 요소 처리
 from PyQt5.QtCore import Qt, QSize, QTimer, QEvent, QPoint, pyqtSignal, QRect, QMetaObject, QObject, QUrl, QThread, QBuffer  # Qt 코어 기능
@@ -74,6 +90,10 @@ from core.state_manager import StateManager
 # 파일 브라우저 추가
 from file import FileBrowser, FileNavigator
 from file.operations import FileOperations
+
+from ui.components.dual_action_button import DualActionButton  # 듀얼 액션 버튼 클래스 import
+# from ui.components.tooltip_manager import TooltipManager
+# from ui.components.loading_indicator import LoadingIndicator
 
 # Add MPV DLL path to PATH environment variable (required before importing mpv module)
 # 현재 실행 중인 디렉토리를 PATH에 추가 (PyInstaller로 패키징된 경우를 위한 코드)
@@ -754,8 +774,8 @@ class ArchiveSift(QWidget):
             button_width = available_width / 20  # 실제 사용 가능한 너비로 계산
             
             for i in range(20):
-                empty_button = QPushButton('')
-                empty_button.setStyleSheet(button_style)
+                # QPushButton 대신 DualActionButton 사용
+                empty_button = DualActionButton('', self)
                 empty_button.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Fixed)
                 empty_button.clicked.connect(self.on_button_click)
                 
@@ -971,10 +991,13 @@ class ArchiveSift(QWidget):
             # 모든 버튼 초기화 (텍스트 및 툴팁 제거)
             for row in self.buttons:
                 for button in row:
-                    button.setText('')
-                    button.setToolTip('')
-
-            # core.utils 모듈의 natural_keys 함수를 사용합니다
+                    # DualActionButton 특화 메서드 호출
+                    if hasattr(button, 'set_folder_info'):
+                        button.set_folder_info('', '')
+                    else:
+                        # 이전 버전 호환성 유지
+                        button.setText('')
+                        button.setToolTip('')
 
             # 하위 폴더 목록 가져오기
             subfolders = [f.path for f in os.scandir(self.base_folder) if f.is_dir()]  # 디렉토리만 선택
@@ -999,17 +1022,22 @@ class ArchiveSift(QWidget):
                         text_width = font_metrics.horizontalAdvance(folder_name)
                         
                         # 텍스트가 버튼 너비를 초과하면 자동으로 축약
+                        truncated_name = folder_name
                         if text_width > available_width:
                             # 적절한 길이를 찾을 때까지 텍스트 줄임
                             for k in range(len(folder_name), 0, -1):
                                 truncated = folder_name[:k] + ".."  # 텍스트 뒷부분 생략 표시
                                 if font_metrics.horizontalAdvance(truncated) <= available_width:
-                                    button.setText(truncated)  # 축약된 텍스트 설정
-                                    button.setToolTip(subfolders[index])  # 툴팁으로 전체 경로 표시
+                                    truncated_name = truncated
                                     break
+                        
+                        # DualActionButton 특화 메서드 호출
+                        if hasattr(button, 'set_folder_info'):
+                            button.set_folder_info(subfolders[index], truncated_name)
                         else:
-                            button.setText(folder_name)  # 원본 폴더명으로 복원
-                            button.setToolTip(subfolders[index])  # 툴팁으로 전체 경로 표시
+                            # 이전 버전 호환성 유지
+                            button.setText(truncated_name)
+                            button.setToolTip(subfolders[index])
 
     def on_button_click(self):
         """하위 폴더 버튼 클릭 처리 - controls_layout으로 위임"""

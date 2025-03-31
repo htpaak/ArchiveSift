@@ -106,73 +106,22 @@ class CustomTooltip(QLabel):
 
 class TooltipManager(QObject):
     """
-    여러 위젯에 대한 툴팁을 관리하는 클래스
+    툴팁 관리자 클래스 
+    
+    간단한 구현으로 테스트 목적으로만 사용됩니다.
     """
+    
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.tooltip = CustomTooltip(parent)
-        self.active = True
+        self.parent = parent
         
-    def register(self, widget, text):
+    def register(self, widget, tooltip_text):
         """
-        위젯에 툴팁을 등록합니다.
+        위젯에 툴팁 등록 (간단한 구현)
         
         Args:
-            widget (QWidget): 툴팁을 표시할 위젯
-            text (str): 툴팁 텍스트
+            widget: 툴팁을 표시할 위젯
+            tooltip_text: 툴팁 텍스트
         """
-        if not widget:
-            return
-            
-        # 내장 툴팁 비활성화 (Qt 기본 툴팁과의 충돌 방지)
-        widget.setToolTip("")
-        
-        # 커스텀 툴팁 텍스트 설정
-        widget._tooltip_text = text
-        
-        # 마우스 추적 활성화
-        widget.setMouseTracking(True)
-        
-        # 이벤트 필터 설치 (이미 설치되어 있지 않은 경우)
-        if not widget.eventFilter == self.eventFilter:
-            widget.installEventFilter(self)
-    
-    def eventFilter(self, obj, event):
-        """이벤트 필터 - 마우스 이벤트 처리"""
-        if not self.active or not hasattr(obj, "_tooltip_text"):
-            return False
-            
-        if event.type() == QEvent.Enter:
-            # 기존 내장 툴팁을 비활성화
-            obj.setToolTip("")
-            # 마우스 포인터 위치에 툴팁 표시
-            try:
-                # 제목표시줄 버튼인 경우 중앙 아래에 표시
-                from ui.components.control_buttons import TitleBarButton
-                if isinstance(obj, TitleBarButton):
-                    pos = obj.mapToGlobal(QPoint(obj.width() // 2, obj.height()))
-                else:
-                    pos = obj.mapToGlobal(QPoint(event.pos().x(), event.pos().y()))
-                self.tooltip.showText(pos, obj._tooltip_text, obj)
-            except Exception as e:
-                pos = obj.mapToGlobal(QPoint(0, obj.height()))
-                self.tooltip.showText(pos, obj._tooltip_text, obj)
-            return False  # 이벤트를 계속 전파하여 다른 이벤트도 처리될 수 있게 함
-            
-        elif event.type() == QEvent.Leave:
-            self.tooltip.hideTooltip()
-            return False  # 이벤트를 계속 전파
-        
-        # 마우스 이동 시 툴팁 위치 업데이트 (마우스를 따라다니게)
-        elif event.type() == QEvent.MouseMove and self.tooltip.isVisible() and self.tooltip.currentWidget == obj:
-            pos = obj.mapToGlobal(QPoint(event.pos().x(), event.pos().y()))
-            self.tooltip.move(pos.x() + 15, pos.y() + 15)  # 약간 오프셋 적용
-            return False
-            
-        return False  # 기본적으로 모든 이벤트를 통과시킴
-        
-    def setActive(self, active):
-        """툴팁 활성화 상태 설정"""
-        self.active = active
-        if not active:
-            self.tooltip.hideTooltip() 
+        # 기본 Qt 툴팁 사용
+        widget.setToolTip(tooltip_text) 
