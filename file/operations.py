@@ -172,10 +172,14 @@ class FileOperations:
                 # 파일 이동 후 다음 이미지 표시 로직
                 if not self.viewer.image_files:
                     self.viewer.show_message("No more images in the folder")
+                    # 모든 이미지가 사라졌을 때 UI 요소들 정리
                     if hasattr(self.viewer, 'image_label'):
                         self.viewer.image_label.clear()
                     if hasattr(self.viewer, 'current_image_path'):
                         self.viewer.current_image_path = ""
+                    # 인덱스 표시창 숨기기
+                    if hasattr(self.viewer, 'image_info_label') and self.viewer.image_info_label.isVisible():
+                        self.viewer.image_info_label.hide()
                 elif current_index >= len(self.viewer.image_files):
                     # 마지막 이미지를 이동한 경우, 새로운 마지막 이미지 표시
                     self.viewer.current_index = max(0, len(self.viewer.image_files) - 1)
@@ -283,7 +287,17 @@ class FileOperations:
                     if hasattr(self.viewer.bookmark_manager, 'update_bookmark_button_state'):
                         self.viewer.bookmark_manager.update_bookmark_button_state()
                 
-                self.viewer.show_message("The file has been moved to trash") 
+                # 파일 목록에서 해당 파일 제거
+                if hasattr(self.viewer, 'image_files') and file_path in self.viewer.image_files:
+                    self.viewer.image_files.remove(file_path)
+                    
+                    # 파일이 모두 삭제되었는지 확인
+                    if not self.viewer.image_files:
+                        # 인덱스 표시창 숨기기
+                        if hasattr(self.viewer, 'image_info_label') and self.viewer.image_info_label.isVisible():
+                            self.viewer.image_info_label.hide()
+                
+                self.viewer.show_message("The file has been moved to trash")
             else:
                 self.viewer.show_message("File deletion failed. It may be in use by another program.")  
                 
@@ -471,6 +485,9 @@ class FileOperations:
                 # 더 이상 표시할 이미지가 없음
                 self.viewer.image_label.clear()
                 self.viewer.current_image_path = ""
+                # 인덱스 표시창 숨기기
+                if hasattr(self.viewer, 'image_info_label') and self.viewer.image_info_label.isVisible():
+                    self.viewer.image_info_label.hide()
                 self.viewer.show_message("All images have been deleted")
                 # 모든 이미지가 삭제되었습니다 -> All images have been deleted
                 return True
