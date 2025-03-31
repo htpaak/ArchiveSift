@@ -285,17 +285,28 @@ class ControlsLayout(QWidget):
             self.update_bookmark_button_state()
 
     def on_button_click(self):
-        """하위 폴더 버튼 클릭 처리 - 현재 이미지를 선택된 폴더로 복사"""
+        """하위 폴더 버튼 클릭 처리 - 클릭 위치에 따라 복사 또는 이동 수행"""
         button = self.sender()  # 클릭된 버튼 객체 참조
         folder_path = button.toolTip()  # 버튼 툴팁에서 폴더 경로 가져오기
-        print(f"Selected folder: {folder_path}")  # 선택된 폴더 경로 출력
-
+        
         # 커서를 일반 모양으로 복원
         from PyQt5.QtWidgets import QApplication
         QApplication.restoreOverrideCursor()  # 모래시계에서 일반 커서로 복원
-
-        # 현재 이미지를 선택된 폴더로 복사
-        self.parent.copy_image_to_folder(folder_path)
+        
+        # DualActionButton인 경우 클릭 위치에 따라 다른 동작 수행
+        if hasattr(button, 'last_click_region'):
+            if button.last_click_region == 'left':
+                # 왼쪽 클릭 - 복사
+                print(f"Copy to folder: {folder_path}")
+                self.parent.copy_image_to_folder(folder_path)
+            elif button.last_click_region == 'right':
+                # 오른쪽 클릭 - 이동
+                print(f"Move to folder: {folder_path}")
+                self.parent.move_image_to_folder(folder_path)
+        else:
+            # 기존 버튼 호환성 - 기본 동작은 복사
+            print(f"Default copy to folder: {folder_path}")
+            self.parent.copy_image_to_folder(folder_path)
         
         # 버튼 클릭 후 약간의 지연을 두고 창에 포커스를 돌려줌
         self.parent.create_single_shot_timer(50, self.parent.setFocus)

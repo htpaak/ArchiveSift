@@ -99,6 +99,62 @@ class FileOperations:
             self.viewer.show_message(f"File copy failed: {str(e)}")
             return False, None
     
+    def move_file_to_folder(self, file_path, folder_path):
+        """
+        Moves the file to the specified folder.
+        파일을 지정된 폴더로 이동합니다.
+        
+        Parameters:
+            file_path: the source file path to move
+            file_path: 이동할 파일 경로
+            folder_path: the target folder path
+            folder_path: 대상 폴더 경로
+            
+        Return value:
+            A tuple containing a boolean indicating success and the moved file path (string)
+            성공 여부(bool)와 이동된 파일 경로(string)를 포함하는 튜플
+        """
+        if not file_path or not folder_path:
+            return False, None
+            
+        try:
+            # First, clean up any resources related to the file
+            self._cleanup_resources_for_file(file_path)
+            
+            # Generate a unique file path
+            target_path = self.get_unique_file_path(folder_path, file_path)
+            
+            # Move the file (shutil.move preserves metadata)
+            shutil.move(file_path, target_path)
+            
+            # If the full path is too long, shorten the displayed path
+            path_display = target_path
+            if len(path_display) > 60:
+                # Display only the drive and the last 2 folders
+                drive, tail = os.path.splitdrive(path_display)
+                parts = tail.split(os.sep)
+                if len(parts) > 2:
+                    # Drive + '...' + the last 2 folders
+                    path_display = f"{drive}{os.sep}...{os.sep}{os.sep.join(parts[-2:])}"
+            
+            # Remove from bookmarks if exists
+            if hasattr(self.viewer, 'bookmark_manager') and file_path in self.viewer.bookmark_manager.bookmarks:
+                self.viewer.bookmark_manager.bookmarks.discard(file_path)
+                self.viewer.bookmark_manager.save_bookmarks()
+                if hasattr(self.viewer.bookmark_manager, 'update_bookmark_button_state'):
+                    self.viewer.bookmark_manager.update_bookmark_button_state()
+            
+            # Display message
+            self.viewer.show_message(f"Moved file to {path_display}")
+            
+            return True, target_path
+            
+        except Exception as e:
+            # Log error
+            log_error(f"File move failed: {str(e)}")
+            self.viewer.show_message(f"File move failed: {str(e)}")
+            return False, None
+    
     def delete_file(self, file_path, confirm=True):
         """
         Deletes the file (moves to recycle bin).
