@@ -127,6 +127,11 @@ class FileOperations:
             return False, None
             
         try:
+            # 현재 인덱스 백업
+            current_index = -1
+            if hasattr(self.viewer, 'current_index'):
+                current_index = self.viewer.current_index
+            
             # First, clean up any resources related to the file
             self._cleanup_resources_for_file(file_path)
             
@@ -152,6 +157,33 @@ class FileOperations:
                 self.viewer.bookmark_manager.save_bookmarks()
                 if hasattr(self.viewer.bookmark_manager, 'update_bookmark_button_state'):
                     self.viewer.bookmark_manager.update_bookmark_button_state()
+            
+            # 파일 목록 및 인덱스 업데이트
+            if hasattr(self.viewer, 'image_files') and file_path in self.viewer.image_files:
+                self.viewer.image_files.remove(file_path)
+                
+                # 파일 네비게이터 업데이트
+                if hasattr(self.viewer, 'file_navigator'):
+                    self.viewer.file_navigator.set_files(self.viewer.image_files, current_index)
+                
+                # 파일 이동 후 다음 이미지 표시 로직
+                if not self.viewer.image_files:
+                    self.viewer.show_message("No more images in the folder")
+                    if hasattr(self.viewer, 'image_label'):
+                        self.viewer.image_label.clear()
+                    if hasattr(self.viewer, 'current_image_path'):
+                        self.viewer.current_image_path = ""
+                elif current_index >= len(self.viewer.image_files):
+                    # 마지막 이미지를 이동한 경우, 새로운 마지막 이미지 표시
+                    self.viewer.current_index = max(0, len(self.viewer.image_files) - 1)
+                    if hasattr(self.viewer, 'state_manager'):
+                        self.viewer.state_manager.set_state("current_index", self.viewer.current_index)
+                    if self.viewer.image_files and hasattr(self.viewer, 'show_image'):
+                        self.viewer.show_image(self.viewer.image_files[self.viewer.current_index])
+                else:
+                    # 동일한 인덱스 유지 (이제 다음 이미지를 가리킴)
+                    if hasattr(self.viewer, 'show_image') and len(self.viewer.image_files) > current_index:
+                        self.viewer.show_image(self.viewer.image_files[current_index])
             
             # Display message
             self.viewer.show_message(f"Moved file to {path_display}")

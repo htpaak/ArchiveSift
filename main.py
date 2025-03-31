@@ -2443,40 +2443,19 @@ class ArchiveSift(QWidget):
     
     def move_image_to_folder(self, folder_path):
         """
-        Moves the current image to the specified folder and displays the next image.
-        현재 이미지를 지정된 폴더로 이동하고 다음 이미지를 표시합니다.
+        Moves the current image to the specified folder.
+        현재 이미지를 지정된 폴더로 이동합니다.
         
         Args:
             folder_path: Target folder path
         """
         if self.current_image_path and folder_path:
-            # Get current index before moving the file
-            current_index = self.current_index
+            print(f"Move to folder: {folder_path}")
             
             # Move the file using FileOperations
-            success, _ = self.file_operations.move_file_to_folder(self.current_image_path, folder_path)
+            self.file_operations.move_file_to_folder(self.current_image_path, folder_path)
             
-            if success:
-                # Remove the file from the list
-                if self.current_image_path in self.image_files:
-                    self.image_files.remove(self.current_image_path)
-                
-                # Update file navigator
-                if hasattr(self, 'file_navigator'):
-                    self.file_navigator.set_files(self.image_files, current_index)
-                
-                # If this was the last image, show the previous one
-                if not self.image_files:
-                    self.show_message("No more images in the folder")
-                elif current_index >= len(self.image_files):
-                    # If we removed the last image, show the new last image
-                    self.current_index = max(0, len(self.image_files) - 1)
-                    self.state_manager.set_state("current_index", self.current_index)
-                    if self.image_files:
-                        self.show_image(self.image_files[self.current_index])
-                else:
-                    # Keep the same index (which now points to the next image)
-                    self.show_image(self.image_files[current_index])
+            # 파일 이동 후 추가 로직은 FileOperations 클래스에서 처리됨
 
 # Main function
 def main():
