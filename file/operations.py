@@ -218,65 +218,8 @@ class FileOperations:
                 if reply != QMessageBox.Yes:
                     return False, None
             
-            # 타이머 정지 (있는 경우)
-            if hasattr(self.viewer, 'pause_all_timers'):
-                self.viewer.pause_all_timers()
-            
-            # Special handling for explicit cleanup related to GIF/animation
-            file_ext = os.path.splitext(file_path_str)[1].lower()
-            if file_ext in ['.gif', '.webp']:
-                # 1. Stop and release the QMovie of the animation handler
-                if hasattr(self.viewer, 'animation_handler'):
-                    if hasattr(self.viewer.animation_handler, 'stop_animation'):
-                        self.viewer.animation_handler.stop_animation()
-                    
-                    # Clean up the QMovie object of the animation handler
-                    if hasattr(self.viewer.animation_handler, 'current_movie') and self.viewer.animation_handler.current_movie:
-                        try:
-                            movie = self.viewer.animation_handler.current_movie
-                            movie.stop()
-                            # Disconnect signal connections
-                            try:
-                                movie.frameChanged.disconnect()
-                                movie.stateChanged.disconnect()
-                                movie.finished.disconnect()
-                            except:
-                                pass
-                            movie.setDevice(None)  # Disconnect from file
-                            movie.deleteLater()
-                            self.viewer.animation_handler.current_movie = None
-                        except Exception as e:
-                            pass
-                            
-                # 2. 이미지 레이블에서 QMovie 객체 제거
-                if hasattr(self.viewer, 'image_label'):
-                    self.viewer.image_label.setMovie(None)
-                    self.viewer.image_label.clear()
-                
-                # 3. GIF 캐시에서 해당 파일 항목 제거
-                if hasattr(self.viewer, 'gif_cache') and self.viewer.gif_cache:
-                    for key in list(self.viewer.gif_cache.cache.keys()):
-                        if isinstance(key, str) and file_path_str in key:
-                            try:
-                                item = self.viewer.gif_cache.cache[key]
-                                if isinstance(item, QMovie):
-                                    item.stop()
-                                    item.setDevice(None)
-                                    try:
-                                        item.finished.disconnect()
-                                        item.frameChanged.disconnect()
-                                    except:
-                                        pass
-                                    item.deleteLater()
-                                del self.viewer.gif_cache.cache[key]
-                            except Exception as e:
-                                pass
-            
-            # 완전한 정리를 위한 이벤트 처리와 가비지 컬렉션
-            for _ in range(3):
-                QApplication.processEvents()
-                gc.collect()
-                time.sleep(0.1)
+            # 리소스 정리 - 중앙화된 메서드 사용
+            self._cleanup_resources_for_file(file_path)
             
             # 파일 삭제 시도 (휴지통으로 이동만 지원)
             deleted = False
@@ -326,11 +269,66 @@ class FileOperations:
     
     def _cleanup_resources_for_file(self, file_path):
         """
-        파일 삭제 전에 관련 리소스를 정리합니다.
+        파일 삭제 또는 이동 전에 관련 리소스를 정리합니다.
         
         매개변수:
-            file_path: 삭제할 파일 경로
+            file_path: 처리할 파일 경로
         """
+        # 타이머 정지 (있는 경우)
+        if hasattr(self.viewer, 'pause_all_timers'):
+            self.viewer.pause_all_timers()
+        
+        # Special handling for explicit cleanup related to GIF/animation
+        file_ext = os.path.splitext(file_path)[1].lower()
+        if file_ext in ['.gif', '.webp']:
+            # 1. Stop and release the QMovie of the animation handler
+            if hasattr(self.viewer, 'animation_handler'):
+                if hasattr(self.viewer.animation_handler, 'stop_animation'):
+                    self.viewer.animation_handler.stop_animation()
+                
+                # Clean up the QMovie object of the animation handler
+                if hasattr(self.viewer.animation_handler, 'current_movie') and self.viewer.animation_handler.current_movie:
+                    try:
+                        movie = self.viewer.animation_handler.current_movie
+                        movie.stop()
+                        # Disconnect signal connections
+                        try:
+                            movie.frameChanged.disconnect()
+                            movie.stateChanged.disconnect()
+                            movie.finished.disconnect()
+                        except:
+                            pass
+                        movie.setDevice(None)  # Disconnect from file
+                        movie.deleteLater()
+                        self.viewer.animation_handler.current_movie = None
+                    except Exception as e:
+                        pass
+                        
+            # 2. 이미지 레이블에서 QMovie 객체 제거
+            if hasattr(self.viewer, 'image_label'):
+                self.viewer.image_label.setMovie(None)
+                self.viewer.image_label.clear()
+            
+            # 3. GIF 캐시에서 해당 파일 항목 제거
+            file_path_str = str(Path(file_path).resolve())
+            if hasattr(self.viewer, 'gif_cache') and self.viewer.gif_cache:
+                for key in list(self.viewer.gif_cache.cache.keys()):
+                    if isinstance(key, str) and file_path_str in key:
+                        try:
+                            item = self.viewer.gif_cache.cache[key]
+                            if isinstance(item, QMovie):
+                                item.stop()
+                                item.setDevice(None)
+                                try:
+                                    item.finished.disconnect()
+                                    item.frameChanged.disconnect()
+                                except:
+                                    pass
+                                item.deleteLater()
+                            del self.viewer.gif_cache.cache[key]
+                        except Exception as e:
+                            pass
+        
         # 미디어 리소스 정리를 위해 ArchiveSift의 cleanup_current_media 메서드 사용
         if hasattr(self.viewer, 'cleanup_current_media'):
             self.viewer.cleanup_current_media()
@@ -339,10 +337,13 @@ class FileOperations:
         if hasattr(self.viewer, 'current_image_path'):
             self.viewer.current_image_path = None
             
-        # 여기서 Qt 이벤트 처리를 해줘서 리소스 해제가 실제로 일어나도록 함
-        QApplication.processEvents()
+        # 완전한 정리를 위한 이벤트 처리와 가비지 컬렉션
+        for _ in range(3):
+            QApplication.processEvents()
+            gc.collect()
+            time.sleep(0.1)
         
-        # 약간의 딜레이 추가 (리소스가 완전히 정리될 시간 제공)
+        # 추가 딜레이 - 리소스가 완전히 정리될 시간 제공
         time.sleep(0.5)
     
     def get_unique_file_path(self, folder_path, file_path):
