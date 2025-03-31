@@ -96,7 +96,16 @@ class FileOperations:
         except Exception as e:
             # Log error
             # 오류 발생 시 로그 출력
-            self.viewer.show_message(f"File copy failed: {str(e)}")
+            error_msg = str(e)
+            # Replace Korean error message with English equivalent if present
+            if "[WinError 123]" in error_msg and "파일 이름, 디렉터리 이름 또는 볼륨 레이블 구문이 잘못되었습니다" in error_msg:
+                error_msg = error_msg.replace("파일 이름, 디렉터리 이름 또는 볼륨 레이블 구문이 잘못되었습니다", 
+                                             "The filename, directory name, or volume label syntax is incorrect")
+            elif "[WinError 32]" in error_msg and "다른 프로세스가 파일을 사용 중이기 때문에 프로세스가 액세스 할 수 없습니다" in error_msg:
+                error_msg = error_msg.replace("다른 프로세스가 파일을 사용 중이기 때문에 프로세스가 액세스 할 수 없습니다", 
+                                             "The process cannot access the file because it is being used by another process")
+            
+            self.viewer.show_message(f"File copy failed: {error_msg}")
             return False, None
     
     def move_file_to_folder(self, file_path, folder_path):
@@ -151,8 +160,17 @@ class FileOperations:
             
         except Exception as e:
             # Log error
-            log_error(f"File move failed: {str(e)}")
-            self.viewer.show_message(f"File move failed: {str(e)}")
+            error_msg = str(e)
+            # Replace Korean error message with English equivalent if present
+            if "[WinError 123]" in error_msg and "파일 이름, 디렉터리 이름 또는 볼륨 레이블 구문이 잘못되었습니다" in error_msg:
+                error_msg = error_msg.replace("파일 이름, 디렉터리 이름 또는 볼륨 레이블 구문이 잘못되었습니다", 
+                                              "The filename, directory name, or volume label syntax is incorrect")
+            elif "[WinError 32]" in error_msg and "다른 프로세스가 파일을 사용 중이기 때문에 프로세스가 액세스 할 수 없습니다" in error_msg:
+                error_msg = error_msg.replace("다른 프로세스가 파일을 사용 중이기 때문에 프로세스가 액세스 할 수 없습니다", 
+                                              "The process cannot access the file because it is being used by another process")
+            
+            log_error(f"File move failed: {error_msg}")
+            self.viewer.show_message(f"File move failed: {error_msg}")
             return False, None
     
     def delete_file(self, file_path, confirm=True):
@@ -294,7 +312,16 @@ class FileOperations:
             return deleted, next_file
                 
         except Exception as e:
-            self.viewer.show_message(f"Error occurred during deletion: {str(e)}")
+            error_msg = str(e)
+            # Replace Korean error message with English equivalent if present
+            if "[WinError 123]" in error_msg and "파일 이름, 디렉터리 이름 또는 볼륨 레이블 구문이 잘못되었습니다" in error_msg:
+                error_msg = error_msg.replace("파일 이름, 디렉터리 이름 또는 볼륨 레이블 구문이 잘못되었습니다", 
+                                             "The filename, directory name, or volume label syntax is incorrect")
+            elif "[WinError 32]" in error_msg and "다른 프로세스가 파일을 사용 중이기 때문에 프로세스가 액세스 할 수 없습니다" in error_msg:
+                error_msg = error_msg.replace("다른 프로세스가 파일을 사용 중이기 때문에 프로세스가 액세스 할 수 없습니다", 
+                                             "The process cannot access the file because it is being used by another process")
+            
+            self.viewer.show_message(f"Error occurred during deletion: {error_msg}")
             return False, None
     
     def _cleanup_resources_for_file(self, file_path):

@@ -9,5 +9,6 @@
 from events.handlers.keyboard_handler import KeyInputEdit
 from events.handlers.mouse_handler import MouseHandler
 from events.handlers.window_handler import WindowHandler
+from events.handlers.button_handler import ButtonEventHandler
 
-__all__ = ['KeyInputEdit', 'MouseHandler', 'WindowHandler'] 
+__all__ = ['KeyInputEdit', 'MouseHandler', 'WindowHandler', 'ButtonEventHandler'] 

@@ -291,6 +291,10 @@ class ArchiveSift(QWidget):
         # 마우스 이벤트 핸들러 초기화
         self.mouse_handler = MouseHandler(self)
         
+        # 버튼 이벤트 핸들러 초기화
+        from events.handlers.button_handler import ButtonEventHandler
+        self.button_handler = ButtonEventHandler(self)
+        
         # 윈도우 이벤트 핸들러 초기화
         self.window_handler = WindowHandler(self)
         
