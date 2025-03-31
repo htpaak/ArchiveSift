@@ -116,9 +116,9 @@ class DualActionButton(QPushButton):
             return
             
         if self.hover_region == 'left':
-            self.setToolTip(f"복사: {self.folder_path}")
+            self.setToolTip(f"Copy: {self.folder_path}")
         elif self.hover_region == 'right':
-            self.setToolTip(f"이동: {self.folder_path}")
+            self.setToolTip(f"Move: {self.folder_path}")
         else:
             self.setToolTip(self.folder_path)  # 기본 툴팁은 경로만 표시
     
