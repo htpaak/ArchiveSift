@@ -156,7 +156,7 @@ class FileOperations:
             
             # Remove from bookmarks if exists
             if hasattr(self.viewer, 'bookmark_manager') and file_path in self.viewer.bookmark_manager.bookmarks:
-                self.viewer.bookmark_manager.bookmarks.discard(file_path)
+                self.viewer.bookmark_manager.bookmarks.remove(file_path)
                 self.viewer.bookmark_manager.save_bookmarks()
                 if hasattr(self.viewer.bookmark_manager, 'update_bookmark_button_state'):
                     self.viewer.bookmark_manager.update_bookmark_button_state()
@@ -282,7 +282,7 @@ class FileOperations:
             if deleted:
                 # Remove from bookmarks (if exists)  // 북마크에서 제거 (있는 경우) → 영어로 번역됨
                 if hasattr(self.viewer, 'bookmark_manager') and file_path in self.viewer.bookmark_manager.bookmarks:
-                    self.viewer.bookmark_manager.bookmarks.discard(file_path)
+                    self.viewer.bookmark_manager.bookmarks.remove(file_path)
                     self.viewer.bookmark_manager.save_bookmarks()
                     if hasattr(self.viewer.bookmark_manager, 'update_bookmark_button_state'):
                         self.viewer.bookmark_manager.update_bookmark_button_state()

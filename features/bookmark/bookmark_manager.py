@@ -244,7 +244,8 @@ class BookmarkManager:
             QTimer.singleShot(150, self.viewer.update_image_info)
         else:
             # 파일이 없으면 북마크에서 제거
-            self.bookmarks.discard(path)
+            if path in self.bookmarks:
+                self.bookmarks.remove(path)
             self.save_bookmarks()
             self.viewer.show_message("파일을 찾을 수 없습니다")
 
