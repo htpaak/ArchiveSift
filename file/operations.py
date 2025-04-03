@@ -287,15 +287,16 @@ class FileOperations:
                     if hasattr(self.viewer.bookmark_manager, 'update_bookmark_button_state'):
                         self.viewer.bookmark_manager.update_bookmark_button_state()
                 
-                # 파일 목록에서 해당 파일 제거
-                if hasattr(self.viewer, 'image_files') and file_path in self.viewer.image_files:
-                    self.viewer.image_files.remove(file_path)
-                    
-                    # 파일이 모두 삭제되었는지 확인
-                    if not self.viewer.image_files:
-                        # 인덱스 표시창 숨기기
-                        if hasattr(self.viewer, 'image_info_label') and self.viewer.image_info_label.isVisible():
-                            self.viewer.image_info_label.hide()
+                # 파일 목록에서 해당 파일 제거 - 네비게이터가 처리하므로 여기서는 제거하지 않음
+                # 중복 제거 문제를 방지하기 위해 주석 처리
+                # if hasattr(self.viewer, 'image_files') and file_path in self.viewer.image_files:
+                #     self.viewer.image_files.remove(file_path)
+                #     
+                #     # 파일이 모두 삭제되었는지 확인
+                #     if not self.viewer.image_files:
+                #         # 인덱스 표시창 숨기기
+                #         if hasattr(self.viewer, 'image_info_label') and self.viewer.image_info_label.isVisible():
+                #             self.viewer.image_info_label.hide()
                 
                 self.viewer.show_message("The file has been moved to trash")
             else:
