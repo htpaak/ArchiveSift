@@ -53,7 +53,13 @@ class UndoManager(QObject):
             deleted_success: 삭제 성공 여부
         """
         if deleted_success:
-            self.deleted_files.appendleft((original_path, time.time()))
+            # 파일의 원래 인덱스를 저장
+            original_index = -1
+            if hasattr(self.viewer, 'file_navigator'):
+                original_index = self.viewer.file_navigator.get_current_index()
+            
+            # 파일 경로, 삭제 시간, 원래 인덱스 저장
+            self.deleted_files.appendleft((original_path, time.time(), original_index))
             self.undo_status_changed.emit(True)  # Undo 가능 상태로 변경
     
     def can_undo(self):
@@ -76,7 +82,13 @@ class UndoManager(QObject):
             self.viewer.show_message("실행 취소할 작업이 없습니다")
             return False, None
         
-        original_path, delete_time = self.deleted_files.popleft()
+        # 원래 정보 추출
+        if len(self.deleted_files[0]) >= 3:
+            original_path, delete_time, original_index = self.deleted_files.popleft()
+        else:
+            # 하위 호환성 유지 (이전 버전에서 인덱스 정보 없는 경우)
+            original_path, delete_time = self.deleted_files.popleft()
+            original_index = -1
         
         # 삭제 취소가 가능한지 확인 (파일이 이미 존재하는지)
         if os.path.exists(original_path):
@@ -103,7 +115,7 @@ class UndoManager(QObject):
             list_updated = False
             if restored_file:
                 # 실제 파일이 복원된 경우 파일 목록 업데이트
-                list_updated = self._add_to_file_list(original_path)
+                list_updated = self._add_to_file_list(original_path, original_index)
             
             # 더 이상 실행 취소할 항목이 없으면 상태 업데이트
             if not self.deleted_files:
@@ -175,12 +187,13 @@ class UndoManager(QObject):
             self.viewer.show_message(f"휴지통 복원 실패: {str(e)}")
             return False
     
-    def _add_to_file_list(self, file_path):
+    def _add_to_file_list(self, file_path, original_index=-1):
         """
         파일 목록에 파일 추가
         
         Args:
             file_path: 추가할 파일 경로
+            original_index: 원래 파일의 인덱스 (기본값 -1: 알 수 없음)
             
         Returns:
             bool: 성공 여부
@@ -192,11 +205,34 @@ class UndoManager(QObject):
                 
             # 파일 목록에 추가
             if hasattr(self.viewer, 'file_navigator'):
-                self.viewer.file_navigator.add_file(file_path)
-                self.viewer.image_files = self.viewer.file_navigator.get_files()
+                if original_index >= 0:
+                    # 원래 인덱스 위치에 파일 삽입
+                    navigator = self.viewer.file_navigator
+                    
+                    # 파일 목록 가져오기
+                    files = navigator.get_files()
+                    
+                    # 인덱스가 현재 목록 길이보다 큰 경우 조정
+                    if original_index > len(files):
+                        original_index = len(files)
+                    
+                    # 직접 파일 목록에 삽입
+                    files.insert(original_index, file_path)
+                    
+                    # 파일 목록 업데이트
+                    navigator.set_files(files, original_index)
+                    self.viewer.image_files = navigator.get_files()
+                    
+                    # 복원된 파일로 이동
+                    self.viewer.show_image(file_path)
+                else:
+                    # 원래 인덱스를 모르는 경우 기본 add_file 사용
+                    self.viewer.file_navigator.add_file(file_path)
+                    self.viewer.image_files = self.viewer.file_navigator.get_files()
+                    
+                    # 복원된 파일 표시
+                    self.viewer.show_image(file_path)
                 
-                # 복원된 파일 표시
-                self.viewer.show_image(file_path)
                 return True
                 
             return False

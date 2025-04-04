@@ -2507,7 +2507,11 @@ class ArchiveSift(QWidget):
         
         if success and restored_path:
             # 복원된 파일이 표시되도록 UndoManager에서 처리함
-            pass
+            # 파일 목록 업데이트
+            self.image_files = self.file_navigator.get_files()
+            # 현재 인덱스 업데이트
+            self.current_index = self.file_navigator.get_current_index()
+            # 복원된 파일 표시는 UndoManager에서 이미 처리됨
         elif not success and not restored_path:
             # 실패 메시지는 UndoManager에서 이미 표시함
             pass
