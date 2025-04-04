@@ -2519,7 +2519,7 @@ class ArchiveSift(QWidget):
             
     def undo_last_action(self):
         """
-        마지막으로 수행한 작업(삭제 또는 이동)을 취소합니다.
+        마지막으로 수행한 작업(삭제, 이동, 복사)을 취소합니다.
         """
         if not hasattr(self, 'undo_manager'):
             self.show_message("Undo 기능을 사용할 수 없습니다.")

@@ -87,6 +87,10 @@ class FileOperations:
                     # 드라이브 + '...' + 마지막 2개 폴더
                     path_display = f"{drive}{os.sep}...{os.sep}{os.sep.join(parts[-2:])}"
             
+            # 복사 작업 추적 (Undo 가능하도록)
+            if hasattr(self.viewer, 'undo_manager'):
+                self.viewer.undo_manager.track_copied_file(file_path, target_path, True)
+            
             # Display message
             # 메시지 표시
             self.viewer.show_message(f"Copied file to {path_display}")
