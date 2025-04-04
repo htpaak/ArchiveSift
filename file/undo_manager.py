@@ -32,6 +32,10 @@ class UndoManager(QObject):
     # 작업 실행 취소 가능 상태 변경 시그널
     undo_status_changed = pyqtSignal(bool)
     
+    # 작업 유형 상수
+    ACTION_DELETE = "delete"
+    ACTION_MOVE = "move"
+    
     def __init__(self, viewer):
         """
         UndoManager 초기화
@@ -41,7 +45,8 @@ class UndoManager(QObject):
         """
         super().__init__()
         self.viewer = viewer
-        self.deleted_files = deque(maxlen=10)  # 최대 10개 파일 추적
+        # 이제 deleted_files 대신 actions 큐를 사용해 삭제뿐만 아니라 모든 작업 추적
+        self.actions = deque(maxlen=10)  # 최대 10개 작업 추적
         self.trash_to_original = {}  # 휴지통 경로 -> 원본 경로 매핑
     
     def track_deleted_file(self, original_path, deleted_success):
@@ -59,7 +64,37 @@ class UndoManager(QObject):
                 original_index = self.viewer.file_navigator.get_current_index()
             
             # 파일 경로, 삭제 시간, 원래 인덱스 저장
-            self.deleted_files.appendleft((original_path, time.time(), original_index))
+            self.actions.appendleft({
+                'type': self.ACTION_DELETE,
+                'path': original_path,
+                'time': time.time(),
+                'index': original_index
+            })
+            self.undo_status_changed.emit(True)  # Undo 가능 상태로 변경
+    
+    def track_moved_file(self, original_path, new_path, moved_success):
+        """
+        이동된 파일 추적하기
+        
+        Args:
+            original_path: 원본 파일 경로
+            new_path: 이동된 파일 경로
+            moved_success: 이동 성공 여부
+        """
+        if moved_success:
+            # 파일의 원래 인덱스를 저장
+            original_index = -1
+            if hasattr(self.viewer, 'file_navigator'):
+                original_index = self.viewer.file_navigator.get_current_index()
+            
+            # 파일 이동 정보 저장
+            self.actions.appendleft({
+                'type': self.ACTION_MOVE,
+                'original_path': original_path,
+                'new_path': new_path,
+                'time': time.time(),
+                'index': original_index
+            })
             self.undo_status_changed.emit(True)  # Undo 가능 상태로 변경
     
     def can_undo(self):
@@ -69,32 +104,72 @@ class UndoManager(QObject):
         Returns:
             bool: 실행 취소 가능 여부
         """
-        return len(self.deleted_files) > 0
+        return len(self.actions) > 0
     
-    def undo_last_deletion(self):
+    def undo_last_action(self):
         """
-        마지막 삭제 작업 취소
+        마지막 작업 취소 (삭제 또는 이동)
         
         Returns:
             tuple: (성공 여부, 복원된 파일 경로)
         """
-        if not self.deleted_files:
+        if not self.actions:
             self.viewer.show_message("실행 취소할 작업이 없습니다")
             return False, None
         
-        # 원래 정보 추출
-        if len(self.deleted_files[0]) >= 3:
-            original_path, delete_time, original_index = self.deleted_files.popleft()
+        # 마지막 작업 가져오기
+        last_action = self.actions.popleft()
+        action_type = last_action.get('type')
+        
+        # 작업 유형에 따라 처리
+        if action_type == self.ACTION_DELETE:
+            return self._undo_deletion(last_action)
+        elif action_type == self.ACTION_MOVE:
+            return self._undo_move(last_action)
         else:
-            # 하위 호환성 유지 (이전 버전에서 인덱스 정보 없는 경우)
-            original_path, delete_time = self.deleted_files.popleft()
-            original_index = -1
+            self.viewer.show_message(f"알 수 없는 작업 유형: {action_type}")
+            return False, None
+    
+    def undo_last_deletion(self):
+        """
+        마지막 삭제 작업 취소 (이전 버전과의 호환성을 위해 유지)
+        
+        Returns:
+            tuple: (성공 여부, 복원된 파일 경로)
+        """
+        # 삭제 작업만 필터링
+        delete_actions = [action for action in self.actions if action.get('type') == self.ACTION_DELETE]
+        
+        if not delete_actions:
+            self.viewer.show_message("실행 취소할 삭제 작업이 없습니다")
+            return False, None
+        
+        # 첫 번째 삭제 작업 처리
+        last_delete = delete_actions[0]
+        
+        # actions 큐에서 해당 작업 제거
+        self.actions.remove(last_delete)
+        
+        return self._undo_deletion(last_delete)
+    
+    def _undo_deletion(self, delete_action):
+        """
+        삭제 작업 취소 내부 처리 메소드
+        
+        Args:
+            delete_action: 삭제 작업 정보 딕셔너리
+            
+        Returns:
+            tuple: (성공 여부, 복원된 파일 경로)
+        """
+        original_path = delete_action.get('path')
+        original_index = delete_action.get('index', -1)
         
         # 삭제 취소가 가능한지 확인 (파일이 이미 존재하는지)
         if os.path.exists(original_path):
             self.viewer.show_message(f"이미 해당 경로에 파일이 존재합니다: {os.path.basename(original_path)}")
             # 더 이상 실행 취소할 항목이 없으면 상태 업데이트
-            if not self.deleted_files:
+            if not self.actions:
                 self.undo_status_changed.emit(False)
             return False, None
         
@@ -118,7 +193,7 @@ class UndoManager(QObject):
                 list_updated = self._add_to_file_list(original_path, original_index)
             
             # 더 이상 실행 취소할 항목이 없으면 상태 업데이트
-            if not self.deleted_files:
+            if not self.actions:
                 self.undo_status_changed.emit(False)
                 
             if restored_file and list_updated:
@@ -133,6 +208,73 @@ class UndoManager(QObject):
                 
         except Exception as e:
             self.viewer.show_message(f"파일 복원 실패: {str(e)}")
+            return False, None
+    
+    def _undo_move(self, move_action):
+        """
+        이동 작업 취소 내부 처리 메소드
+        
+        Args:
+            move_action: 이동 작업 정보 딕셔너리
+            
+        Returns:
+            tuple: (성공 여부, 복원된 파일 경로)
+        """
+        original_path = move_action.get('original_path')
+        new_path = move_action.get('new_path')
+        original_index = move_action.get('index', -1)
+        
+        # 이동 취소가 가능한지 확인
+        if not os.path.exists(new_path):
+            self.viewer.show_message(f"이동된 파일이 존재하지 않습니다: {os.path.basename(new_path)}")
+            # 더 이상 실행 취소할 항목이 없으면 상태 업데이트
+            if not self.actions:
+                self.undo_status_changed.emit(False)
+            return False, None
+            
+        if os.path.exists(original_path):
+            self.viewer.show_message(f"원래 위치에 이미 파일이 존재합니다: {os.path.basename(original_path)}")
+            if not self.actions:
+                self.undo_status_changed.emit(False)
+            return False, None
+        
+        try:
+            # 원본 디렉토리가 존재하는지 확인
+            original_dir = os.path.dirname(original_path)
+            if not os.path.exists(original_dir):
+                os.makedirs(original_dir, exist_ok=True)
+                
+            # 파일을 원래 위치로 다시 이동
+            self.viewer.show_message(f"파일 이동 중: {os.path.basename(new_path)} -> {os.path.basename(original_path)}")
+            
+            # 현재 열려있는 파일이라면 리소스 정리
+            if hasattr(self.viewer, 'current_image_path') and self.viewer.current_image_path == new_path:
+                if hasattr(self.viewer, 'file_operations') and hasattr(self.viewer.file_operations, '_cleanup_resources_for_file'):
+                    self.viewer.file_operations._cleanup_resources_for_file(new_path)
+            
+            # 파일 이동
+            shutil.move(new_path, original_path)
+            
+            # 파일 목록 업데이트
+            list_updated = False
+            
+            # 파일 목록에 추가 (이동된 파일이 목록에서 제거되었을 것이므로)
+            if os.path.exists(original_path):
+                list_updated = self._add_to_file_list(original_path, original_index)
+            
+            # 더 이상 실행 취소할 항목이 없으면 상태 업데이트
+            if not self.actions:
+                self.undo_status_changed.emit(False)
+                
+            if list_updated:
+                self.viewer.show_message(f"파일이 원래 위치로 복원되었습니다: {os.path.basename(original_path)}")
+                return True, original_path
+            else:
+                self.viewer.show_message(f"파일은 복원되었지만 목록에 추가하지 못했습니다: {os.path.basename(original_path)}")
+                return True, original_path
+                
+        except Exception as e:
+            self.viewer.show_message(f"파일 이동 취소 실패: {str(e)}")
             return False, None
     
     def _restore_from_trash(self, original_path):

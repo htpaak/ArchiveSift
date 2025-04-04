@@ -802,7 +802,7 @@ class ArchiveSift(QWidget):
                         }
                     """)
                     # Undo 기능에 연결
-                    empty_button.clicked.connect(self.undo_last_deletion)
+                    empty_button.clicked.connect(self.undo_last_action)
                     # Undo 버튼 참조 저장
                     self.undo_button = empty_button
                     # 초기 상태로 비활성화 (삭제된 파일이 없으므로)
@@ -2498,6 +2498,7 @@ class ArchiveSift(QWidget):
     def undo_last_deletion(self):
         """
         마지막으로 삭제된 파일을 복원합니다.
+        (이전 버전 호환성을 위해 유지)
         """
         if not hasattr(self, 'undo_manager'):
             self.show_message("Undo 기능을 사용할 수 없습니다.")
@@ -2516,6 +2517,27 @@ class ArchiveSift(QWidget):
             # 실패 메시지는 UndoManager에서 이미 표시함
             pass
             
+    def undo_last_action(self):
+        """
+        마지막으로 수행한 작업(삭제 또는 이동)을 취소합니다.
+        """
+        if not hasattr(self, 'undo_manager'):
+            self.show_message("Undo 기능을 사용할 수 없습니다.")
+            return
+            
+        success, restored_path = self.undo_manager.undo_last_action()
+        
+        if success and restored_path:
+            # 복원된 파일이 표시되도록 UndoManager에서 처리함
+            # 파일 목록 업데이트
+            self.image_files = self.file_navigator.get_files()
+            # 현재 인덱스 업데이트
+            self.current_index = self.file_navigator.get_current_index()
+            # 복원된 파일 표시는 UndoManager에서 이미 처리됨
+        elif not success and not restored_path:
+            # 실패 메시지는 UndoManager에서 이미 표시함
+            pass
+
     def update_undo_button_state(self, enabled):
         """
         Undo 버튼의 상태를 업데이트합니다.

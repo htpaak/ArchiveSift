@@ -154,6 +154,10 @@ class FileOperations:
                     # Drive + '...' + the last 2 folders
                     path_display = f"{drive}{os.sep}...{os.sep}{os.sep.join(parts[-2:])}"
             
+            # 이동 작업 추적 (Undo 가능하도록)
+            if hasattr(self.viewer, 'undo_manager'):
+                self.viewer.undo_manager.track_moved_file(file_path, target_path, True)
+            
             # Remove from bookmarks if exists
             if hasattr(self.viewer, 'bookmark_manager') and file_path in self.viewer.bookmark_manager.bookmarks:
                 self.viewer.bookmark_manager.bookmarks.remove(file_path)
