@@ -280,6 +280,10 @@ class FileOperations:
             
             # Post-processing after successful deletion  // 삭제 성공 시 후처리 → 영어로 번역됨
             if deleted:
+                # 삭제 작업 추적 (Undo 가능하도록)
+                if hasattr(self.viewer, 'undo_manager'):
+                    self.viewer.undo_manager.track_deleted_file(file_path_str, deleted)
+                
                 # Remove from bookmarks (if exists)  // 북마크에서 제거 (있는 경우) → 영어로 번역됨
                 if hasattr(self.viewer, 'bookmark_manager') and file_path in self.viewer.bookmark_manager.bookmarks:
                     self.viewer.bookmark_manager.bookmarks.remove(file_path)

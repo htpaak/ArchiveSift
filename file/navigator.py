@@ -195,6 +195,56 @@ class FileNavigator:
         # 다음에 표시할 파일 경로 반환
         return True, self.files[self.current_index]
         
+    def add_file(self, file_path):
+        """
+        파일 목록에 파일을 추가합니다.
+        
+        이 메서드는 지정된 파일을 파일 목록에 추가하고, 원래 위치에 가장 가까운 인덱스를 찾아 파일을 배치합니다.
+        파일이 이미 목록에 있으면 아무 작업도 수행하지 않습니다.
+        
+        Args:
+            file_path (str): 추가할 파일 경로
+            
+        Returns:
+            bool: 파일 추가 성공 여부
+        """
+        # 파일이 이미 목록에 있으면 건너뛰기
+        if file_path in self.files:
+            return True
+            
+        # 파일이 실제로 존재하는지 확인
+        if not os.path.exists(file_path):
+            return False
+            
+        # 먼저 파일 디렉토리 확인
+        file_dir = os.path.dirname(file_path)
+        file_name = os.path.basename(file_path)
+        
+        # 현재 목록의 파일 디렉토리와 비교
+        if self.files and os.path.dirname(self.files[0]) != file_dir:
+            # 디렉토리가 다르면 적절한 위치 결정 어려움 - 맨 끝에 추가
+            self.files.append(file_path)
+            # 현재 인덱스를 추가된 파일로 설정
+            self.current_index = len(self.files) - 1
+            return True
+            
+        # 알파벳 순서로 삽입할 위치 찾기
+        insert_index = 0
+        for i, path in enumerate(self.files):
+            if os.path.basename(path) > file_name:
+                insert_index = i
+                break
+            # 이미 모든 파일이 현재 파일보다 알파벳 순서가 앞서면 맨 끝에 추가
+            insert_index = i + 1
+            
+        # 파일 삽입
+        self.files.insert(insert_index, file_path)
+        
+        # 현재 인덱스를 추가된 파일로 설정
+        self.current_index = insert_index
+        
+        return True
+    
     def go_to_index(self, index, show_message=True):
         """
         Move to a specific index.

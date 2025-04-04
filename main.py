@@ -90,6 +90,8 @@ from core.state_manager import StateManager
 # 파일 브라우저 추가
 from file import FileBrowser, FileNavigator
 from file.operations import FileOperations
+from file.navigator import FileNavigator
+from file.undo_manager import UndoManager
 
 from ui.components.dual_action_button import DualActionButton  # 듀얼 액션 버튼 클래스 import
 # from ui.components.tooltip_manager import TooltipManager
@@ -298,14 +300,16 @@ class ArchiveSift(QWidget):
         # 윈도우 이벤트 핸들러 초기화
         self.window_handler = WindowHandler(self)
         
-        # 파일 브라우저 초기화
-        self.file_browser = FileBrowser(self)
-        
-        # 파일 내비게이터 초기화
-        self.file_navigator = FileNavigator(self)
-        
-        # 파일 작업 관리자 초기화
-        self.file_operations = FileOperations(self)
+        # 파일 브라우저 생성
+        self.file_browser = FileBrowser(parent=self)
+        # 파일 내비게이터 생성
+        self.file_navigator = FileNavigator(parent=self)
+        # 파일 작업 관리자 생성
+        self.file_operations = FileOperations(viewer=self)
+        # Undo 관리자 생성
+        self.undo_manager = UndoManager(viewer=self)
+        # Undo 버튼 참조 저장을 위한 변수 (나중에 설정됨)
+        self.undo_button = None
         
         # 북마크 관리자 초기화
         self.bookmark_manager = BookmarkManager(self)
@@ -797,7 +801,14 @@ class ArchiveSift(QWidget):
                             background-color: rgba(241, 196, 15, 1.0);
                         }
                     """)
-                    # 나중에 Undo 기능에 연결할 예정
+                    # Undo 기능에 연결
+                    empty_button.clicked.connect(self.undo_last_deletion)
+                    # Undo 버튼 참조 저장
+                    self.undo_button = empty_button
+                    # 초기 상태로 비활성화 (삭제된 파일이 없으므로)
+                    self.undo_button.setEnabled(False)
+                    # Undo 상태 변경 시그널 연결
+                    self.undo_manager.undo_status_changed.connect(self.update_undo_button_state)
                 else:
                     # QPushButton 대신 DualActionButton 사용
                     empty_button = DualActionButton('', self)
@@ -2483,6 +2494,43 @@ class ArchiveSift(QWidget):
             self.file_operations.move_file_to_folder(self.current_image_path, folder_path)
             
             # 파일 이동 후 추가 로직은 FileOperations 클래스에서 처리됨
+
+    def undo_last_deletion(self):
+        """
+        마지막으로 삭제된 파일을 복원합니다.
+        """
+        if not hasattr(self, 'undo_manager'):
+            self.show_message("Undo 기능을 사용할 수 없습니다.")
+            return
+            
+        success, restored_path = self.undo_manager.undo_last_deletion()
+        
+        if success and restored_path:
+            # 복원된 파일이 표시되도록 UndoManager에서 처리함
+            pass
+        elif not success and not restored_path:
+            # 실패 메시지는 UndoManager에서 이미 표시함
+            pass
+            
+    def update_undo_button_state(self, enabled):
+        """
+        Undo 버튼의 상태를 업데이트합니다.
+        
+        Args:
+            enabled (bool): 활성화 여부
+        """
+        if hasattr(self, 'undo_button') and self.undo_button:
+            self.undo_button.setEnabled(enabled)
+            
+    def update_undo_state(self, enabled):
+        """
+        Undo 버튼의 상태를 업데이트하는 대체 메서드입니다.
+        
+        Args:
+            enabled (bool): 활성화 여부
+        """
+        if hasattr(self, 'undo_button') and self.undo_button:
+            self.undo_button.setEnabled(enabled)
 
 # Main function
 def main():
