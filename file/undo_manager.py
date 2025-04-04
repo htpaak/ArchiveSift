@@ -141,7 +141,7 @@ class UndoManager(QObject):
             tuple: (성공 여부, 복원된 파일 경로)
         """
         if not self.actions:
-            self.viewer.show_message("실행 취소할 작업이 없습니다")
+            self.viewer.show_message("No actions to undo")
             return False, None
         
         # 마지막 작업 가져오기
@@ -156,7 +156,7 @@ class UndoManager(QObject):
         elif action_type == self.ACTION_COPY:
             return self._undo_copy(last_action)
         else:
-            self.viewer.show_message(f"알 수 없는 작업 유형: {action_type}")
+            self.viewer.show_message(f"Unknown action type: {action_type}")
             return False, None
     
     def undo_last_deletion(self):
@@ -170,7 +170,7 @@ class UndoManager(QObject):
         delete_actions = [action for action in self.actions if action.get('type') == self.ACTION_DELETE]
         
         if not delete_actions:
-            self.viewer.show_message("실행 취소할 삭제 작업이 없습니다")
+            self.viewer.show_message("No delete actions to undo")
             return False, None
         
         # 첫 번째 삭제 작업 처리
@@ -196,7 +196,7 @@ class UndoManager(QObject):
         
         # 삭제 취소가 가능한지 확인 (파일이 이미 존재하는지)
         if os.path.exists(original_path):
-            self.viewer.show_message(f"이미 해당 경로에 파일이 존재합니다: {os.path.basename(original_path)}")
+            self.viewer.show_message(f"File already exists at this location: {os.path.basename(original_path)}")
             # 더 이상 실행 취소할 항목이 없으면 상태 업데이트
             if not self.actions:
                 self.undo_status_changed.emit(False)
@@ -210,7 +210,7 @@ class UndoManager(QObject):
                 os.makedirs(original_dir, exist_ok=True)
                 
             # 파일 복원 시도
-            self.viewer.show_message(f"파일 복원 중: {os.path.basename(original_path)}")
+            self.viewer.show_message(f"Restoring file: {os.path.basename(original_path)}")
             
             # 실제 파일 복원 시도
             restored_file = self._restore_from_trash(original_path)
@@ -226,17 +226,17 @@ class UndoManager(QObject):
                 self.undo_status_changed.emit(False)
                 
             if restored_file and list_updated:
-                self.viewer.show_message(f"파일이 복원되었습니다: {os.path.basename(original_path)}")
+                self.viewer.show_message(f"File restored successfully: {os.path.basename(original_path)}")
                 return True, original_path
             elif restored_file:
-                self.viewer.show_message(f"파일은 복원되었지만 목록에 추가하지 못했습니다: {os.path.basename(original_path)}")
+                self.viewer.show_message(f"File restored but could not be added to the list: {os.path.basename(original_path)}")
                 return True, original_path
             else:
-                self.viewer.show_message(f"파일 복원 실패: {os.path.basename(original_path)}")
+                self.viewer.show_message(f"Failed to restore file: {os.path.basename(original_path)}")
                 return False, None
                 
         except Exception as e:
-            self.viewer.show_message(f"파일 복원 실패: {str(e)}")
+            self.viewer.show_message(f"File restoration failed: {str(e)}")
             return False, None
     
     def _undo_move(self, move_action):
@@ -255,14 +255,14 @@ class UndoManager(QObject):
         
         # 이동 취소가 가능한지 확인
         if not os.path.exists(new_path):
-            self.viewer.show_message(f"이동된 파일이 존재하지 않습니다: {os.path.basename(new_path)}")
+            self.viewer.show_message(f"Moved file does not exist: {os.path.basename(new_path)}")
             # 더 이상 실행 취소할 항목이 없으면 상태 업데이트
             if not self.actions:
                 self.undo_status_changed.emit(False)
             return False, None
             
         if os.path.exists(original_path):
-            self.viewer.show_message(f"원래 위치에 이미 파일이 존재합니다: {os.path.basename(original_path)}")
+            self.viewer.show_message(f"File already exists at original location: {os.path.basename(original_path)}")
             if not self.actions:
                 self.undo_status_changed.emit(False)
             return False, None
@@ -274,7 +274,7 @@ class UndoManager(QObject):
                 os.makedirs(original_dir, exist_ok=True)
                 
             # 파일을 원래 위치로 다시 이동
-            self.viewer.show_message(f"파일 이동 중: {os.path.basename(new_path)} -> {os.path.basename(original_path)}")
+            self.viewer.show_message(f"Moving file: {os.path.basename(new_path)} -> {os.path.basename(original_path)}")
             
             # 현재 열려있는 파일이라면 리소스 정리
             if hasattr(self.viewer, 'current_image_path') and self.viewer.current_image_path == new_path:
@@ -296,14 +296,14 @@ class UndoManager(QObject):
                 self.undo_status_changed.emit(False)
                 
             if list_updated:
-                self.viewer.show_message(f"파일이 원래 위치로 복원되었습니다: {os.path.basename(original_path)}")
+                self.viewer.show_message(f"File restored to original location: {os.path.basename(original_path)}")
                 return True, original_path
             else:
-                self.viewer.show_message(f"파일은 복원되었지만 목록에 추가하지 못했습니다: {os.path.basename(original_path)}")
+                self.viewer.show_message(f"File restored but could not be added to the list: {os.path.basename(original_path)}")
                 return True, original_path
                 
         except Exception as e:
-            self.viewer.show_message(f"파일 이동 취소 실패: {str(e)}")
+            self.viewer.show_message(f"Failed to undo move operation: {str(e)}")
             return False, None
     
     def _undo_copy(self, copy_action):
@@ -321,7 +321,7 @@ class UndoManager(QObject):
         
         # 복사 취소가 가능한지 확인
         if not os.path.exists(copied_path):
-            self.viewer.show_message(f"복사된 파일이 존재하지 않습니다: {os.path.basename(copied_path)}")
+            self.viewer.show_message(f"Copied file does not exist: {os.path.basename(copied_path)}")
             # 더 이상 실행 취소할 항목이 없으면 상태 업데이트
             if not self.actions:
                 self.undo_status_changed.emit(False)
@@ -342,7 +342,7 @@ class UndoManager(QObject):
                     time.sleep(0.1)
             
             # 휴지통으로 파일 이동 (복사본 삭제)
-            self.viewer.show_message(f"복사된 파일 삭제 중: {file_name}")
+            self.viewer.show_message(f"Deleting copied file: {file_name}")
             
             deleted = False
             try:
@@ -354,7 +354,7 @@ class UndoManager(QObject):
                 # 삭제 확인
                 deleted = not os.path.exists(copied_path_str)
             except Exception as e:
-                self.viewer.show_message(f"휴지통으로 이동 실패: {str(e)}")
+                self.viewer.show_message(f"Failed to move file to trash: {str(e)}")
                 print(f"Error moving to trash: {str(e)}")
                 # 이벤트 처리
                 QApplication.processEvents()
@@ -366,15 +366,15 @@ class UndoManager(QObject):
                 self.undo_status_changed.emit(False)
                 
             if deleted:
-                self.viewer.show_message(f"복사된 파일이 삭제되었습니다: {file_name}")
+                self.viewer.show_message(f"Copied file has been deleted: {file_name}")
                 return True, original_path
             else:
-                self.viewer.show_message(f"파일 삭제 실패: {file_name}. 파일이 다른 프로그램에서 사용 중일 수 있습니다.")
+                self.viewer.show_message(f"Failed to delete file: {file_name}. File may be in use by another program.")
                 return False, None
                 
         except Exception as e:
             # 전체 처리 과정에서 오류 발생
-            self.viewer.show_message(f"파일 복사 취소 실패: {str(e)}")
+            self.viewer.show_message(f"Failed to undo copy operation: {str(e)}")
             print(f"Undo copy failed: {str(e)}")
             return False, None
     
@@ -417,17 +417,17 @@ class UndoManager(QObject):
                             return True
                 
                 # 파일을 찾지 못한 경우
-                self.viewer.show_message(f"휴지통에서 {file_name}을(를) 찾을 수 없습니다")
+                self.viewer.show_message(f"Could not find {file_name} in the recycle bin")
                 return False
                 
             # 다른 OS 환경에서는 대체 방법 제공
             else:
                 # 파일 목록에만 추가 (실제 파일은 복원하지 않음)
-                self.viewer.show_message("이 운영체제에서는 휴지통 복원 기능이 제한됩니다.")
+                self.viewer.show_message("Recycle bin restoration is limited on this operating system")
                 return True
                 
         except Exception as e:
-            self.viewer.show_message(f"휴지통 복원 실패: {str(e)}")
+            self.viewer.show_message(f"Failed to restore from recycle bin: {str(e)}")
             return False
     
     def _add_to_file_list(self, file_path, original_index=-1):
@@ -480,5 +480,5 @@ class UndoManager(QObject):
                 
             return False
         except Exception as e:
-            print(f"파일 목록 추가 실패: {str(e)}")
+            print(f"Failed to add file to list: {str(e)}")
             return False 

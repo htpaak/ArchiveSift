@@ -2501,7 +2501,7 @@ class ArchiveSift(QWidget):
         (이전 버전 호환성을 위해 유지)
         """
         if not hasattr(self, 'undo_manager'):
-            self.show_message("Undo 기능을 사용할 수 없습니다.")
+            self.show_message("Undo feature is not available.")
             return
             
         success, restored_path = self.undo_manager.undo_last_deletion()
@@ -2522,7 +2522,7 @@ class ArchiveSift(QWidget):
         마지막으로 수행한 작업(삭제, 이동, 복사)을 취소합니다.
         """
         if not hasattr(self, 'undo_manager'):
-            self.show_message("Undo 기능을 사용할 수 없습니다.")
+            self.show_message("Undo feature is not available.")
             return
             
         success, restored_path = self.undo_manager.undo_last_action()

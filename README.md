@@ -14,9 +14,13 @@ ArchiveSift is a program that helps you sort and organize media files (images, a
 
 ## Demo
 
-https://github.com/user-attachments/assets/1fe05f1d-fd21-4577-97f5-b3e07c207edf
+![데모 1 - Open Folder](assets/Demo_1.png)
 
-https://github.com/user-attachments/assets/8d97d4d5-e546-4a81-a8e1-3929d596ece6
+![데모 2 - Set Folder](assets/Demo_2.png)
+
+![데모 3 - Copy](assets/Demo_3.png)
+
+![데모 4 - Move](assets/Demo_4.png)
 
 ## Supported Extensions
 
