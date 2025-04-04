@@ -764,7 +764,7 @@ class ArchiveSift(QWidget):
 
         # 폴더 버튼에 스타일 적용
         self.buttons = []
-        for _ in range(5):  # 5줄
+        for row_idx in range(5):  # 5줄
             row_widget = QWidget()  # 각 행을 위한 위젯
             row_widget.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Fixed)  # Expanding 대신 MinimumExpanding 사용
             row_widget.setMaximumWidth(self.width())  # 최대 너비 제한 추가
@@ -778,10 +778,31 @@ class ArchiveSift(QWidget):
             button_width = available_width / 20  # 실제 사용 가능한 너비로 계산
             
             for i in range(20):
-                # QPushButton 대신 DualActionButton 사용
-                empty_button = DualActionButton('', self)
-                empty_button.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Fixed)
-                empty_button.clicked.connect(self.on_button_click)
+                # 마지막 버튼(100번째)은 Undo 버튼으로 변경
+                if row_idx == 4 and i == 19:
+                    # 일반 QPushButton 사용
+                    empty_button = QPushButton('Undo', self)
+                    empty_button.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Fixed)
+                    # 북마크 버튼과 동일한 노란색 스타일 적용
+                    empty_button.setStyleSheet("""
+                        QPushButton {
+                            background-color: rgba(241, 196, 15, 0.9);
+                            color: white;
+                            border: none;
+                            padding: 10px;
+                            border-radius: 3px;
+                            font-weight: bold;
+                        }
+                        QPushButton:hover {
+                            background-color: rgba(241, 196, 15, 1.0);
+                        }
+                    """)
+                    # 나중에 Undo 기능에 연결할 예정
+                else:
+                    # QPushButton 대신 DualActionButton 사용
+                    empty_button = DualActionButton('', self)
+                    empty_button.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Fixed)
+                    empty_button.clicked.connect(self.on_button_click)
                 
                 if i == 19:
                     remaining_width = total_width - (int(button_width) * 19)
@@ -992,9 +1013,13 @@ class ArchiveSift(QWidget):
             self.base_folder = folder_path  # Save base folder path
             print(f"Base folder set to: {self.base_folder}")  # Print set path to console
 
-            # 모든 버튼 초기화 (텍스트 및 툴팁 제거)
-            for row in self.buttons:
-                for button in row:
+            # 모든 버튼 초기화 (텍스트 및 툴팁 제거) - 마지막 Undo 버튼 제외
+            for i, row in enumerate(self.buttons):
+                for j, button in enumerate(row):
+                    # 마지막 버튼(Undo 버튼)은 건너뜀
+                    if i == 4 and j == 19:
+                        continue
+                        
                     # DualActionButton 특화 메서드 호출
                     if hasattr(button, 'set_folder_info'):
                         button.set_folder_info('', '')
@@ -1008,11 +1033,15 @@ class ArchiveSift(QWidget):
             subfolders.sort(key=lambda x: natural_keys(os.path.basename(x).lower()))  # 자연스러운 순서로 정렬
 
             # 버튼 너비 계산
-            button_width = self.width() // 20  # 창 너비의 1/20로 설정
+            button_width = self.width() // 20
 
             # 폴더 버튼 업데이트
             for i, row in enumerate(self.buttons):
                 for j, button in enumerate(row):
+                    # 마지막 버튼(Undo 버튼)은 건너뜀
+                    if i == 4 and j == 19:
+                        continue
+                        
                     index = i * 20 + j  # 버튼 인덱스 계산 (5행 20열)
                     if index < len(subfolders):  # 유효한 폴더가 있는 경우
                         folder_name = os.path.basename(subfolders[index])  # 폴더명 추출
