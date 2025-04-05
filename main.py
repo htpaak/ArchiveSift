@@ -2512,6 +2512,8 @@ class ArchiveSift(QWidget):
             self.image_files = self.file_navigator.get_files()
             # 현재 인덱스 업데이트
             self.current_index = self.file_navigator.get_current_index()
+            # 이미지 정보 업데이트 (인덱스 표시)
+            self.update_image_info()
             # 복원된 파일 표시는 UndoManager에서 이미 처리됨
         elif not success and not restored_path:
             # 실패 메시지는 UndoManager에서 이미 표시함
@@ -2533,6 +2535,8 @@ class ArchiveSift(QWidget):
             self.image_files = self.file_navigator.get_files()
             # 현재 인덱스 업데이트
             self.current_index = self.file_navigator.get_current_index()
+            # 이미지 정보 업데이트 (인덱스 표시)
+            self.update_image_info()
             # 복원된 파일 표시는 UndoManager에서 이미 처리됨
         elif not success and not restored_path:
             # 실패 메시지는 UndoManager에서 이미 표시함
