@@ -24,6 +24,7 @@ class FileNavigator:
         self.parent = parent
         self.files = []  # 현재 파일 목록
         self.current_index = -1  # 현재 인덱스 (-1은 유효한 파일이 없음을 의미)
+        self.loop_navigation = False  # 순환 탐색 옵션 기본값 (마지막 파일에서 처음으로 돌아가기)
         
     def set_files(self, files, start_index=0):
         """
