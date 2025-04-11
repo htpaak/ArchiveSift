@@ -761,17 +761,19 @@ class ArchiveSift(QWidget):
 
         # 버튼 컨테이너 위젯 생성
         button_container = QWidget()
-        button_container.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)  # Fixed에서 Preferred로 변경
+        self.button_container = button_container  # 클래스 멤버로 먼저 저장
+        button_container.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        
         button_container_layout = QVBoxLayout(button_container)
         button_container_layout.setContentsMargins(0, 0, 0, 0)
         button_container_layout.setSpacing(0)
 
         # 폴더 버튼에 스타일 적용
         self.buttons = []
-        for row_idx in range(5):  # 5줄
-            row_widget = QWidget()  # 각 행을 위한 위젯
-            # 각 행은 버튼 컨테이너 높이의 1/5 비율로 설정 (고정 높이 대신 QVBoxLayout의 stretch factor 사용)
+        for row_idx in range(4):  # 4줄로 변경
+            row_widget = QWidget()
             row_widget.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Preferred)
+            
             button_layout = QHBoxLayout(row_widget)
             button_layout.setContentsMargins(0, 0, 0, 0)
             button_layout.setSpacing(0)
@@ -782,39 +784,10 @@ class ArchiveSift(QWidget):
             button_width = available_width / 20  # 실제 사용 가능한 너비로 계산
             
             for i in range(20):
-                # 마지막 버튼(100번째)은 Undo 버튼으로 변경
-                if row_idx == 4 and i == 19:
-                    # 일반 QPushButton 사용
-                    empty_button = QPushButton('Undo', self)
-                    empty_button.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Preferred)  # Fixed에서 Preferred로 변경
-                    # 북마크 버튼과 동일한 노란색 스타일 적용
-                    empty_button.setStyleSheet("""
-                        QPushButton {
-                            background-color: rgba(241, 196, 15, 0.9);
-                            color: white;
-                            border: none;
-                            padding: 2px;  /* 패딩을 10px에서 2px로 줄임 */
-                            border-radius: 3px;
-                            font-weight: bold;
-                            font-size: 11px;  /* 폰트 크기 추가 */
-                        }
-                        QPushButton:hover {
-                            background-color: rgba(241, 196, 15, 1.0);
-                        }
-                    """)
-                    # Undo 기능에 연결
-                    empty_button.clicked.connect(self.undo_last_action)
-                    # Undo 버튼 참조 저장
-                    self.undo_button = empty_button
-                    # 초기 상태로 비활성화 (삭제된 파일이 없으므로)
-                    self.undo_button.setEnabled(False)
-                    # Undo 상태 변경 시그널 연결
-                    self.undo_manager.undo_status_changed.connect(self.update_undo_button_state)
-                else:
-                    # QPushButton 대신 DualActionButton 사용
-                    empty_button = DualActionButton('', self)
-                    empty_button.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Preferred)  # Fixed에서 Preferred로 변경
-                    empty_button.clicked.connect(self.on_button_click)
+                # Undo 버튼 제거 (5행 마지막에 배치 예정)
+                empty_button = DualActionButton('', self)
+                empty_button.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Preferred)
+                empty_button.clicked.connect(self.on_button_click)
                 
                 if i == 19:
                     remaining_width = total_width - (int(button_width) * 19)
@@ -826,11 +799,63 @@ class ArchiveSift(QWidget):
                 button_layout.addWidget(empty_button)
             
             self.buttons.append(button_row)
-            # 각 행에 stretch factor 2를 적용하여 컨테이너 높이의 1/5씩 할당 (더 크게)
-            button_container_layout.addWidget(row_widget, 2)
+            # 각 행에 stretch factor 1을 적용하여 컨테이너 높이의 1/4씩 할당
+            button_container_layout.addWidget(row_widget, 1)
+            
+        # 마지막 행을 추가하여 남은 공간 채우기
+        last_row_widget = QWidget()
+        last_row_widget.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Preferred)
+        last_button_layout = QHBoxLayout(last_row_widget)
+        last_button_layout.setContentsMargins(0, 0, 0, 0)
+        last_button_layout.setSpacing(0)
+        last_button_row = []
+        
+        for i in range(20):
+            if i == 19:  # 마지막 버튼(100번째 = 5번째 행의 20번째 버튼)은 Undo 버튼으로 설정
+                # 일반 QPushButton 사용
+                empty_button = QPushButton('Undo', self)
+                empty_button.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Preferred)
+                # 북마크 버튼과 동일한 노란색 스타일 적용
+                empty_button.setStyleSheet("""
+                    QPushButton {
+                        background-color: rgba(241, 196, 15, 0.9);
+                        color: white;
+                        border: none;
+                        border-radius: 3px;
+                        font-weight: bold;
+                        font-size: 11px;
+                    }
+                    QPushButton:hover {
+                        background-color: rgba(241, 196, 15, 1.0);
+                    }
+                """)
+                # Undo 기능에 연결
+                empty_button.clicked.connect(self.undo_last_action)
+                # Undo 버튼 참조 저장
+                self.undo_button = empty_button
+                # 초기 상태로 비활성화 (삭제된 파일이 없으므로)
+                self.undo_button.setEnabled(False)
+                # Undo 상태 변경 시그널 연결
+                self.undo_manager.undo_status_changed.connect(self.update_undo_button_state)
+                
+                remaining_width = total_width - (int(button_width) * 19)
+                empty_button.setFixedWidth(remaining_width)
+            else:
+                empty_button = DualActionButton('', self)
+                empty_button.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Preferred)
+                empty_button.clicked.connect(self.on_button_click)
+                
+                empty_button.setFixedWidth(int(button_width))
+            
+            last_button_row.append(empty_button)
+            last_button_layout.addWidget(empty_button)
+        
+        self.buttons.append(last_button_row)
+        # 마지막 행에 stretch factor 2를 적용하여 남은 공간을 채움
+        button_container_layout.addWidget(last_row_widget, 1)  # 2에서 1로 변경하여 모든 행이 동일한 크기로 표시
 
         # 버튼 컨테이너를 bottom_layout에 추가
-        bottom_layout.addWidget(button_container, 10)  # 전체 레이아웃의 10%
+        bottom_layout.addWidget(self.button_container, 10)  # 하단 비율 중 10/12
 
         # 하단 버튼 영역을 메인 레이아웃에 추가 (12% 비율)
         layout.addLayout(bottom_layout, 12)
@@ -1030,7 +1055,7 @@ class ArchiveSift(QWidget):
             for i, row in enumerate(self.buttons):
                 for j, button in enumerate(row):
                     # 마지막 버튼(Undo 버튼)은 건너뜀
-                    if i == 4 and j == 19:
+                    if i == 3 and j == 19:
                         continue
                         
                     # DualActionButton 특화 메서드 호출
@@ -1052,7 +1077,7 @@ class ArchiveSift(QWidget):
             for i, row in enumerate(self.buttons):
                 for j, button in enumerate(row):
                     # 마지막 버튼(Undo 버튼)은 건너뜀
-                    if i == 4 and j == 19:
+                    if i == 3 and j == 19:
                         continue
                         
                     index = i * 20 + j  # 버튼 인덱스 계산 (5행 20열)
