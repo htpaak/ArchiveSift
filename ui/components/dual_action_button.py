@@ -22,7 +22,9 @@ class DualActionButton(QPushButton):
             parent: 부모 위젯
         """
         super().__init__(text, parent)
-        self.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Fixed)
+        # 가로 방향으로는 확장 가능하지만 세로 방향으로는 부모 레이아웃에서 제공하는 크기에 맞춤
+        self.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Preferred)
+        # 모든 고정 크기 제한 제거 (setMinimumSize/setMaximumSize 없앰)
         self.setup_style()
         
         # 버튼 상태 추적
@@ -43,8 +45,9 @@ class DualActionButton(QPushButton):
                 background-color: rgba(52, 73, 94, 0.9);
                 color: white;
                 border: none;
-                padding: 10px;
+                padding: 2px;
                 border-radius: 3px;
+                font-size: 11px;
             }
             QPushButton:hover {
                 background-color: rgba(52, 73, 94, 1.0);

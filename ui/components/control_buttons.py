@@ -16,9 +16,9 @@ class ControlButton(QPushButton):
                 background-color: rgba(52, 73, 94, 0.6);
                 color: white;
                 border: none;
-                padding: 8px;
+                padding: 2px;
                 border-radius: 3px;
-                font-size: 12px;
+                font-size: 10px;
             }
             QPushButton:hover {
                 background-color: rgba(52, 73, 94, 1.0);
@@ -135,9 +135,9 @@ class BookmarkButton(ControlButton):
                 background-color: rgba(52, 73, 94, 0.6); 
                 color: white;
                 border: none;
-                padding: 8px;
+                padding: 2px;
                 border-radius: 3px;
-                font-size: 12px;
+                font-size: 10px;
             }
             QPushButton:hover {
                 background-color: rgba(52, 73, 94, 1.0); 
@@ -157,9 +157,9 @@ class BookmarkButton(ControlButton):
                     background-color: rgba(241, 196, 15, 0.9);
                     color: white;
                     border: none;
-                    padding: 8px;
+                    padding: 2px;
                     border-radius: 3px;
-                    font-size: 12px;
+                    font-size: 10px;
                 }
                 QPushButton:hover {
                     background-color: rgba(241, 196, 15, 1.0); 
@@ -184,9 +184,9 @@ class UILockButton(ControlButton):
                 background-color: rgba(52, 73, 94, 0.6);
                 color: white;
                 border: none;
-                padding: 8px;
+                padding: 2px;
                 border-radius: 3px;
-                font-size: 12px;
+                font-size: 10px;
             }
             QPushButton:hover {
                 background-color: rgba(52, 73, 94, 1.0);
@@ -207,9 +207,9 @@ class UILockButton(ControlButton):
                     background-color: rgba(231, 76, 60, 0.9); 
                     color: white;
                     border: none;
-                    padding: 8px;
+                    padding: 2px;
                     border-radius: 3px;
-                    font-size: 12px;
+                    font-size: 10px;
                 }
                 QPushButton:hover {
                     background-color: rgba(231, 76, 60, 1.0); 
@@ -227,24 +227,24 @@ class TitleBarButton(QPushButton):
     def __init__(self, text, parent=None):
         super().__init__(text, parent)
         self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        self.setFixedSize(30, 30)  # 타이틀바 버튼 크기 고정
+        self.setFixedSize(20, 20)  # 타이틀바 버튼 크기를 30x30에서 20x20으로 축소
         self.setup_style()
-        self.setToolTip("")  # 내장 툴팁을 비활성화
         
     def setup_style(self):
-        """기본 타이틀바 버튼 스타일 설정"""
+        """기본 버튼 스타일 설정"""
         self.setStyleSheet("""
             QPushButton {
                 background-color: transparent;
                 color: white;
                 border: none;
-                font-size: 16px;
+                padding: 2px;
+                font-size: 10px;
+                width: 20px;
+                height: 20px;
+                text-align: center;
             }
             QPushButton:hover {
-                background-color: rgba(0, 0, 0, 0.2);
-            }
-            QPushButton:pressed {
-                background-color: rgba(0, 0, 0, 0.3);
+                background-color: rgba(41, 128, 185, 0.7);
             }
         """)
 
@@ -311,13 +311,14 @@ class CloseButton(TitleBarButton):
                 background-color: transparent;
                 color: white;
                 border: none;
-                font-size: 16px;
+                padding: 2px;  /* 패딩 설정 */
+                font-size: 10px;  /* 폰트 크기 줄임 */
+                width: 20px;
+                height: 20px;
+                text-align: center;
             }
             QPushButton:hover {
-                background-color: rgba(232, 17, 35, 0.9);
-            }
-            QPushButton:pressed {
-                background-color: rgba(232, 17, 35, 1.0);
+                background-color: rgba(231, 76, 60, 0.7);  /* 빨간색 배경 (마우스 오버 시) */
             }
         """)
         
@@ -338,15 +339,17 @@ class TitleLockButton(TitleBarButton):
         """잠금 해제 상태 스타일 설정"""
         self.setStyleSheet("""
             QPushButton {
-                background-color: rgba(52, 73, 94, 0.6);
+                background-color: transparent;
                 color: white;
                 border: none;
-                padding: 8px;
-                border-radius: 3px;
-                font-size: 12px;
+                padding: 2px;
+                font-size: 10px;
+                width: 20px;
+                height: 20px;
+                text-align: center;
             }
             QPushButton:hover {
-                background-color: rgba(52, 73, 94, 1.0);
+                background-color: rgba(41, 128, 185, 0.7);
             }
         """)
         
@@ -364,9 +367,9 @@ class TitleLockButton(TitleBarButton):
                     background-color: rgba(231, 76, 60, 0.9); 
                     color: white;
                     border: none;
-                    padding: 8px;
+                    padding: 2px;
                     border-radius: 3px;
-                    font-size: 12px;
+                    font-size: 10px;
                 }
                 QPushButton:hover {
                     background-color: rgba(231, 76, 60, 1.0); 

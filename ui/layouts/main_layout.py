@@ -55,8 +55,8 @@ class MainLayout(QWidget):
         self.controls_placeholder.setStyleSheet("background-color: #333333;")
         
         # Add placeholders to central layout
-        self.central_layout.addWidget(self.media_placeholder, 1)
-        self.central_layout.addWidget(self.controls_placeholder)
+        self.central_layout.addWidget(self.media_placeholder, 99)  # 전체 세로 길이의 99%
+        self.central_layout.addWidget(self.controls_placeholder, 1)  # 전체 세로 길이의 1%
         
         # Add central widget to main layout
         self.main_layout.addWidget(self.central_widget)
@@ -75,8 +75,8 @@ class MainLayout(QWidget):
             self.central_layout.removeWidget(self.media_placeholder)
             self.media_placeholder.hide()
             
-            # Add the media display widget
-            self.central_layout.insertWidget(0, media_display, 1)
+            # Add the media display widget (stretch factor 99로 설정)
+            self.central_layout.insertWidget(0, media_display, 99)
             media_display.show()
             
             # Update the reference

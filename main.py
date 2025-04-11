@@ -615,8 +615,8 @@ class ArchiveSift(QWidget):
         # 제목 표시줄을 메인 레이아웃에 추가 (1% 비율 - 전체 UI 중 작은 부분)
         layout.addWidget(self.title_bar, 1)
         
-        # 메인 레이아웃을 레이아웃에 추가 (90% 비율)
-        layout.addWidget(self.main_layout, 90)
+        # 메인 레이아웃을 레이아웃에 추가 (87% 비율)
+        layout.addWidget(self.main_layout, 87)
         
         # 북마크 메뉴 초기화
         self.bookmark_manager.update_bookmark_menu()
@@ -681,15 +681,15 @@ class ArchiveSift(QWidget):
         self.playback_slider = ClickableSlider(Qt.Horizontal, self)  # ClickableSlider로 변경 (클릭 시 해당 위치로 이동)
         self.playback_slider.setRange(0, 100)  # 슬라이더 범위 설정 (0-100%)
         self.playback_slider.setValue(0)  # 초기 값을 0으로 설정 (시작 위치)
-        self.playback_slider.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)  # 가로 방향으로 확장 가능하도록 설정
-        self.playback_slider.setFixedHeight(50)  # 슬라이더 높이를 50px로 고정
+        self.playback_slider.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)  # 고정 높이 대신 Preferred로 변경
+        # 고정 높이 설정 제거 (setFixedHeight 제거)
         
         self.playback_slider.clicked.connect(self.slider_clicked)  # 클릭 이벤트 연결 (클릭 위치로 미디어 이동)
         new_slider_layout.addWidget(self.playback_slider, 10)  # 재생 바 슬라이더를 레이아웃에 추가, stretch factor 10 적용
 
         # 재생 시간 레이블 추가 (현재 시간/총 시간 표시)
         self.time_label = QLabel("00:00 / 00:00", self)  # 초기 시간 표시
-        self.time_label.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Fixed)  # 필요한 최소 크기만 사용
+        self.time_label.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Preferred)  # Fixed에서 Preferred로 변경
         self.time_label.setStyleSheet("""
             QLabel {
                 background-color: rgba(52, 73, 94, 0.6);  /* 평상시 더 연하게 */
@@ -716,8 +716,8 @@ class ArchiveSift(QWidget):
         self.volume_slider = ClickableSlider(Qt.Horizontal, self)
         self.volume_slider.setRange(0, 100)  # 볼륨 범위 0-100%
         self.volume_slider.setValue(100)  # 기본 볼륨 100%으로 설정 (최대 음량)
-        self.volume_slider.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)  # 고정 크기 사용
-        self.volume_slider.setFixedHeight(50)  # 슬라이더 높이를 50px로 고정
+        self.volume_slider.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)  # Fixed에서 Preferred로 변경
+        # 고정 높이 설정 제거 (setFixedHeight 제거)
         
         # ClickableSlider의 메서드로 볼륨 컨트롤에 필요한 시그널 연결
         self.volume_slider.connect_to_volume_control(self.adjust_volume)
@@ -757,11 +757,11 @@ class ArchiveSift(QWidget):
         self.slider_controls.append(self.ui_lock_btn)
 
         # 새로운 슬라이더 위젯을 하단 레이아웃에 추가
-        bottom_layout.addWidget(self.slider_widget, 0)  # 정렬 플래그 제거
+        bottom_layout.addWidget(self.slider_widget, 2)  # 전체 레이아웃의 2%
 
         # 버튼 컨테이너 위젯 생성
         button_container = QWidget()
-        button_container.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        button_container.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)  # Fixed에서 Preferred로 변경
         button_container_layout = QVBoxLayout(button_container)
         button_container_layout.setContentsMargins(0, 0, 0, 0)
         button_container_layout.setSpacing(0)
@@ -770,8 +770,8 @@ class ArchiveSift(QWidget):
         self.buttons = []
         for row_idx in range(5):  # 5줄
             row_widget = QWidget()  # 각 행을 위한 위젯
-            row_widget.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Fixed)  # Expanding 대신 MinimumExpanding 사용
-            row_widget.setMaximumWidth(self.width())  # 최대 너비 제한 추가
+            # 각 행은 버튼 컨테이너 높이의 1/5 비율로 설정 (고정 높이 대신 QVBoxLayout의 stretch factor 사용)
+            row_widget.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Preferred)
             button_layout = QHBoxLayout(row_widget)
             button_layout.setContentsMargins(0, 0, 0, 0)
             button_layout.setSpacing(0)
@@ -786,16 +786,17 @@ class ArchiveSift(QWidget):
                 if row_idx == 4 and i == 19:
                     # 일반 QPushButton 사용
                     empty_button = QPushButton('Undo', self)
-                    empty_button.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Fixed)
+                    empty_button.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Preferred)  # Fixed에서 Preferred로 변경
                     # 북마크 버튼과 동일한 노란색 스타일 적용
                     empty_button.setStyleSheet("""
                         QPushButton {
                             background-color: rgba(241, 196, 15, 0.9);
                             color: white;
                             border: none;
-                            padding: 10px;
+                            padding: 2px;  /* 패딩을 10px에서 2px로 줄임 */
                             border-radius: 3px;
                             font-weight: bold;
+                            font-size: 11px;  /* 폰트 크기 추가 */
                         }
                         QPushButton:hover {
                             background-color: rgba(241, 196, 15, 1.0);
@@ -812,7 +813,7 @@ class ArchiveSift(QWidget):
                 else:
                     # QPushButton 대신 DualActionButton 사용
                     empty_button = DualActionButton('', self)
-                    empty_button.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Fixed)
+                    empty_button.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Preferred)  # Fixed에서 Preferred로 변경
                     empty_button.clicked.connect(self.on_button_click)
                 
                 if i == 19:
@@ -825,13 +826,14 @@ class ArchiveSift(QWidget):
                 button_layout.addWidget(empty_button)
             
             self.buttons.append(button_row)
-            button_container_layout.addWidget(row_widget)
+            # 각 행에 stretch factor 2를 적용하여 컨테이너 높이의 1/5씩 할당 (더 크게)
+            button_container_layout.addWidget(row_widget, 2)
 
         # 버튼 컨테이너를 bottom_layout에 추가
-        bottom_layout.addWidget(button_container)
+        bottom_layout.addWidget(button_container, 10)  # 전체 레이아웃의 10%
 
-        # 하단 버튼 영역을 메인 레이아웃에 추가 (9% 비율)
-        layout.addLayout(bottom_layout, 9)
+        # 하단 버튼 영역을 메인 레이아웃에 추가 (12% 비율)
+        layout.addLayout(bottom_layout, 12)
 
         # 메인 레이아웃에 이미지 컨테이너 추가
         self.main_layout.set_media_display(self.image_label)
