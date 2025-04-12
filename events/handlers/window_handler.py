@@ -39,17 +39,18 @@ class WindowHandler(QObject):
         """창 크기가 변경될 때 호출되는 이벤트"""
         # 필수적인 UI 요소 즉시 조정
         window_width = self.parent.width()
+        window_height = self.parent.height()
         
-        # 슬라이더 위젯의 너비를 창 너비와 동일하게 설정
-        if hasattr(self.parent, 'slider_widget'):
-            self.parent.slider_widget.setFixedWidth(window_width)
+        # 슬라이더 위젯의 너비 설정 제거 - 레이아웃에서 자동으로 처리되도록 함
+        # if hasattr(self.parent, 'slider_widget'):
+        #     self.parent.slider_widget.setFixedWidth(window_width)
         
         if hasattr(self.parent, 'title_bar'):
             # 창 높이에 따라 제목표시줄 높이 계산 (2% 비율)
-            title_height = int(self.parent.height() * 0.02)
+            title_height = int(window_height * 0.02)
             # 최소 높이 보장 (너무 작지 않도록)
             title_height = max(title_height, 25)
-            self.parent.title_bar.setGeometry(0, 0, self.parent.width(), title_height)
+            self.parent.title_bar.setGeometry(0, 0, window_width, title_height)
             self.parent.title_bar.raise_()  # 제목표시줄을 항상 맨 위로 유지
             # 제목표시줄 버튼 업데이트
             for child in self.parent.title_bar.children():
@@ -130,8 +131,17 @@ class WindowHandler(QObject):
         
         # 슬라이더 위젯 자체의 패딩 조정
         if hasattr(self.parent, 'slider_widget'):
-            padding = max(5, min(15, int(window_width * 0.01)))
-            self.parent.slider_widget.setStyleSheet(f"background-color: rgba(52, 73, 94, 0.9); padding: {padding}px;")
+            # 창 높이 비율에 맞춰 패딩 계산
+            slider_height = int(window_height * 0.02)  # 창 높이의 2%
+            slider_height = max(slider_height, 25)  # 최소 높이 보장
+            padding = max(2, min(10, int(slider_height * 0.2)))  # 슬라이더 높이의 20%, 최소 2px, 최대 10px
+            
+            self.parent.slider_widget.setStyleSheet(f"""
+                QWidget {{
+                    background-color: rgba(52, 73, 94, 0.9);
+                    padding: {padding}px;
+                }}
+            """)
         
         # 전체 레이아웃 강제 업데이트
         self.parent.updateGeometry()

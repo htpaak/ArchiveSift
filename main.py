@@ -657,9 +657,9 @@ class ArchiveSift(QWidget):
         # 크기 정책을 Preferred로 변경하여 비율(2)이 제대로 적용되도록 함
         self.slider_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         
-        # 최소 높이 설정 - 버튼 높이의 약 1.2배 정도
-        button_height = 50  # 기본 버튼 높이
-        self.slider_widget.setMinimumHeight(int(button_height * 1.2))
+        # 최소 높이 설정 제거 - 비율에 맞게 자동 조절되도록 함
+        # button_height = 50  # 기본 버튼 높이
+        # self.slider_widget.setMinimumHeight(int(button_height * 1.2))
         
         new_slider_layout = QHBoxLayout(self.slider_widget)
         new_slider_layout.setContentsMargins(0, 0, 0, 0)  # 여백을 완전히 제거
@@ -768,7 +768,7 @@ class ArchiveSift(QWidget):
         self.slider_controls.append(self.ui_lock_btn)
 
         # 새로운 슬라이더 위젯을 하단 레이아웃에 추가
-        bottom_ui_layout.addWidget(self.slider_widget, 2)  # 슬라이더 위젯 비율 2
+        bottom_ui_layout.addWidget(self.slider_widget, 2)  # 슬라이더 위젯 비율 2 (2/12 = 16.7%)
 
         # 버튼 컨테이너 위젯 생성
         button_container = QWidget()
@@ -865,7 +865,7 @@ class ArchiveSift(QWidget):
         button_container_layout.addWidget(last_row_widget, 1)  # 2에서 1로 변경하여 모든 행이 동일한 크기로 표시
 
         # 버튼 컨테이너를 bottom_ui_layout에 추가
-        bottom_ui_layout.addWidget(self.button_container, 10)  # 버튼 컨테이너 비율 10
+        bottom_ui_layout.addWidget(self.button_container, 10)  # 버튼 컨테이너 비율 10 (10/12 = 83.3%)
 
         # 하단 UI 컨테이너를 메인 레이아웃에 추가 (12% 비율)
         layout.addWidget(self.bottom_ui_container, 12)

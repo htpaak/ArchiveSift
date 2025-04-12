@@ -112,13 +112,12 @@ class ControlsLayout(QWidget):
 
     def setup_custom_ui(self):
         """초기 및 resizeEvent에서 동적으로 호출되는 커스텀 UI 설정 메서드"""
-        # 버튼 높이 측정 (open_button 기준)
-        button_height = 50  # 실측으로 확인한 버튼 높이
+        # 창 높이에 따른 동적 크기 계산
+        window_height = self.parent.height()
         
         # 제목표시줄 버튼 크기 동적 조절
         if hasattr(self.parent, 'title_bar') and hasattr(self.parent.title_bar, 'controls'):
             # 타이틀바 높이와 창 너비에 따라 버튼 크기 계산
-            window_height = self.parent.height()
             title_height = int(window_height * 0.02)  # 2% 비율
             title_height = max(title_height, 25)  # 최소 높이 보장
             
@@ -140,13 +139,26 @@ class ControlsLayout(QWidget):
                     # 나머지 버튼들
                     control.setFixedSize(button_width, button_size)
         
+        # 슬라이더 위젯 높이 계산 (창 높이의 2%)
+        slider_height = int(window_height * 0.02)
+        slider_height = max(slider_height, 25)  # 최소 높이 보장
+        
         # 슬라이더 스타일 적용 (UI 일관성)
         self.parent.playback_slider.setStyleSheet(self.parent.slider_style)  # 재생 슬라이더 스타일 적용
         self.parent.volume_slider.setStyleSheet(self.parent.slider_style)  # 음량 조절 슬라이더 스타일 적용
         
-        # 슬라이더를 버튼과 동일한 높이로 직접 설정
+        # 슬라이더 높이를 창 높이 비율에 맞게 설정
+        button_height = int(slider_height * 0.8)  # 슬라이더 높이의 80%
         self.parent.playback_slider.setFixedHeight(button_height)  # 재생 슬라이더 높이 설정
         self.parent.volume_slider.setFixedHeight(button_height)    # 볼륨 슬라이더 높이 설정
+        
+        # 슬라이더 컨트롤 크기 업데이트 (제목표시줄과 같은 로직)
+        if hasattr(self.parent, 'slider_controls'):
+            for control in self.parent.slider_controls:
+                if isinstance(control, QLabel):  # 레이블인 경우 (시간 표시)
+                    control.setFixedHeight(button_height)
+                else:  # 버튼인 경우
+                    control.setFixedSize(int(button_height * 1.2), button_height)
         
         # 슬라이더의 부모 위젯인 slider_widget에 배경 스타일을 적용
         self.parent.slider_widget.setStyleSheet("""
@@ -226,13 +238,13 @@ class ControlsLayout(QWidget):
 
     def update_button_sizes(self):
         """버튼 및 컨트롤 요소의 크기를 창 크기에 맞게 업데이트"""
-        # 창 너비 가져오기
+        # 창 크기 가져오기
         total_width = self.parent.width()
+        window_height = self.parent.height()
         
         # 0. 제목표시줄 버튼 크기 업데이트
         if hasattr(self.parent, 'title_bar') and hasattr(self.parent.title_bar, 'controls'):
             # 타이틀바 높이와 창 너비에 따라 버튼 크기 계산
-            window_height = self.parent.height()
             title_height = int(window_height * 0.02)  # 2% 비율
             title_height = max(title_height, 25)  # 최소 높이 보장
             
@@ -253,6 +265,69 @@ class ControlsLayout(QWidget):
                 else:
                     # 나머지 버튼들
                     control.setFixedSize(button_width, button_size)
+        
+        # 0-1. 슬라이더 위젯과 컨트롤 크기 업데이트
+        if hasattr(self.parent, 'slider_widget') and hasattr(self.parent, 'slider_controls'):
+            # 슬라이더 높이 계산 (창 높이의 2%)
+            slider_height = int(window_height * 0.02)
+            slider_height = max(slider_height, 25)  # 최소 높이 보장
+            
+            # 버튼과 컨트롤 크기 계산
+            control_height = int(slider_height * 0.8)  # 슬라이더 높이의 80%
+            control_width = int(control_height * 1.2)  # 높이의 1.2배
+            
+            # 슬라이더 높이 설정
+            if hasattr(self.parent, 'playback_slider'):
+                self.parent.playback_slider.setFixedHeight(control_height)
+            if hasattr(self.parent, 'volume_slider'):
+                self.parent.volume_slider.setFixedHeight(control_height)
+            
+            # 슬라이더 컨트롤 크기 조절
+            for control in self.parent.slider_controls:
+                if control == self.parent.time_label:
+                    # 시간 레이블만 너비를 더 넓게 설정
+                    control.setFixedSize(int(control_width * 1.5), control_height)
+                else:
+                    control.setFixedSize(control_width, control_height)
+                
+                # 폰트 크기 계산
+                font_size = max(9, min(14, int(control_height * 0.4)))
+                
+                # 북마크 버튼은 특별하게 처리
+                if control == self.parent.slider_bookmark_btn:
+                    # 크기만 설정하고 스타일은 건드리지 않음 (북마크 상태에 따라 다르게 표시해야 하므로)
+                    continue
+                    
+                # 컨트롤 유형에 따라 적절한 스타일시트 적용
+                if isinstance(control, QLabel):  # 레이블인 경우
+                    control.setStyleSheet(f"""
+                        QLabel {{
+                            background-color: rgba(52, 73, 94, 0.6);
+                            color: white;
+                            border: none;
+                            padding: {int(control_height * 0.1)}px;
+                            border-radius: 3px;
+                            font-size: {font_size}px;
+                            qproperty-alignment: AlignCenter;
+                        }}
+                        QLabel:hover {{
+                            background-color: rgba(52, 73, 94, 1.0);
+                        }}
+                    """)
+                else:  # 일반 버튼
+                    control.setStyleSheet(f"""
+                        QPushButton {{
+                            background-color: rgba(52, 73, 94, 0.6);
+                            color: white;
+                            border: none;
+                            padding: {int(control_height * 0.1)}px;
+                            border-radius: 3px;
+                            font-size: {font_size}px;
+                        }}
+                        QPushButton:hover {{
+                            background-color: rgba(52, 73, 94, 1.0);
+                        }}
+                    """)
         
         # 1. 폴더 버튼 행 처리
         if hasattr(self.parent, 'buttons'):
@@ -275,64 +350,8 @@ class ControlsLayout(QWidget):
                 # 레이아웃 업데이트
                 row_widget.updateGeometry()
         
-        # 2. 슬라이더바 컨트롤 처리 (통합 로직)
-        if hasattr(self.parent, 'slider_controls'):
-            # 기본 버튼 크기 계산 (모든 컨트롤에 동일하게 적용)
-            button_width = max(60, min(150, int(total_width * 0.08)))
-            button_height = max(30, min(50, int(button_width * 0.6)))
-            
-            # 모든 슬라이더 컨트롤에 동일한 로직 적용
-            for control in self.parent.slider_controls:
-                # 시간 레이블은 너비만 다르게 설정 (내용이 더 길기 때문)
-                if control == self.parent.time_label:
-                    control_width = int(button_width * 1.5)  # 시간 레이블은 1.5배 넓게
-                else:
-                    control_width = button_width
-                
-                # 크기 설정
-                control.setFixedSize(control_width, button_height)
-                
-                # 폰트 크기 계산 (모든 컨트롤에 동일한 로직 적용)
-                font_size = max(9, min(14, int(button_width * 0.25)))
-                
-                # 북마크 버튼은 특별하게 처리: update_bookmark_button_state 함수에서 색상 처리
-                if control == self.parent.slider_bookmark_btn:
-                    # 크기만 설정하고 스타일은 건드리지 않음 (북마크 상태에 따라 다르게 표시해야 하므로)
-                    continue
-                    
-                # 컨트롤 유형에 따라 적절한 스타일시트 적용
-                if isinstance(control, QLabel):  # 레이블인 경우
-                    control.setStyleSheet(f"""
-                        QLabel {{
-                            background-color: rgba(52, 73, 94, 0.6);
-                            color: white;
-                            border: none;
-                            padding: 8px;
-                            border-radius: 3px;
-                            font-size: {font_size}px;
-                            qproperty-alignment: AlignCenter;
-                        }}
-                        QLabel:hover {{
-                            background-color: rgba(52, 73, 94, 1.0);
-                        }}
-                    """)
-                else:  # 일반 버튼
-                    control.setStyleSheet(f"""
-                        QPushButton {{
-                            background-color: rgba(52, 73, 94, 0.6);
-                            color: white;
-                            border: none;
-                            padding: 8px;
-                            border-radius: 3px;
-                            font-size: {font_size}px;
-                        }}
-                        QPushButton:hover {{
-                            background-color: rgba(52, 73, 94, 1.0);
-                        }}
-                    """)
-            
-            # 북마크 버튼 상태 업데이트 (별도로 호출)
-            self.update_bookmark_button_state()
+        # 북마크 버튼 상태 업데이트 (별도로 호출)
+        self.update_bookmark_button_state()
 
     def on_button_click(self):
         """하위 폴더 버튼 클릭 처리 - button_handler로 이벤트 위임"""
