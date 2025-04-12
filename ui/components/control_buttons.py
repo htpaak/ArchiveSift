@@ -16,9 +16,6 @@ class ControlButton(QPushButton):
                 background-color: rgba(52, 73, 94, 0.6);
                 color: white;
                 border: none;
-                padding: 2px;
-                border-radius: 3px;
-                font-size: 10px;
             }
             QPushButton:hover {
                 background-color: rgba(52, 73, 94, 1.0);
@@ -135,9 +132,6 @@ class BookmarkButton(ControlButton):
                 background-color: rgba(52, 73, 94, 0.6); 
                 color: white;
                 border: none;
-                padding: 2px;
-                border-radius: 3px;
-                font-size: 10px;
             }
             QPushButton:hover {
                 background-color: rgba(52, 73, 94, 1.0); 
@@ -157,9 +151,6 @@ class BookmarkButton(ControlButton):
                     background-color: rgba(241, 196, 15, 0.9);
                     color: white;
                     border: none;
-                    padding: 2px;
-                    border-radius: 3px;
-                    font-size: 10px;
                 }
                 QPushButton:hover {
                     background-color: rgba(241, 196, 15, 1.0); 
@@ -184,9 +175,6 @@ class UILockButton(ControlButton):
                 background-color: rgba(52, 73, 94, 0.6);
                 color: white;
                 border: none;
-                padding: 2px;
-                border-radius: 3px;
-                font-size: 10px;
             }
             QPushButton:hover {
                 background-color: rgba(52, 73, 94, 1.0);
@@ -207,9 +195,6 @@ class UILockButton(ControlButton):
                     background-color: rgba(231, 76, 60, 0.9); 
                     color: white;
                     border: none;
-                    padding: 2px;
-                    border-radius: 3px;
-                    font-size: 10px;
                 }
                 QPushButton:hover {
                     background-color: rgba(231, 76, 60, 1.0); 
@@ -237,10 +222,6 @@ class TitleBarButton(QPushButton):
                 background-color: transparent;
                 color: white;
                 border: none;
-                padding: 2px;
-                font-size: 10px;
-                width: 20px;
-                height: 20px;
                 text-align: center;
             }
             QPushButton:hover {
@@ -311,10 +292,6 @@ class CloseButton(TitleBarButton):
                 background-color: transparent;
                 color: white;
                 border: none;
-                padding: 2px;  /* 패딩 설정 */
-                font-size: 10px;  /* 폰트 크기 줄임 */
-                width: 20px;
-                height: 20px;
                 text-align: center;
             }
             QPushButton:hover {
@@ -342,10 +319,6 @@ class TitleLockButton(TitleBarButton):
                 background-color: transparent;
                 color: white;
                 border: none;
-                padding: 2px;
-                font-size: 10px;
-                width: 20px;
-                height: 20px;
                 text-align: center;
             }
             QPushButton:hover {
@@ -367,9 +340,6 @@ class TitleLockButton(TitleBarButton):
                     background-color: rgba(231, 76, 60, 0.9); 
                     color: white;
                     border: none;
-                    padding: 2px;
-                    border-radius: 3px;
-                    font-size: 10px;
                 }
                 QPushButton:hover {
                     background-color: rgba(231, 76, 60, 1.0); 

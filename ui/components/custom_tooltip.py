@@ -25,9 +25,6 @@ class CustomTooltip(QLabel):
             QLabel {
                 background-color: #34495e;
                 color: white;
-                border: 1px solid #2c3e50;
-                border-radius: 3px;
-                padding: 5px 8px;
             }
         """)
         

@@ -5,6 +5,7 @@ UI 상태 관리 모듈
 """
 
 from PyQt5.QtCore import QObject, pyqtSignal
+from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout
 
 class UIStateManager(QObject):
     """
@@ -192,37 +193,152 @@ class UIStateManager(QObject):
         
     def apply_ui_visibility(self):
         """UI 가시성 설정을 실제 UI 요소에 적용"""
+        # 실제 변경 여부 추적
+        has_changed = False
+        
         # 타이틀바 가시성 설정
         if hasattr(self.parent, 'title_bar'):
-            if self._ui_visibility['title_bar']:
-                self.parent.title_bar.show()
-            else:
-                self.parent.title_bar.hide()
+            title_visible = self._ui_visibility['title_bar']
+            if (title_visible and self.parent.title_bar.isHidden()) or \
+               (not title_visible and not self.parent.title_bar.isHidden()):
+                has_changed = True
+                if title_visible:
+                    self.parent.title_bar.show()
+                else:
+                    self.parent.title_bar.hide()
         
         # 컨트롤 버튼 가시성 설정
         if hasattr(self.parent, 'buttons'):
+            controls_visible = self._ui_visibility['controls']
             for row in self.parent.buttons:
                 for button in row:
-                    if self._ui_visibility['controls']:
-                        button.show()
-                    else:
-                        button.hide()
+                    if (controls_visible and button.isHidden()) or \
+                       (not controls_visible and not button.isHidden()):
+                        has_changed = True
+                        if controls_visible:
+                            button.show()
+                        else:
+                            button.hide()
         
         # 슬라이더 가시성 설정
         if hasattr(self.parent, 'slider_widget'):
-            if self._ui_visibility['sliders']:
-                self.parent.slider_widget.show()
-            else:
-                self.parent.slider_widget.hide()
+            sliders_visible = self._ui_visibility['sliders']
+            if (sliders_visible and self.parent.slider_widget.isHidden()) or \
+               (not sliders_visible and not self.parent.slider_widget.isHidden()):
+                has_changed = True
+                if sliders_visible:
+                    self.parent.slider_widget.show()
+                else:
+                    self.parent.slider_widget.hide()
         
         # 정보 레이블 가시성 설정
         if hasattr(self.parent, 'image_info_label'):
-            if self._ui_visibility['info_label']:
-                self.parent.image_info_label.show()
-                self.parent.image_info_label.raise_()
-            else:
-                self.parent.image_info_label.hide()
+            info_visible = self._ui_visibility['info_label']
+            if (info_visible and self.parent.image_info_label.isHidden()) or \
+               (not info_visible and not self.parent.image_info_label.isHidden()):
+                has_changed = True
+                if info_visible:
+                    self.parent.image_info_label.show()
+                    self.parent.image_info_label.raise_()
+                else:
+                    self.parent.image_info_label.hide()
+        
+        # UI 가시성이 실제로 변경된 경우에만 레이아웃 비율 업데이트
+        if has_changed:
+            self.update_layout_ratios()
+    
+    def update_layout_ratios(self):
+        """UI 요소 가시성에 따라 레이아웃 비율 동적 조정"""
+        # 부모 객체 확인
+        if not self.parent:
+            return
+            
+        # UI 잠금 상태 확인 - 둘 다 잠겨있으면 레이아웃 비율 변경하지 않음
+        title_locked = self._get_title_locked()
+        bottom_locked = self._get_bottom_locked()
+        
+        # 잠금 상태일 때는 기본 비율 유지
+        if title_locked and bottom_locked:
+            # 기본 비율로 초기화
+            self._reset_layout_ratios()
+            return
+            
+        # 부모 객체의 레이아웃 확인
+        layout = self.parent.layout()
+        if not layout or not isinstance(layout, QVBoxLayout):
+            return
+            
+        # 기본 비율
+        title_ratio = 1
+        main_ratio = 87
+        bottom_ratio = 12
+        
+        # _ui_visibility에 저장된 UI 상태와 잠금 상태를 함께 고려
+        # 제목표시줄 가시성 확인
+        if not title_locked and not self._ui_visibility['title_bar']:
+            # 제목표시줄이 잠기지 않고 숨겨진 경우, 그 비율을 메인 영역에 추가
+            main_ratio += title_ratio
+            title_ratio = 0
+        
+        # 하단 컨트롤 영역 가시성 확인
+        if not bottom_locked and not self._ui_visibility['controls'] and not self._ui_visibility['sliders']:
+            # 하단 컨트롤이 잠기지 않고 모두 숨겨진 경우, 그 비율을 메인 영역에 추가
+            main_ratio += bottom_ratio
+            bottom_ratio = 0
+            
+        # 레이아웃 비율 업데이트
+        for i in range(layout.count()):
+            item = layout.itemAt(i)
+            if not item:
+                continue
                 
+            # QWidget 항목 처리
+            if item.widget():
+                widget = item.widget()
+                
+                if widget == self.parent.title_bar:
+                    layout.setStretch(i, title_ratio)
+                elif widget == self.parent.main_layout:
+                    layout.setStretch(i, main_ratio)
+            
+            # QLayout 항목 처리 (bottom_layout)
+            elif isinstance(item, QVBoxLayout) or isinstance(item, QHBoxLayout):
+                layout.setStretch(i, bottom_ratio)
+                
+    def _reset_layout_ratios(self):
+        """레이아웃 비율을 기본값으로 초기화"""
+        # 부모 객체의 레이아웃 확인
+        if not self.parent:
+            return
+            
+        layout = self.parent.layout()
+        if not layout or not isinstance(layout, QVBoxLayout):
+            return
+        
+        # 기본 비율 설정
+        title_ratio = 1
+        main_ratio = 87
+        bottom_ratio = 12
+        
+        # 레이아웃 비율 초기화
+        for i in range(layout.count()):
+            item = layout.itemAt(i)
+            if not item:
+                continue
+                
+            # QWidget 항목 처리
+            if item.widget():
+                widget = item.widget()
+                
+                if widget == self.parent.title_bar:
+                    layout.setStretch(i, title_ratio)
+                elif widget == self.parent.main_layout:
+                    layout.setStretch(i, main_ratio)
+            
+            # QLayout 항목 처리 (bottom_layout)
+            elif isinstance(item, QVBoxLayout) or isinstance(item, QHBoxLayout):
+                layout.setStretch(i, bottom_ratio)
+    
     def get_ui_visibility(self, component_name):
         """
         UI 요소의 현재 가시성 상태를 반환합니다.

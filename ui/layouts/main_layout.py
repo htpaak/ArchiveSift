@@ -54,9 +54,9 @@ class MainLayout(QWidget):
         self.controls_placeholder.setMaximumHeight(50)
         self.controls_placeholder.setStyleSheet("background-color: #333333;")
         
-        # Add placeholders to central layout
-        self.central_layout.addWidget(self.media_placeholder, 99)  # 전체 세로 길이의 99%
-        self.central_layout.addWidget(self.controls_placeholder, 1)  # 전체 세로 길이의 1%
+        # 수정 후
+        self.central_layout.addWidget(self.media_placeholder, 100)
+        # controls_placeholder 관련 코드 제거
         
         # Add central widget to main layout
         self.main_layout.addWidget(self.central_widget)
@@ -76,29 +76,11 @@ class MainLayout(QWidget):
             self.media_placeholder.hide()
             
             # Add the media display widget (stretch factor 99로 설정)
-            self.central_layout.insertWidget(0, media_display, 99)
+            self.central_layout.insertWidget(0, media_display, 100)
             media_display.show()
             
             # Update the reference
             self.media_display = media_display
-    
-    def set_controls_layout(self, controls_layout):
-        """Set the controls layout widget.
-        
-        Args:
-            controls_layout: The controls layout widget to use.
-        """
-        if controls_layout:
-            # Remove the placeholder
-            self.central_layout.removeWidget(self.controls_placeholder)
-            self.controls_placeholder.hide()
-            
-            # Add the controls layout widget
-            self.central_layout.addWidget(controls_layout)
-            controls_layout.show()
-            
-            # Update the reference
-            self.controls_layout = controls_layout
     
     def set_sidebar(self, sidebar_layout):
         """Set the sidebar layout.

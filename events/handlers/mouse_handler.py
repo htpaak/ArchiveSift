@@ -265,79 +265,134 @@ class MouseHandler(QObject):
 
     def handle_top_ui_visibility(self, show):
         """
-        상단 UI(타이틀바)의 표시 여부만 관리하는 메서드
+        상단 UI 요소(제목표시줄) 가시성 처리
         
         Args:
-            show: 타이틀바를 표시할지 여부
-            
-        Returns:
-            bool: UI 상태가 실제로 변경되었으면 True, 아니면 False
-        """
-        # UI 상태 관리자가 있으면 위임
-        if hasattr(self.parent, 'ui_state_manager'):
-            # 현재 UI 상태 가져오기
-            title_locked = self.parent.ui_state_manager._get_title_locked()
-            # 잠금 상태가 아닐 때만 UI 숨김
-            if not title_locked:
-                new_visibility = {'title_bar': show, 'controls': None, 'sliders': None}
-                return self.parent.ui_state_manager._update_ui_visibility(new_visibility)
-        return False
+            show (bool): 표시 여부
         
+        Returns:
+            bool: 상태 변경 여부
+        """
+        # UI 상태 관리자 존재 확인
+        if not hasattr(self.parent, 'ui_state_manager'):
+            return False
+        
+        # 기존 상태 확인
+        previous_state = self.parent.ui_state_manager.get_ui_visibility('title_bar')
+        
+        # 잠금 상태 확인 - 잠금된 경우 항상 표시
+        if hasattr(self.parent, 'ui_lock_manager') and self.parent.ui_lock_manager.title_locked:
+            show = True
+        
+        # 상태가 변경된 경우만 처리
+        if previous_state != show:
+            # 타이틀바 표시/숨김 설정
+            self.parent.ui_state_manager._update_ui_visibility({'title_bar': show})
+            # 레이아웃 비율 업데이트는 제거 (자동으로 apply_ui_visibility에서 처리됨)
+            return True
+        
+        return False
+
     def handle_bottom_ui_visibility(self, show):
         """
-        하단 UI(컨트롤, 슬라이더)의 표시 여부만 관리하는 메서드
+        하단 UI 요소(컨트롤바, 슬라이더) 가시성 처리
         
         Args:
-            show: 하단 컨트롤을 표시할지 여부
-            
-        Returns:
-            bool: UI 상태가 실제로 변경되었으면 True, 아니면 False
-        """
-        # UI 상태 관리자가 있으면 위임
-        if hasattr(self.parent, 'ui_state_manager'):
-            # 현재 UI 상태 가져오기
-            bottom_locked = self.parent.ui_state_manager._get_bottom_locked()
-            # 잠금 상태가 아닐 때만 UI 숨김
-            if not bottom_locked:
-                new_visibility = {'title_bar': None, 'controls': show, 'sliders': show}
-                return self.parent.ui_state_manager._update_ui_visibility(new_visibility)
-        return False
+            show (bool): 표시 여부
         
+        Returns:
+            bool: 상태 변경 여부
+        """
+        # UI 상태 관리자 존재 확인
+        if not hasattr(self.parent, 'ui_state_manager'):
+            return False
+        
+        # 기존 상태 확인
+        controls_previous = self.parent.ui_state_manager.get_ui_visibility('controls')
+        sliders_previous = self.parent.ui_state_manager.get_ui_visibility('sliders')
+        
+        # 잠금 상태 확인 - 잠금된 경우 항상 표시
+        if hasattr(self.parent, 'ui_lock_manager') and self.parent.ui_lock_manager.ui_locked:
+            show = True
+        
+        # 미디어 타입에 맞게 슬라이더 표시 여부 결정
+        sliders_visible = show
+        if show and hasattr(self.parent, 'current_media_type'):
+            # 비디오/애니메이션인 경우만 슬라이더 활성화
+            sliders_visible = self.parent.current_media_type in ['video', 'gif_animation', 'webp_animation']
+        
+        # 상태 변경 여부 확인
+        controls_changed = controls_previous != show
+        sliders_changed = sliders_previous != sliders_visible
+        
+        # 상태가 변경된 경우만 처리
+        if controls_changed or sliders_changed:
+            # UI 가시성 업데이트
+            self.parent.ui_state_manager._update_ui_visibility({
+                'controls': show,
+                'sliders': sliders_visible
+            })
+            # 레이아웃 비율 업데이트는 제거 (자동으로 apply_ui_visibility에서 처리됨)
+            return True
+        
+        return False
+
     def event_filter(self, obj, event):
         """모든 마우스 이벤트를 필터링"""
         if event.type() == QEvent.MouseMove:
             global_pos = event.globalPos()
             local_pos = self.parent.mapFromGlobal(global_pos)
             
-            # 변수를 조건문 외부에서 정의
-            title_bar_area_height = 50  # 마우스가 상단 50px 이내일 때 타이틀바 표시
-            bottom_area_height = 250  # 마우스가 하단 250px 이내일 때 컨트롤 표시
-
-            # UI 상태 변경 여부를 추적하기 위한 변수
-            ui_state_changed = False
-
-            # 마우스가 상단 영역에 있는 경우 (타이틀바 영역) - 타이틀바만 표시
-            if local_pos.y() <= title_bar_area_height:
-                # 상단 UI만 표시
-                ui_state_changed = self.handle_top_ui_visibility(True)
-            # 마우스가 하단 영역에 있는 경우 (컨트롤 영역) - 컨트롤만 표시
-            elif local_pos.y() >= self.parent.height() - bottom_area_height:
-                # 하단 UI만 표시
-                ui_state_changed = self.handle_bottom_ui_visibility(True)
-            else:
-                # 마우스가 중앙 영역에 있는 경우 - 모든 UI 숨김
-                ui_state_changed_top = self.handle_top_ui_visibility(False)
-                ui_state_changed_bottom = self.handle_bottom_ui_visibility(False)
-                ui_state_changed = ui_state_changed_top or ui_state_changed_bottom
+            # UI 잠금 상태 확인 - 둘 다 잠겨있으면 UI 가시성 변경하지 않음
+            title_locked = False
+            bottom_locked = False
             
-            # UI 상태가 변경되었으면 이미지 크기 조정
-            if ui_state_changed:
-                # 기존 타이머가 실행 중이면 중지
-                if self.parent.ui_update_timer.isActive():
-                    self.parent.ui_update_timer.stop()
+            if hasattr(self.parent, 'ui_lock_manager'):
+                title_locked = self.parent.ui_lock_manager.title_locked
+                bottom_locked = self.parent.ui_lock_manager.ui_locked
+            
+            # UI가 잠금 상태가 아닐 때만 UI 가시성 변경 처리
+            if not (title_locked and bottom_locked):
+                # 변수를 조건문 외부에서 정의
+                title_bar_area_height = 50  # 마우스가 상단 50px 이내일 때 타이틀바 표시
+                bottom_area_height = 250  # 마우스가 하단 250px 이내일 때 컨트롤 표시
+    
+                # UI 상태 변경 여부를 추적하기 위한 변수
+                ui_state_changed = False
+    
+                # 마우스가 상단 영역에 있는 경우 (타이틀바 영역) - 타이틀바만 표시
+                if local_pos.y() <= title_bar_area_height:
+                    # 상단 UI만 표시 (제목표시줄이 잠긴 경우 이미 표시된 상태)
+                    if not title_locked:
+                        ui_state_changed = self.handle_top_ui_visibility(True)
+                # 마우스가 하단 영역에 있는 경우 (컨트롤 영역) - 컨트롤만 표시
+                elif local_pos.y() >= self.parent.height() - bottom_area_height:
+                    # 하단 UI만 표시 (하단 UI가 잠긴 경우 이미 표시된 상태)
+                    if not bottom_locked:
+                        ui_state_changed = self.handle_bottom_ui_visibility(True)
+                else:
+                    # 마우스가 중앙 영역에 있는 경우 - 모든 UI 숨김
+                    ui_state_changed_top = False
+                    ui_state_changed_bottom = False
+                    
+                    # 제목표시줄이 잠기지 않은 경우만 숨김
+                    if not title_locked:
+                        ui_state_changed_top = self.handle_top_ui_visibility(False)
+                    
+                    # 하단 UI가 잠기지 않은 경우만 숨김
+                    if not bottom_locked:
+                        ui_state_changed_bottom = self.handle_bottom_ui_visibility(False)
+                    
+                    ui_state_changed = ui_state_changed_top or ui_state_changed_bottom
                 
-                # 일정 시간 후 UI 업데이트 실행
-                self.parent.ui_update_timer.start(50)
+                # UI 상태가 변경되었으면 이미지 크기 조정
+                if ui_state_changed:
+                    # 기존 타이머가 실행 중이면 중지
+                    if self.parent.ui_update_timer.isActive():
+                        self.parent.ui_update_timer.stop()
+                    
+                    # 일정 시간 후 UI 업데이트 실행
+                    self.parent.ui_update_timer.start(50)
             
             # 창이 최대화 상태가 아닐 때만 크기 조절 가능
             if not self.parent.isMaximized():

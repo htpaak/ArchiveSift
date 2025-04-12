@@ -45,9 +45,7 @@ class DualActionButton(QPushButton):
                 background-color: rgba(52, 73, 94, 0.9);
                 color: white;
                 border: none;
-                padding: 2px;
                 border-radius: 3px;
-                font-size: 11px;
             }
             QPushButton:hover {
                 background-color: rgba(52, 73, 94, 1.0);

@@ -459,7 +459,6 @@ class ArchiveSift(QWidget):
                 background-color: rgba(52, 73, 94, 0.9);  /* 반투명 남색 배경 */
                 color: white;  /* 흰색 텍스트 */
                 border: none;  /* 테두리 없음 */
-                padding: 10px;  /* 내부 여백 */
                 border-radius: 3px;  /* 둥근 모서리 */
             }
             QPushButton:hover {
@@ -473,9 +472,6 @@ class ArchiveSift(QWidget):
                 background-color: rgba(52, 73, 94, 0.6);
                 border: none;
                 border-radius: 3px;
-                padding: 0px;
-                min-height: 50px;
-                max-height: 50px;
             }
             QSlider:hover {
                 background-color: rgba(52, 73, 94, 1.0);
@@ -485,7 +481,6 @@ class ArchiveSift(QWidget):
                 height: 8px;
                 background: rgba(30, 30, 30, 0.8);
                 border-radius: 4px;
-                margin: 0px;
             }
             QSlider::handle:horizontal {
                 background: #ffffff;
@@ -528,7 +523,6 @@ class ArchiveSift(QWidget):
             }
             QLabel {
                 color: white;
-                font-size: 16px;
                 background-color: transparent;
             }
         """)  # 남색 배경
@@ -564,10 +558,6 @@ class ArchiveSift(QWidget):
                 background-color: transparent;
                 color: white;
                 border: none;
-                padding: 5px;
-                font-size: 16px;
-                min-width: 30px;
-                min-height: 30px;
             }
             QPushButton:hover {
                 background-color: rgba(0, 0, 0, 0.2);
@@ -643,8 +633,6 @@ class ArchiveSift(QWidget):
         self.slider_widget = QWidget()
         self.slider_widget.setStyleSheet("""
             background-color: rgba(52, 73, 94, 0.9);
-            padding: 0px;
-            margin: 0px;
             border: none;
         """)  # 패딩과 마진 완전히 제거
         self.slider_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)  # 가로로 최대한 확장, 세로는 고정
@@ -695,9 +683,7 @@ class ArchiveSift(QWidget):
                 background-color: rgba(52, 73, 94, 0.6);  /* 평상시 더 연하게 */
                 color: white;
                 border: none;
-                padding: 8px;  /* 패딩을 10px에서 8px로 줄임 */
                 border-radius: 3px;
-                font-size: 14px;  /* 폰트 크기를 더 크게 설정 */
                 qproperty-alignment: AlignCenter;  /* 텍스트 중앙 정렬 */
             }
             QLabel:hover {
@@ -823,7 +809,6 @@ class ArchiveSift(QWidget):
                         border: none;
                         border-radius: 3px;
                         font-weight: bold;
-                        font-size: 11px;
                     }
                     QPushButton:hover {
                         background-color: rgba(241, 196, 15, 1.0);
@@ -864,7 +849,7 @@ class ArchiveSift(QWidget):
         self.main_layout.set_media_display(self.image_label)
         
         # 메인 레이아웃에 컨트롤 레이아웃 추가
-        self.main_layout.set_controls_layout(self.slider_widget)
+        # self.main_layout.set_controls_layout(self.slider_widget)
         
         # ControlsLayout 인스턴스 생성
         self.controls_layout = ControlsLayout(self)
@@ -969,8 +954,6 @@ class ArchiveSift(QWidget):
             background-color: rgba(0, 0, 0, 0.7);
             color: white;
             border-radius: 10px;
-            padding: 10px;
-            font-size: 16px;
         """)
         self.fullscreen_overlay.hide()  # 초기에는 숨김 상태
 
