@@ -698,7 +698,7 @@ class ArchiveSift(QWidget):
         # 고정 높이 설정 제거 (setFixedHeight 제거)
         
         self.playback_slider.clicked.connect(self.slider_clicked)  # 클릭 이벤트 연결 (클릭 위치로 미디어 이동)
-        new_slider_layout.addWidget(self.playback_slider, 10)  # 재생 바 슬라이더를 레이아웃에 추가, stretch factor 10 적용
+        new_slider_layout.addWidget(self.playback_slider, 10)  # 재생 바 슬라이더를 레이아웃에 추가, stretch factor 10으로 증가 (기존 3에서 변경)
 
         # 재생 시간 레이블 추가 (현재 시간/총 시간 표시)
         self.time_label = QLabel("00:00 / 00:00", self)  # 초기 시간 표시
@@ -728,6 +728,7 @@ class ArchiveSift(QWidget):
         self.volume_slider.setRange(0, 100)  # 볼륨 범위 0-100%
         self.volume_slider.setValue(100)  # 기본 볼륨 100%으로 설정 (최대 음량)
         self.volume_slider.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)  # Fixed에서 Preferred로 변경
+        self.volume_slider.setFixedWidth(80)  # 볼륨 슬라이더 너비 고정
         # 고정 높이 설정 제거 (setFixedHeight 제거)
         
         # ClickableSlider의 메서드로 볼륨 컨트롤에 필요한 시그널 연결

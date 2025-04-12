@@ -157,7 +157,10 @@ class ControlsLayout(QWidget):
             for control in self.parent.slider_controls:
                 if isinstance(control, QLabel):  # 레이블인 경우 (시간 표시)
                     control.setFixedHeight(button_height)
-                else:  # 버튼인 경우
+                elif control == self.parent.open_button or control == self.parent.set_base_folder_button:
+                    # 열기 버튼과 폴더 설정 버튼은 더 큰 크기로 설정
+                    control.setFixedSize(int(button_height * 2.5), button_height)
+                else:  # 기타 버튼인 경우
                     control.setFixedSize(int(button_height * 1.2), button_height)
         
         # 슬라이더의 부모 위젯인 slider_widget에 배경 스타일을 적용
@@ -287,6 +290,9 @@ class ControlsLayout(QWidget):
                 if control == self.parent.time_label:
                     # 시간 레이블만 너비를 더 넓게 설정
                     control.setFixedSize(int(control_width * 1.5), control_height)
+                elif control == self.parent.open_button or control == self.parent.set_base_folder_button:
+                    # 열기 버튼과 폴더 설정 버튼은 더 큰 크기로 설정
+                    control.setFixedSize(int(control_width * 2.5), control_height)
                 else:
                     control.setFixedSize(control_width, control_height)
                 
