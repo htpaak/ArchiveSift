@@ -631,7 +631,14 @@ class ArchiveSift(QWidget):
 
         # 통합 하단 UI 컨테이너 생성
         self.bottom_ui_container = QWidget()
-        self.bottom_ui_container.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        # Fixed에서 Preferred로 변경하여 비율 설정(12%)이 적용되도록 함
+        self.bottom_ui_container.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        
+        # 최소 높이 설정 - 화면 높이의 12%를 최소값으로 사용
+        screen_height = QApplication.desktop().availableGeometry().height()
+        min_height = int(screen_height * 0.12)  # 12% 비율 적용
+        self.bottom_ui_container.setMinimumHeight(min_height)
+        
         bottom_ui_layout = QVBoxLayout(self.bottom_ui_container)
         bottom_ui_layout.setContentsMargins(0, 0, 0, 0)
         bottom_ui_layout.setSpacing(0)
@@ -642,7 +649,13 @@ class ArchiveSift(QWidget):
             background-color: rgba(52, 73, 94, 0.9);
             border: none;
         """)  # 패딩과 마진 완전히 제거
-        self.slider_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)  # 가로로 최대한 확장, 세로는 고정
+        # 크기 정책을 Preferred로 변경하여 비율(2)이 제대로 적용되도록 함
+        self.slider_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        
+        # 최소 높이 설정 - 버튼 높이의 약 1.2배 정도
+        button_height = 50  # 기본 버튼 높이
+        self.slider_widget.setMinimumHeight(int(button_height * 1.2))
+        
         new_slider_layout = QHBoxLayout(self.slider_widget)
         new_slider_layout.setContentsMargins(0, 0, 0, 0)  # 여백을 완전히 제거
         new_slider_layout.setSpacing(0)  # 위젯 간 간격도 0으로 설정
