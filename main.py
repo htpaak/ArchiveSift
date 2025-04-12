@@ -472,6 +472,9 @@ class ArchiveSift(QWidget):
                 background-color: rgba(52, 73, 94, 0.6);
                 border: none;
                 border-radius: 3px;
+                padding: 0px;
+                margin: 0px;
+                height: 100%;
             }
             QSlider:hover {
                 background-color: rgba(52, 73, 94, 1.0);
@@ -481,6 +484,7 @@ class ArchiveSift(QWidget):
                 height: 8px;
                 background: rgba(30, 30, 30, 0.8);
                 border-radius: 4px;
+                margin: 0px;
             }
             QSlider::handle:horizontal {
                 background: #ffffff;
@@ -638,6 +642,7 @@ class ArchiveSift(QWidget):
         self.bottom_ui_container = QWidget()
         # Fixed에서 Preferred로 변경하여 비율 설정(12%)이 적용되도록 함
         self.bottom_ui_container.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        self.bottom_ui_container.setContentsMargins(0, 0, 0, 0)
         
         # 최소 높이 설정 - 화면 높이의 12%를 최소값으로 사용
         screen_height = QApplication.desktop().availableGeometry().height()
@@ -653,9 +658,11 @@ class ArchiveSift(QWidget):
         self.slider_widget.setStyleSheet("""
             background-color: rgba(52, 73, 94, 0.9);
             border: none;
+            padding: 0px;
+            margin: 0px;
         """)  # 패딩과 마진 완전히 제거
-        # 크기 정책을 Preferred로 변경하여 비율(2)이 제대로 적용되도록 함
-        self.slider_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        # 크기 정책을 Expanding으로 변경하여 전체 높이를 차지하도록 함
+        self.slider_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         
         # 최소 높이 설정 제거 - 비율에 맞게 자동 조절되도록 함
         # button_height = 50  # 기본 버튼 높이
@@ -668,33 +675,38 @@ class ArchiveSift(QWidget):
         # 폴더 열기 버튼 (첫 번째 위치)
         self.open_button = OpenFolderButton(self)
         self.open_button.connect_action(self.open_folder)  # 폴더 열기 기능 연결 (이미지 폴더 선택)
+        self.open_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)  # 세로 방향 Expanding으로 변경
         new_slider_layout.addWidget(self.open_button)
 
         # Set Base Folder 버튼 (두 번째 위치)
         self.set_base_folder_button = SetBaseFolderButton(self)
         self.set_base_folder_button.connect_action(self.set_base_folder)  # 기준 폴더 설정 기능 연결 (복사 대상 폴더)
+        self.set_base_folder_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)  # 세로 방향 Expanding으로 변경
         new_slider_layout.addWidget(self.set_base_folder_button)
 
         # 재생 버튼 (세 번째 위치)
         self.play_button = PlayButton(self)  # 재생 아이콘 버튼
         self.play_button.connect_action(self.toggle_animation_playback)  # 재생 버튼 클릭 이벤트 연결 (재생/일시정지 전환)
+        self.play_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)  # 세로 방향 Expanding으로 변경
         new_slider_layout.addWidget(self.play_button)
 
         # 회전 버튼 추가 (반시계 방향)
         self.rotate_ccw_button = RotateButton(clockwise=False, parent=self)
         self.rotate_ccw_button.connect_action(self.rotate_image)
+        self.rotate_ccw_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)  # 세로 방향 Expanding으로 변경
         new_slider_layout.addWidget(self.rotate_ccw_button)
 
         # 회전 버튼 추가 (시계 방향)
         self.rotate_cw_button = RotateButton(clockwise=True, parent=self)
         self.rotate_cw_button.connect_action(self.rotate_image)
+        self.rotate_cw_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)  # 세로 방향 Expanding으로 변경
         new_slider_layout.addWidget(self.rotate_cw_button)
 
         # 기존 슬라이더 (재생 바) 추가
         self.playback_slider = ClickableSlider(Qt.Horizontal, self)  # ClickableSlider로 변경 (클릭 시 해당 위치로 이동)
         self.playback_slider.setRange(0, 100)  # 슬라이더 범위 설정 (0-100%)
         self.playback_slider.setValue(0)  # 초기 값을 0으로 설정 (시작 위치)
-        self.playback_slider.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)  # 고정 높이 대신 Preferred로 변경
+        self.playback_slider.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)  # 세로 방향 Expanding으로 변경
         # 고정 높이 설정 제거 (setFixedHeight 제거)
         
         self.playback_slider.clicked.connect(self.slider_clicked)  # 클릭 이벤트 연결 (클릭 위치로 미디어 이동)
@@ -702,7 +714,7 @@ class ArchiveSift(QWidget):
 
         # 재생 시간 레이블 추가 (현재 시간/총 시간 표시)
         self.time_label = QLabel("00:00 / 00:00", self)  # 초기 시간 표시
-        self.time_label.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Preferred)  # Fixed에서 Preferred로 변경
+        self.time_label.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Expanding)  # Expanding으로 변경하여 전체 높이 사용
         self.time_label.setStyleSheet("""
             QLabel {
                 background-color: rgba(52, 73, 94, 0.6);  /* 평상시 더 연하게 */
@@ -710,6 +722,7 @@ class ArchiveSift(QWidget):
                 border: none;
                 border-radius: 3px;
                 qproperty-alignment: AlignCenter;  /* 텍스트 중앙 정렬 */
+                padding: 0px;
             }
             QLabel:hover {
                 background-color: rgba(52, 73, 94, 1.0);  /* 마우스 오버 시 진하게 */
@@ -721,13 +734,14 @@ class ArchiveSift(QWidget):
         # 음소거 버튼 추가 (오디오 켜기/끄기)
         self.mute_button = MuteButton(self)
         self.mute_button.connect_action(self.toggle_mute)  # 음소거 토글 기능 연결
+        self.mute_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)  # 세로 방향 Expanding으로 변경
         new_slider_layout.addWidget(self.mute_button)
 
         # 볼륨 슬라이더 추가 (음량 조절)
         self.volume_slider = ClickableSlider(Qt.Horizontal, self)
         self.volume_slider.setRange(0, 100)  # 볼륨 범위 0-100%
         self.volume_slider.setValue(100)  # 기본 볼륨 100%으로 설정 (최대 음량)
-        self.volume_slider.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)  # Fixed에서 Preferred로 변경
+        self.volume_slider.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)  # 세로 방향 Expanding으로 변경
         self.volume_slider.setFixedWidth(80)  # 볼륨 슬라이더 너비 고정
         # 고정 높이 설정 제거 (setFixedHeight 제거)
         
@@ -738,11 +752,13 @@ class ArchiveSift(QWidget):
         # 메뉴 버튼 추가 
         self.menu_button = MenuButton(self)
         self.menu_button.connect_action(self.show_menu_above)  # 메뉴 표시 함수 연결
+        self.menu_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)  # 세로 방향 Expanding으로 변경
         new_slider_layout.addWidget(self.menu_button)
         
         # 북마크 버튼 추가 (가장 오른쪽에 위치)
         self.slider_bookmark_btn = BookmarkButton(self)
         self.slider_bookmark_btn.connect_action(self.show_bookmark_menu_above)  # 메뉴 표시 함수 연결로 변경
+        self.slider_bookmark_btn.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)  # 세로 방향 Expanding으로 변경
         new_slider_layout.addWidget(self.slider_bookmark_btn)
         
         # 북마크 매니저 설정
@@ -751,6 +767,7 @@ class ArchiveSift(QWidget):
         # 여기에 UI 고정 버튼 추가 (완전히 새로운 코드로 교체)
         self.ui_lock_btn = UILockButton(self)  # UILockButton 클래스 사용
         self.ui_lock_btn.connect_action(self.toggle_ui_lock)  # toggle_ui_lock은 이제 controls_layout으로 호출을 위임합니다
+        self.ui_lock_btn.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)  # 세로 방향 Expanding으로 변경
         new_slider_layout.addWidget(self.ui_lock_btn)
 
         # 슬라이더바 컨트롤 리스트 생성 (버튼과 레이블을 함께 관리)
@@ -769,7 +786,7 @@ class ArchiveSift(QWidget):
         self.slider_controls.append(self.ui_lock_btn)
 
         # 새로운 슬라이더 위젯을 하단 레이아웃에 추가
-        bottom_ui_layout.addWidget(self.slider_widget, 2)  # 슬라이더 위젯 비율 2 (2/12 = 16.7%)
+        bottom_ui_layout.addWidget(self.slider_widget, 1)  # 슬라이더 위젯 비율 1 (1/11 = 9.1%)
 
         # 버튼 컨테이너 위젯 생성
         button_container = QWidget()
@@ -866,7 +883,7 @@ class ArchiveSift(QWidget):
         button_container_layout.addWidget(last_row_widget, 1)  # 2에서 1로 변경하여 모든 행이 동일한 크기로 표시
 
         # 버튼 컨테이너를 bottom_ui_layout에 추가
-        bottom_ui_layout.addWidget(self.button_container, 10)  # 버튼 컨테이너 비율 10 (10/12 = 83.3%)
+        bottom_ui_layout.addWidget(self.button_container, 11)  # 버튼 컨테이너 비율 11 (11/12 = 91.7%)
 
         # 하단 UI 컨테이너를 메인 레이아웃에 추가 (12% 비율)
         layout.addWidget(self.bottom_ui_container, 12)

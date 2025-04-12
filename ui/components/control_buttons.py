@@ -6,7 +6,7 @@ class ControlButton(QPushButton):
     
     def __init__(self, text, parent=None):
         super().__init__(text, parent)
-        self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
         self.setup_style()
         
     def setup_style(self):
@@ -16,6 +16,8 @@ class ControlButton(QPushButton):
                 background-color: rgba(52, 73, 94, 0.6);
                 color: white;
                 border: none;
+                padding: 0px;
+                margin: 0px;
             }
             QPushButton:hover {
                 background-color: rgba(52, 73, 94, 1.0);
@@ -132,6 +134,8 @@ class BookmarkButton(ControlButton):
                 background-color: rgba(52, 73, 94, 0.6); 
                 color: white;
                 border: none;
+                padding: 0px;
+                margin: 0px;
             }
             QPushButton:hover {
                 background-color: rgba(52, 73, 94, 1.0); 
@@ -151,6 +155,8 @@ class BookmarkButton(ControlButton):
                     background-color: rgba(241, 196, 15, 0.9);
                     color: white;
                     border: none;
+                    padding: 0px;
+                    margin: 0px;
                 }
                 QPushButton:hover {
                     background-color: rgba(241, 196, 15, 1.0); 
@@ -175,6 +181,8 @@ class UILockButton(ControlButton):
                 background-color: rgba(52, 73, 94, 0.6);
                 color: white;
                 border: none;
+                padding: 0px;
+                margin: 0px;
             }
             QPushButton:hover {
                 background-color: rgba(52, 73, 94, 1.0);
@@ -195,6 +203,8 @@ class UILockButton(ControlButton):
                     background-color: rgba(231, 76, 60, 0.9); 
                     color: white;
                     border: none;
+                    padding: 0px;
+                    margin: 0px;
                 }
                 QPushButton:hover {
                     background-color: rgba(231, 76, 60, 1.0); 
@@ -340,6 +350,8 @@ class TitleLockButton(TitleBarButton):
                     background-color: rgba(231, 76, 60, 0.9); 
                     color: white;
                     border: none;
+                    padding: 0px;
+                    margin: 0px;
                 }
                 QPushButton:hover {
                     background-color: rgba(231, 76, 60, 1.0); 
