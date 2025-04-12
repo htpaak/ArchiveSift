@@ -786,7 +786,7 @@ class ArchiveSift(QWidget):
         self.slider_controls.append(self.ui_lock_btn)
 
         # 새로운 슬라이더 위젯을 하단 레이아웃에 추가
-        bottom_ui_layout.addWidget(self.slider_widget, 1)  # 슬라이더 위젯 비율 1 (1/11 = 9.1%)
+        bottom_ui_layout.addWidget(self.slider_widget, 2)  # 슬라이더 위젯 비율 2
 
         # 버튼 컨테이너 위젯 생성
         button_container = QWidget()
@@ -828,8 +828,8 @@ class ArchiveSift(QWidget):
                 button_layout.addWidget(empty_button)
             
             self.buttons.append(button_row)
-            # 각 행에 stretch factor 1을 적용하여 컨테이너 높이의 1/4씩 할당
-            button_container_layout.addWidget(row_widget, 1)
+            # 각 행에 stretch factor 2를 적용하여 컨테이너 높이의 1/5씩 할당 (5번째 행 제외)
+            button_container_layout.addWidget(row_widget, 2)
             
         # 마지막 행을 추가하여 남은 공간 채우기
         last_row_widget = QWidget()
@@ -880,10 +880,10 @@ class ArchiveSift(QWidget):
         
         self.buttons.append(last_button_row)
         # 마지막 행에 stretch factor 2를 적용하여 남은 공간을 채움
-        button_container_layout.addWidget(last_row_widget, 1)  # 2에서 1로 변경하여 모든 행이 동일한 크기로 표시
+        button_container_layout.addWidget(last_row_widget, 2)  # 마지막 행도 2의 비율로 설정
 
-        # 버튼 컨테이너를 bottom_ui_layout에 추가
-        bottom_ui_layout.addWidget(self.button_container, 11)  # 버튼 컨테이너 비율 11 (11/12 = 91.7%)
+        # 버튼 컨테이너를 bottom_ui_layout에 추가 (4개 행 비율 2 + 마지막 행 비율 2 = 10)
+        bottom_ui_layout.addWidget(self.button_container, 10)  # 버튼 컨테이너 비율 10
 
         # 하단 UI 컨테이너를 메인 레이아웃에 추가 (12% 비율)
         layout.addWidget(self.bottom_ui_container, 12)
