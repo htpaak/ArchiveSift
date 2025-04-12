@@ -308,31 +308,18 @@ class MouseHandler(QObject):
             return False
         
         # 기존 상태 확인
-        controls_previous = self.parent.ui_state_manager.get_ui_visibility('controls')
-        sliders_previous = self.parent.ui_state_manager.get_ui_visibility('sliders')
+        previous_state = self.parent.ui_state_manager.get_ui_visibility('bottom_ui')
         
         # 잠금 상태 확인 - 잠금된 경우 항상 표시
         if hasattr(self.parent, 'ui_lock_manager') and self.parent.ui_lock_manager.ui_locked:
             show = True
         
-        # 미디어 타입에 맞게 슬라이더 표시 여부 결정
-        sliders_visible = show
-        if show and hasattr(self.parent, 'current_media_type'):
-            # 비디오/애니메이션인 경우만 슬라이더 활성화
-            sliders_visible = self.parent.current_media_type in ['video', 'gif_animation', 'webp_animation']
-        
-        # 상태 변경 여부 확인
-        controls_changed = controls_previous != show
-        sliders_changed = sliders_previous != sliders_visible
-        
         # 상태가 변경된 경우만 처리
-        if controls_changed or sliders_changed:
+        if previous_state != show:
             # UI 가시성 업데이트
             self.parent.ui_state_manager._update_ui_visibility({
-                'controls': show,
-                'sliders': sliders_visible
+                'bottom_ui': show
             })
-            # 레이아웃 비율 업데이트는 제거 (자동으로 apply_ui_visibility에서 처리됨)
             return True
         
         return False

@@ -32,10 +32,13 @@ class UIStateManager(QObject):
         self._fullscreen = False
         self._ui_visibility = {
             'title_bar': True,
-            'controls': True,
-            'sliders': True,
+            'bottom_ui': True,  # 기존 'controls'와 'sliders'를 'bottom_ui'로 통합
             'info_label': False
         }
+        
+        # 이전 코드와의 호환성을 위해 내부적으로 추적
+        # 기본값을 True로 설정하여 초기 상태에서도 슬라이더 표시
+        self._media_has_slider = True
     
     @property
     def is_fullscreen(self):
@@ -66,8 +69,7 @@ class UIStateManager(QObject):
             
             self._update_ui_visibility({
                 'title_bar': title_locked,
-                'controls': bottom_locked,
-                'sliders': bottom_locked
+                'bottom_ui': bottom_locked
             })
         else:
             # 전체화면 모드로 전환 시 UI 잠금 상태에 따라 UI 결정
@@ -76,8 +78,7 @@ class UIStateManager(QObject):
             
             self._update_ui_visibility({
                 'title_bar': title_locked,
-                'controls': bottom_locked,
-                'sliders': bottom_locked
+                'bottom_ui': bottom_locked
             })
     
     def _get_title_locked(self):
@@ -131,8 +132,7 @@ class UIStateManager(QObject):
         # Update UI element visibility
         new_visibility = {
             'title_bar': True,
-            'controls': True,
-            'sliders': True
+            'bottom_ui': True
         }
         
         # Check if there are any changes
@@ -159,8 +159,7 @@ class UIStateManager(QObject):
         # Calculate new UI state
         new_visibility = {
             'title_bar': title_locked,
-            'controls': bottom_locked,
-            'sliders': bottom_locked
+            'bottom_ui': bottom_locked
         }
         
         # Check if there are any changes - improved previous logic
@@ -184,13 +183,15 @@ class UIStateManager(QObject):
         Args:
             media_type: 미디어 타입 ('image', 'video', 'animation' 등)
         """
-        # 비디오나 애니메이션인 경우 슬라이더 표시
-        sliders_visible = media_type in ['video', 'gif_animation', 'webp_animation']
+        # 비디오나 애니메이션인 경우를 내부적으로 기록 (슬라이더 표시 결정용)
+        slider_needed = media_type in ['video', 'gif_animation', 'webp_animation']
         
-        self._update_ui_visibility({
-            'sliders': sliders_visible and self._get_bottom_locked()
-        })
-        
+        # 슬라이더 상태가 변경된 경우에만 UI 업데이트
+        if self._media_has_slider != slider_needed:
+            self._media_has_slider = slider_needed
+            # 슬라이더 상태 변경 후 즉시 UI에 적용
+            self.apply_ui_visibility()
+    
     def apply_ui_visibility(self):
         """UI 가시성 설정을 실제 UI 요소에 적용"""
         # 실제 변경 여부 추적
@@ -207,29 +208,31 @@ class UIStateManager(QObject):
                 else:
                     self.parent.title_bar.hide()
         
-        # 컨트롤 버튼 가시성 설정
-        if hasattr(self.parent, 'buttons'):
-            controls_visible = self._ui_visibility['controls']
-            for row in self.parent.buttons:
-                for button in row:
-                    if (controls_visible and button.isHidden()) or \
-                       (not controls_visible and not button.isHidden()):
-                        has_changed = True
-                        if controls_visible:
-                            button.show()
-                        else:
-                            button.hide()
+        # 하단 UI 가시성 설정 (통합 관리)
+        bottom_visible = self._ui_visibility['bottom_ui']
         
-        # 슬라이더 가시성 설정
-        if hasattr(self.parent, 'slider_widget'):
-            sliders_visible = self._ui_visibility['sliders']
-            if (sliders_visible and self.parent.slider_widget.isHidden()) or \
-               (not sliders_visible and not self.parent.slider_widget.isHidden()):
+        # 하단 UI 컨테이너 가시성 설정
+        if hasattr(self.parent, 'bottom_ui_container'):
+            if (bottom_visible and self.parent.bottom_ui_container.isHidden()) or \
+               (not bottom_visible and not self.parent.bottom_ui_container.isHidden()):
                 has_changed = True
-                if sliders_visible:
-                    self.parent.slider_widget.show()
+                if bottom_visible:
+                    self.parent.bottom_ui_container.show()
                 else:
-                    self.parent.slider_widget.hide()
+                    self.parent.bottom_ui_container.hide()
+                    
+            # 하단 UI가 보이는 상태일 때만 슬라이더 가시성 결정
+            if bottom_visible and hasattr(self.parent, 'slider_widget'):
+                # 미디어 타입에 따라 슬라이더 표시 여부 결정
+                slider_visible = self._media_has_slider
+                
+                if (slider_visible and self.parent.slider_widget.isHidden()) or \
+                   (not slider_visible and not self.parent.slider_widget.isHidden()):
+                    has_changed = True
+                    if slider_visible:
+                        self.parent.slider_widget.show()
+                    else:
+                        self.parent.slider_widget.hide()
         
         # 정보 레이블 가시성 설정
         if hasattr(self.parent, 'image_info_label'):
@@ -280,9 +283,9 @@ class UIStateManager(QObject):
             main_ratio += title_ratio
             title_ratio = 0
         
-        # 하단 컨트롤 영역 가시성 확인
-        if not bottom_locked and not self._ui_visibility['controls'] and not self._ui_visibility['sliders']:
-            # 하단 컨트롤이 잠기지 않고 모두 숨겨진 경우, 그 비율을 메인 영역에 추가
+        # 하단 컨트롤 영역 가시성 확인 (통합 UI 영역)
+        if not bottom_locked and not self._ui_visibility['bottom_ui']:
+            # 하단 컨트롤이 잠기지 않고 숨겨진 경우, 그 비율을 메인 영역에 추가
             main_ratio += bottom_ratio
             bottom_ratio = 0
             
@@ -304,7 +307,7 @@ class UIStateManager(QObject):
             # QLayout 항목 처리 (bottom_layout)
             elif isinstance(item, QVBoxLayout) or isinstance(item, QHBoxLayout):
                 layout.setStretch(i, bottom_ratio)
-                
+    
     def _reset_layout_ratios(self):
         """레이아웃 비율을 기본값으로 초기화"""
         # 부모 객체의 레이아웃 확인
@@ -344,11 +347,15 @@ class UIStateManager(QObject):
         UI 요소의 현재 가시성 상태를 반환합니다.
         
         Args:
-            component_name (str): UI 요소 이름 ('title_bar', 'controls', 'sliders', 'info_label')
+            component_name (str): UI 요소 이름 ('title_bar', 'bottom_ui', 'info_label')
             
         Returns:
             bool: UI 요소 가시성 상태
         """
+        # 이전 코드와의 호환성을 위한 처리
+        if component_name == 'controls' or component_name == 'sliders':
+            return self._ui_visibility.get('bottom_ui', True)
+            
         if component_name in self._ui_visibility:
             return self._ui_visibility[component_name]
         return True  # 기본값: 표시 

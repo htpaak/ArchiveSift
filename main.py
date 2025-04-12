@@ -629,6 +629,13 @@ class ArchiveSift(QWidget):
         bottom_layout.setContentsMargins(0, 0, 0, 0)  # 여백 없음
         bottom_layout.setSpacing(0)  # 레이아웃 사이 간격 제거
 
+        # 통합 하단 UI 컨테이너 생성
+        self.bottom_ui_container = QWidget()
+        self.bottom_ui_container.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        bottom_ui_layout = QVBoxLayout(self.bottom_ui_container)
+        bottom_ui_layout.setContentsMargins(0, 0, 0, 0)
+        bottom_ui_layout.setSpacing(0)
+
         # 슬라이더 위젯과 레이아웃
         self.slider_widget = QWidget()
         self.slider_widget.setStyleSheet("""
@@ -743,7 +750,7 @@ class ArchiveSift(QWidget):
         self.slider_controls.append(self.ui_lock_btn)
 
         # 새로운 슬라이더 위젯을 하단 레이아웃에 추가
-        bottom_layout.addWidget(self.slider_widget, 2)  # 전체 레이아웃의 2%
+        bottom_ui_layout.addWidget(self.slider_widget, 2)  # 슬라이더 위젯 비율 2
 
         # 버튼 컨테이너 위젯 생성
         button_container = QWidget()
@@ -839,11 +846,11 @@ class ArchiveSift(QWidget):
         # 마지막 행에 stretch factor 2를 적용하여 남은 공간을 채움
         button_container_layout.addWidget(last_row_widget, 1)  # 2에서 1로 변경하여 모든 행이 동일한 크기로 표시
 
-        # 버튼 컨테이너를 bottom_layout에 추가
-        bottom_layout.addWidget(self.button_container, 10)  # 하단 비율 중 10/12
+        # 버튼 컨테이너를 bottom_ui_layout에 추가
+        bottom_ui_layout.addWidget(self.button_container, 10)  # 버튼 컨테이너 비율 10
 
-        # 하단 버튼 영역을 메인 레이아웃에 추가 (12% 비율)
-        layout.addLayout(bottom_layout, 12)
+        # 하단 UI 컨테이너를 메인 레이아웃에 추가 (12% 비율)
+        layout.addWidget(self.bottom_ui_container, 12)
 
         # 메인 레이아웃에 이미지 컨테이너 추가
         self.main_layout.set_media_display(self.image_label)
@@ -2250,37 +2257,34 @@ class ArchiveSift(QWidget):
     
     def on_ui_visibility_changed(self, visibility_dict):
         """
-        Handle UI element visibility change event
+        UI 요소 가시성 변경 이벤트 처리
         
         Args:
-            visibility_dict: Dictionary containing visibility status of each UI element
+            visibility_dict: 각 UI 요소의 가시성 상태가 포함된 딕셔너리
         """
-        # Delegate applying UI visibility to UI state manager
+        # UI 요소 가시성 적용을 UI 상태 관리자에 위임
         self.ui_state_manager.apply_ui_visibility()
         
-        # If resizing is required after UI change 
+        # UI 변경 후 리사이징이 필요한 경우
         if hasattr(self, 'current_image_path') and self.current_image_path:
             file_ext = os.path.splitext(self.current_image_path)[1].lower()
  
-            # For RAW files, apply resizing immediately (to solve issue)
+            # RAW 파일의 경우 즉시 리사이징 적용 (문제 해결을 위해)
             if file_ext in RAW_EXTENSIONS:
-                # Force immediate multiple resizing attempts
+                # 즉시 다중 리사이징 시도를 강제 실행
                 QApplication.processEvents()
                 
-                # Set flag to use full window area (new addition)
+                # 전체 창 영역을 사용하도록 플래그 설정 (새로운 추가)
                 self.image_handler.use_full_window = True
                 self.image_handler.resize()
                 
-                # Reset flag after image processing is complete
+                # 이미지 처리 완료 후 플래그 재설정
                 self.image_handler.use_full_window = False
                 
-                # Refresh the screen
+                # 화면 새로고침
                 QApplication.processEvents()
                 self.image_label.repaint()
                 self.image_label.update()
-                
-                # Apply delayed resizing after immediate resizing (safety measure)
-                QTimer.singleShot(50, self.delayed_resize)
             else:
                 # For non-RAW files: start delayed resizing after a set time
                 if hasattr(self, 'resize_timer') and not self.resize_timer.isActive():
