@@ -514,7 +514,8 @@ class ArchiveSift(QWidget):
         
         # 제목 표시줄 (커스텀 타이틀바)
         self.title_bar = QWidget(self)  # 제목 표시줄 위젯 생성
-        self.title_bar.setFixedHeight(30)  # 높이 고정
+        # self.title_bar.setFixedHeight(30)  # 고정 높이 제거
+        self.title_bar.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)  # 크기 정책을 Preferred로 설정
         self.title_bar.setObjectName("title_bar")  # CSS 선택자로 사용할 객체 이름 설정
         # 제목 표시줄 배경색을 어둡게, 글자색을 흰색으로 설정
         self.title_bar.setStyleSheet("""
@@ -538,12 +539,16 @@ class ArchiveSift(QWidget):
         app_icon_pixmap = QIcon('./core/ArchiveSift.ico').pixmap(20, 20)  # 아이콘 크기 20x20
         app_icon_label.setPixmap(app_icon_pixmap)
         app_icon_label.setStyleSheet("background-color: transparent;")
+        app_icon_label.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)  # 너비는 고정, 높이는 가변
         title_layout.addWidget(app_icon_label)
+        self.title_bar.controls['app_icon_label'] = app_icon_label  # 컨트롤에 추가하여 동적 크기 조절 적용
         
         # 제목 텍스트 레이블
         title_label = QLabel("ArchiveSift")
         # 스타일시트는 이미 title_bar에 적용된 것을 사용
+        title_label.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)  # 너비는 고정, 높이는 가변
         title_layout.addWidget(title_label)
+        self.title_bar.controls['title_label'] = title_label  # 컨트롤에 추가하여 동적 크기 조절 적용
         title_layout.addStretch()  # 가운데 빈 공간 추가 (창 컨트롤 버튼을 오른쪽으로 밀기 위함)
 
         # 상단 UI 잠금 버튼 추가

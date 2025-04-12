@@ -45,7 +45,11 @@ class WindowHandler(QObject):
             self.parent.slider_widget.setFixedWidth(window_width)
         
         if hasattr(self.parent, 'title_bar'):
-            self.parent.title_bar.setGeometry(0, 0, self.parent.width(), 30)  # 제목표시줄 위치와 크기 조정
+            # 창 높이에 따라 제목표시줄 높이 계산 (2% 비율)
+            title_height = int(self.parent.height() * 0.02)
+            # 최소 높이 보장 (너무 작지 않도록)
+            title_height = max(title_height, 25)
+            self.parent.title_bar.setGeometry(0, 0, self.parent.width(), title_height)
             self.parent.title_bar.raise_()  # 제목표시줄을 항상 맨 위로 유지
             # 제목표시줄 버튼 업데이트
             for child in self.parent.title_bar.children():

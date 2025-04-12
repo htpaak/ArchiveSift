@@ -1,6 +1,6 @@
 from PyQt5.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QPushButton, QSlider, QMenu, QAction, QLabel
 from PyQt5.QtCore import Qt, QTimer, pyqtSignal
-from PyQt5.QtGui import QIcon
+from PyQt5.QtGui import QIcon, QFont
 from media.handlers.animation_handler import AnimationHandler  # AnimationHandler 클래스 임포트
 from core.utils.time_utils import format_time  # format_time 함수 추가 임포트
 from ui.components.custom_tooltip import TooltipManager  # 툴팁 매니저 임포트
@@ -115,6 +115,31 @@ class ControlsLayout(QWidget):
         # 버튼 높이 측정 (open_button 기준)
         button_height = 50  # 실측으로 확인한 버튼 높이
         
+        # 제목표시줄 버튼 크기 동적 조절
+        if hasattr(self.parent, 'title_bar') and hasattr(self.parent.title_bar, 'controls'):
+            # 타이틀바 높이와 창 너비에 따라 버튼 크기 계산
+            window_height = self.parent.height()
+            title_height = int(window_height * 0.02)  # 2% 비율
+            title_height = max(title_height, 25)  # 최소 높이 보장
+            
+            # 버튼 크기 계산 (너비 = 높이의 1.2배)
+            button_size = int(title_height * 0.8)  # 타이틀바 높이의 80%
+            button_width = int(button_size * 1.2)
+            
+            # 모든 제목표시줄 컨트롤 버튼에 크기 적용
+            for control_name, control in self.parent.title_bar.controls.items():
+                # 앱 아이콘과 타이틀 레이블은 특별히 처리
+                if control_name == 'app_icon_label':
+                    pixmap_size = int(title_height * 0.7)  # 타이틀바 높이의 70%
+                    control.setPixmap(QIcon('./core/ArchiveSift.ico').pixmap(pixmap_size, pixmap_size))
+                elif control_name == 'title_label':
+                    font = control.font()
+                    font.setPointSize(int(title_height * 0.4))  # 타이틀바 높이의 40%
+                    control.setFont(font)
+                else:
+                    # 나머지 버튼들
+                    control.setFixedSize(button_width, button_size)
+        
         # 슬라이더 스타일 적용 (UI 일관성)
         self.parent.playback_slider.setStyleSheet(self.parent.slider_style)  # 재생 슬라이더 스타일 적용
         self.parent.volume_slider.setStyleSheet(self.parent.slider_style)  # 음량 조절 슬라이더 스타일 적용
@@ -203,6 +228,31 @@ class ControlsLayout(QWidget):
         """버튼 및 컨트롤 요소의 크기를 창 크기에 맞게 업데이트"""
         # 창 너비 가져오기
         total_width = self.parent.width()
+        
+        # 0. 제목표시줄 버튼 크기 업데이트
+        if hasattr(self.parent, 'title_bar') and hasattr(self.parent.title_bar, 'controls'):
+            # 타이틀바 높이와 창 너비에 따라 버튼 크기 계산
+            window_height = self.parent.height()
+            title_height = int(window_height * 0.02)  # 2% 비율
+            title_height = max(title_height, 25)  # 최소 높이 보장
+            
+            # 버튼 크기 계산 (너비 = 높이의 1.2배)
+            button_size = int(title_height * 0.8)  # 타이틀바 높이의 80%
+            button_width = int(button_size * 1.2)
+            
+            # 모든 제목표시줄 컨트롤 버튼에 크기 적용
+            for control_name, control in self.parent.title_bar.controls.items():
+                # 앱 아이콘과 타이틀 레이블은 특별히 처리
+                if control_name == 'app_icon_label':
+                    pixmap_size = int(title_height * 0.7)  # 타이틀바 높이의 70%
+                    control.setPixmap(QIcon('./core/ArchiveSift.ico').pixmap(pixmap_size, pixmap_size))
+                elif control_name == 'title_label':
+                    font = control.font()
+                    font.setPointSize(int(title_height * 0.4))  # 타이틀바 높이의 40%
+                    control.setFont(font)
+                else:
+                    # 나머지 버튼들
+                    control.setFixedSize(button_width, button_size)
         
         # 1. 폴더 버튼 행 처리
         if hasattr(self.parent, 'buttons'):
