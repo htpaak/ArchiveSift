@@ -603,10 +603,10 @@ class ArchiveSift(QWidget):
         title_layout.addWidget(close_btn)
 
         # 제목 표시줄을 메인 레이아웃에 추가 (1% 비율 - 전체 UI 중 작은 부분)
-        layout.addWidget(self.title_bar, 1)
+        layout.addWidget(self.title_bar, 2)
         
         # 메인 레이아웃을 레이아웃에 추가 (87% 비율)
-        layout.addWidget(self.main_layout, 87)
+        layout.addWidget(self.main_layout, 86)
         
         # 북마크 메뉴 초기화
         self.bookmark_manager.update_bookmark_menu()

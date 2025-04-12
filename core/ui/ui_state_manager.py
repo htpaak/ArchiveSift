@@ -272,8 +272,8 @@ class UIStateManager(QObject):
             return
             
         # 기본 비율
-        title_ratio = 1
-        main_ratio = 87
+        title_ratio = 2
+        main_ratio = 86
         bottom_ratio = 12
         
         # _ui_visibility에 저장된 UI 상태와 잠금 상태를 함께 고려
@@ -319,8 +319,8 @@ class UIStateManager(QObject):
             return
         
         # 기본 비율 설정
-        title_ratio = 1
-        main_ratio = 87
+        title_ratio = 2
+        main_ratio = 86
         bottom_ratio = 12
         
         # 레이아웃 비율 초기화
