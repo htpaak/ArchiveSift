@@ -1661,6 +1661,9 @@ class ArchiveSift(QWidget):
 
         self.message_label = QLabel(message, self)
         
+        # 경계 영역 추가 (EditableIndexLabel과 동일하게 설정)
+        self.message_label.setContentsMargins(5, 5, 5, 5)
+        
         # 창 크기에 따라 폰트 크기 동적 조절
         window_width = self.width()
         font_size = max(12, min(32, int(window_width * 0.02)))
