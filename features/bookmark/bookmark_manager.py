@@ -84,13 +84,13 @@ class BookmarkManager:
             
         if self.viewer.current_image_path in self.bookmarks:
             self.remove_bookmark()
-            self.viewer.show_message("Bookmark removed")
+            # 메시지 표시, 북마크 버튼 상태 업데이트, 저장은 remove_bookmark에서 처리
         else:
             self.add_bookmark()
-            self.viewer.show_message("Bookmark added")
-            
-        self.update_bookmark_button_state()
-        self.save_bookmarks()
+            # 메시지 표시
+            if hasattr(self.viewer, 'show_message'):
+                self.viewer.show_message(f"Bookmark added: {os.path.basename(self.viewer.current_image_path)}")
+        # 북마크 버튼 상태 업데이트, 메뉴 업데이트, 저장은 add_bookmark, remove_bookmark에서 처리
     
     def add_bookmark(self):
         """
@@ -103,14 +103,37 @@ class BookmarkManager:
             # 리스트 마지막에 추가하여 최신 북마크가 아래에 표시되도록 함
             self.bookmarks.append(self.viewer.current_image_path)
             
+            # 북마크 저장
+            self.save_bookmarks()
+            
+            # 북마크 버튼 상태 업데이트
+            self.update_bookmark_button_state()
+            
+            # 북마크 메뉴 업데이트
+            self.update_bookmark_menu()
+    
     def remove_bookmark(self):
         """
         현재 이미지를 북마크에서 제거해요.
         """
         if hasattr(self.viewer, 'current_image_path') and self.viewer.current_image_path:
             if self.viewer.current_image_path in self.bookmarks:
-                self.bookmarks.remove(self.viewer.current_image_path)
-            
+                path = self.viewer.current_image_path
+                self.bookmarks.remove(path)
+                
+                # 북마크 저장
+                self.save_bookmarks()
+                
+                # 북마크 버튼 상태 업데이트
+                self.update_bookmark_button_state()
+                
+                # 북마크 메뉴 업데이트
+                self.update_bookmark_menu()
+                
+                # 메시지 표시
+                if hasattr(self.viewer, 'show_message'):
+                    self.viewer.show_message(f"Bookmark removed: {os.path.basename(path)}")
+    
     def save_bookmarks(self):
         """
         북마크 정보를 JSON 파일로 저장해요.
