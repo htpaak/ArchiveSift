@@ -669,6 +669,9 @@ class ImageHandler(MediaHandler):
         elif file_format == 'video':
             # 비디오 미디어 처리
             self.parent.load_video_media(image_path)
+        elif file_format == 'audio':
+            # 오디오 미디어 처리
+            self.parent.load_audio_media(image_path)
         else:
             self.parent.current_media_type = 'unknown'  # 미디어 타입 업데이트
         

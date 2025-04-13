@@ -51,6 +51,7 @@ from media.handlers.image_handler import ImageHandler  # 이미지 처리 클래
 from media.handlers.psd_handler import PSDHandler  # PSD 처리 클래스
 from media.handlers.video_handler import VideoHandler  # 비디오 처리 클래스
 from media.handlers.animation_handler import AnimationHandler  # 애니메이션 처리 클래스 추가
+from media.handlers.audio_handler import AudioHandler  # 오디오 처리 클래스 추가
 from media.handlers.image_handler import RAW_EXTENSIONS
 # 사용자 정의 UI 위젯
 from ui.components.slider import ClickableSlider
@@ -1031,6 +1032,7 @@ class ArchiveSift(QWidget):
         self.image_handler = ImageHandler(self, self.image_label)
         self.psd_handler = PSDHandler(self, self.image_label)
         self.video_handler = VideoHandler(self, self.image_label)
+        self.audio_handler = AudioHandler(self, self.image_label)
 
         # MediaDisplay 이벤트 연결
         self.image_label.mouseDoubleClicked.connect(self.mouseDoubleClickEvent)
@@ -2271,6 +2273,13 @@ class ArchiveSift(QWidget):
             return self.video_handler.cleanup_video_resources()
         return False
     
+    def cleanup_audio_resources(self):
+        """오디오 관련 리소스 정리"""
+        if hasattr(self, 'audio_handler'):
+            self.audio_handler.cleanup_audio_resources()
+            return True
+        return False
+    
     def cleanup_animation_resources(self):
         """애니메이션 관련 리소스 정리"""
         return self.resource_cleaner.cleanup_animation_resources()
@@ -2612,6 +2621,17 @@ class ArchiveSift(QWidget):
         """
         if hasattr(self, 'undo_button') and self.undo_button:
             self.undo_button.setEnabled(enabled)
+            
+    def load_audio_media(self, image_path):
+        """오디오 파일을 로드하고 재생합니다."""
+        # 오디오 파일 처리
+        self.current_media_type = 'audio'  # 미디어 타입 업데이트
+        self.play_audio(image_path)  # 오디오 재생
+        
+    def play_audio(self, audio_path):
+        """오디오 파일을 재생합니다."""
+        # AudioHandler에 오디오 재생 위임
+        self.audio_handler.play_audio(audio_path)
             
     def update_undo_state(self, enabled):
         """

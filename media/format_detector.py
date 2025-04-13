@@ -32,7 +32,7 @@ class FormatDetector:
             
         Returns:
             str: 감지된 파일 형식 ('image', 'gif_image', 'gif_animation', 
-                'webp_image', 'webp_animation', 'video', 'psd', 'raw_image', 'avif' 등)
+                'webp_image', 'webp_animation', 'video', 'audio', 'psd', 'raw_image', 'avif' 등)
         """
         if not os.path.exists(file_path):
             return None
@@ -44,6 +44,8 @@ class FormatDetector:
         # 기본 미디어 타입 분류
         if ext in ['mp4', 'avi', 'mov', 'mkv', 'wmv', 'flv', 'webm']:
             return 'video'
+        elif ext in ['mp3', 'wav', 'flac', 'aac', 'ogg', 'm4a', 'wma', 'aiff', 'alac']:
+            return 'audio'
         elif ext == 'psd':
             return 'psd'
         elif ext in ['heic', 'heif']:

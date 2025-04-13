@@ -32,6 +32,13 @@ class ControlsLayout(QWidget):
                 self.parent.update_video_playback()  # 슬라이더 업데이트 호출
             except Exception as e:
                 self.parent.play_button.setEnabled(False)  # Disable button
+        elif self.parent.current_media_type == 'audio':
+            # 오디오 재생 상태 확인
+            try:
+                is_playing = self.parent.audio_handler.is_playing
+                self.parent.play_button.set_play_state(is_playing)
+            except Exception as e:
+                self.parent.play_button.setEnabled(False)  # Disable button
                 
     def toggle_mute(self):
         """음소거 상태를 토글합니다."""
@@ -53,10 +60,13 @@ class ControlsLayout(QWidget):
             pass
             
     def toggle_animation_playback(self):
-        """애니메이션(GIF, WEBP) 또는 비디오 재생/일시정지 토글"""
+        """
+        애니메이션, 비디오, 오디오 재생을 토글하는 메서드
         
-        # 현재 열려있는 파일 확인
-        if not self.parent.current_image_path:
+        현재 미디어 종류에 따라 적절한 핸들러에 재생 토글을 위임합니다.
+        """
+        # 미디어가 로드되어 있지 않으면 아무것도 하지 않음
+        if not hasattr(self.parent, 'current_media_type') or not self.parent.current_media_type:
             return
             
         # 미디어 타입에 따라 처리
@@ -71,6 +81,12 @@ class ControlsLayout(QWidget):
             if hasattr(self.parent, 'video_handler'):
                 # VideoHandler의 toggle_video_playback 메서드 사용
                 self.parent.video_handler.toggle_video_playback()
+                
+        # 오디오 처리
+        elif self.parent.current_media_type == 'audio':
+            if hasattr(self.parent, 'audio_handler'):
+                # AudioHandler의 toggle_audio_playback 메서드 사용
+                self.parent.audio_handler.toggle_audio_playback()
                 
     def toggle_bookmark(self):
         """북마크 토글: 북마크 관리자에 위임"""
@@ -552,6 +568,15 @@ class ControlsLayout(QWidget):
             except Exception as e:
                 pass
         
+        # 오디오 처리
+        elif self.parent.current_media_type == 'audio':
+            try:
+                value = self.parent.playback_slider.value()
+                seconds = value / 1000.0  # 밀리초를 초 단위로 변환
+                self.parent.audio_handler.seek(seconds)
+            except Exception as e:
+                pass
+        
         # Animation handling
         elif self.parent.current_media_type in ['gif_animation', 'webp_animation'] and hasattr(self.parent, 'animation_handler'):
             try:
@@ -566,8 +591,15 @@ class ControlsLayout(QWidget):
             try:
                 # Convert the slider value to seconds (value is in milliseconds)
                 seconds = value / 1000.0  # Convert milliseconds to seconds
-                # Use the VideoHandler's seek function to move to the precise position
-                self.parent.video_handler.seek(seconds)
+                
+                # 미디어 타입에 따른 분기 처리
+                if self.parent.current_media_type == 'video':
+                    # Use the VideoHandler's seek function to move to the precise position
+                    self.parent.video_handler.seek(seconds)
+                elif self.parent.current_media_type == 'audio':
+                    # 오디오 핸들러에 mpv_player가 있고 유효하면 seek 실행
+                    if hasattr(self.parent.audio_handler, 'mpv_player') and self.parent.audio_handler.mpv_player:
+                        self.parent.audio_handler.mpv_player.seek(seconds)
             except Exception as e:
                 pass
 

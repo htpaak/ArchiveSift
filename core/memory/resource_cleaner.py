@@ -30,6 +30,9 @@ class ResourceCleaner:
         # Clean up video resources
         self.cleanup_video_resources()
         
+        # Clean up audio resources
+        self.cleanup_audio_resources()
+        
         # Clean up animation resources
         self.cleanup_animation_resources()
         
@@ -45,6 +48,13 @@ class ResourceCleaner:
         """Clean up video related resources"""
         # Stop video playback
         self.viewer.stop_video()
+        
+    def cleanup_audio_resources(self):
+        """Clean up audio related resources"""
+        # Check if audio handler exists
+        if hasattr(self.viewer, 'audio_handler'):
+            # Stop audio playback and clean up resources
+            self.viewer.cleanup_audio_resources()
         
     def cleanup_animation_resources(self):
         """Clean up animation related resources"""
