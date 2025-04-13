@@ -231,6 +231,13 @@ class BookmarkUI:
         toggle_action.triggered.connect(self.bookmark_manager.toggle_bookmark)
         self.bookmark_menu.addAction(toggle_action)
         
+        # 현재 이미지가 북마크된 경우 '북마크 제거' 액션 추가
+        if hasattr(self.viewer, 'current_image_path') and self.viewer.current_image_path and \
+           self.viewer.current_image_path in self.bookmark_manager.bookmarks:
+            remove_action = QAction("Remove Bookmark", self.viewer)
+            remove_action.triggered.connect(self.bookmark_manager.remove_bookmark)
+            self.bookmark_menu.addAction(remove_action)
+        
         # 구분선 추가
         self.bookmark_menu.addSeparator()
         

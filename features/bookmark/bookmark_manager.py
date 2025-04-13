@@ -84,10 +84,10 @@ class BookmarkManager:
             
         if self.viewer.current_image_path in self.bookmarks:
             self.remove_bookmark()
-            self.viewer.show_message("북마크가 제거되었습니다")
+            self.viewer.show_message("Bookmark removed")
         else:
             self.add_bookmark()
-            self.viewer.show_message("북마크가 추가되었습니다")
+            self.viewer.show_message("Bookmark added")
             
         self.update_bookmark_button_state()
         self.save_bookmarks()
@@ -120,7 +120,7 @@ class BookmarkManager:
             with open(bookmark_file, 'w', encoding='utf-8') as f:
                 json.dump(self.bookmarks, f, ensure_ascii=False, indent=2)
         except Exception as e:
-            print(f"북마크 저장 중 오류 발생: {e}")
+            print(f"Error occurred while saving bookmarks: {e}")
     
     def load_bookmarks(self):
         """
@@ -138,7 +138,7 @@ class BookmarkManager:
                         # set이나 다른 형태로 저장된 경우 리스트로 변환
                         self.bookmarks = list(loaded_bookmarks)
         except Exception as e:
-            print(f"북마크 로드 중 오류 발생: {e}")
+            print(f"Error occurred while loading bookmarks: {e}")
             self.bookmarks = []
     
     def load_bookmarked_image(self, path):
@@ -217,7 +217,7 @@ class BookmarkManager:
                     
             except ImportError:
                 # FormatDetector 모듈을 찾을 수 없는 경우 확장자로 판단
-                print("FormatDetector 모듈을 로드할 수 없습니다. 확장자로 판단합니다.")
+                print("FormatDetector module not found. Determining by extension.")
                 file_ext = os.path.splitext(path)[1].lower()
                 
                 # 비디오 파일만 추가 처리
@@ -227,18 +227,18 @@ class BookmarkManager:
             # 이미지 파일 목록이 제대로 설정되었는지 확인
             if self.viewer.file_navigator and self.viewer.image_files != self.viewer.file_navigator.get_files():
                 self.viewer.image_files = self.viewer.file_navigator.get_files()
-                print(f"파일 목록 동기화: {len(self.viewer.image_files)} 파일")
+                print(f"File list synchronization: {len(self.viewer.image_files)} files")
             
             # 이미지 인덱스가 제대로 설정되었는지 확인
             nav_index = self.viewer.file_navigator.get_current_index()
             if self.viewer.current_index != nav_index:
                 self.viewer.current_index = nav_index
-                print(f"파일 인덱스 동기화: {self.viewer.current_index}")
+                print(f"File index synchronization: {self.viewer.current_index}")
             
             # 현재 경로를 명시적으로 표시
-            print(f"현재 이미지 경로: {self.viewer.current_image_path}")
-            print(f"파일 내비게이터 인덱스: {self.viewer.file_navigator.get_current_index()}")
-            print(f"메인 클래스 인덱스: {self.viewer.current_index}")
+            print(f"Current image path: {self.viewer.current_image_path}")
+            print(f"File navigator index: {self.viewer.file_navigator.get_current_index()}")
+            print(f"Main class index: {self.viewer.current_index}")
             
             # 이미지 정보를 다시 한번 업데이트 (타이머로 지연시켜 확실하게 업데이트)
             QTimer.singleShot(150, self.viewer.update_image_info)
@@ -247,11 +247,11 @@ class BookmarkManager:
             if path in self.bookmarks:
                 self.bookmarks.remove(path)
             self.save_bookmarks()
-            self.viewer.show_message("파일을 찾을 수 없습니다")
+            self.viewer.show_message("File not found")
 
     def clear_bookmarks(self):
         """
-        모든 북마크를 지워요.
+        Clear all bookmarks.
         """
         # 북마크 목록 비우기
         self.bookmarks.clear()
@@ -263,7 +263,7 @@ class BookmarkManager:
         self.update_bookmark_menu()
         
         # 메시지 표시
-        self.viewer.show_message("모든 북마크가 삭제되었습니다.")
+        self.viewer.show_message("All bookmarks have been deleted.")
         
         # 북마크 저장
         self.save_bookmarks() 
