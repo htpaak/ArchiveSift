@@ -1151,6 +1151,10 @@ class ArchiveSift(QWidget):
                             # 이전 버전 호환성 유지
                             button.setText(truncated_name)
                             button.setToolTip(subfolders[index])
+            
+            # Undo 버튼 텍스트 다시 설정 (폴더 설정 후 텍스트가 지워지는 문제 해결)
+            if hasattr(self, 'undo_button') and self.undo_button:
+                self.undo_button.setText("Undo")
 
     def on_button_click(self):
         """하위 폴더 버튼 클릭 처리 - controls_layout으로 위임"""
