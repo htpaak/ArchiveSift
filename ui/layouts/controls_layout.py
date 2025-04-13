@@ -132,9 +132,23 @@ class ControlsLayout(QWidget):
                     pixmap_size = int(title_height * 0.7)  # 타이틀바 높이의 70%
                     control.setPixmap(QIcon('./core/ArchiveSift.ico').pixmap(pixmap_size, pixmap_size))
                 elif control_name == 'title_label':
+                    # 타이틀 텍스트 크기 최적화
                     font = control.font()
-                    font.setPointSize(int(title_height * 0.4))  # 타이틀바 높이의 40%
+                    font_size = max(11, min(14, int(title_height * 0.5)))  # 타이틀바 높이의 50%를 폰트 크기로 사용
+                    font.setPointSize(font_size)
+                    font.setBold(True)
                     control.setFont(font)
+                    
+                    # 스타일 최적화
+                    control.setStyleSheet(f"""
+                        QLabel {{
+                            color: white;
+                            background-color: transparent;
+                            padding: 2px 8px;
+                            font-size: {font_size}px;
+                            font-weight: bold;
+                        }}
+                    """)
                 else:
                     # 나머지 버튼들
                     control.setFixedSize(button_width, button_size)
@@ -293,9 +307,23 @@ class ControlsLayout(QWidget):
                     pixmap_size = int(title_height * 0.7)  # 타이틀바 높이의 70%
                     control.setPixmap(QIcon('./core/ArchiveSift.ico').pixmap(pixmap_size, pixmap_size))
                 elif control_name == 'title_label':
+                    # 타이틀 텍스트 크기 최적화
                     font = control.font()
-                    font.setPointSize(int(title_height * 0.4))  # 타이틀바 높이의 40%
+                    font_size = max(11, min(14, int(title_height * 0.5)))  # 타이틀바 높이의 50%를 폰트 크기로 사용
+                    font.setPointSize(font_size)
+                    font.setBold(True)
                     control.setFont(font)
+                    
+                    # 스타일 최적화
+                    control.setStyleSheet(f"""
+                        QLabel {{
+                            color: white;
+                            background-color: transparent;
+                            padding: 2px 8px;
+                            font-size: {font_size}px;
+                            font-weight: bold;
+                        }}
+                    """)
                 else:
                     # 나머지 버튼들
                     control.setFixedSize(button_width, button_size)

@@ -536,7 +536,9 @@ class ArchiveSift(QWidget):
         self.title_bar.controls = {}
         
         title_layout = QHBoxLayout(self.title_bar)
-        title_layout.setContentsMargins(10, 0, 10, 0)  # 좌우 여백만 설정
+        title_layout.setContentsMargins(5, 0, 5, 0)  # 좌우 여백 최소화
+        title_layout.setSpacing(2)  # 컨트롤 간 간격 설정
+        title_layout.setAlignment(Qt.AlignVCenter)  # 세로 중앙 정렬
         
         # 앱 아이콘 레이블 추가
         app_icon_label = QLabel()
@@ -549,7 +551,16 @@ class ArchiveSift(QWidget):
         
         # 제목 텍스트 레이블
         title_label = QLabel("ArchiveSift")
-        # 스타일시트는 이미 title_bar에 적용된 것을 사용
+        # 스타일 최적화 - 텍스트 가독성 향상을 위한 패딩 및 폰트 설정
+        title_label.setStyleSheet("""
+            QLabel {
+                color: white;
+                background-color: transparent;
+                padding: 2px 8px;
+                font-size: 12px;
+                font-weight: bold;
+            }
+        """)
         title_label.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)  # 너비는 고정, 높이는 가변
         title_layout.addWidget(title_label)
         self.title_bar.controls['title_label'] = title_label  # 컨트롤에 추가하여 동적 크기 조절 적용
@@ -1274,17 +1285,11 @@ class ArchiveSift(QWidget):
         file_name = os.path.basename(image_path) if image_path else "ArchiveSift"
         title_text = f"ArchiveSift - {file_name}" if image_path else "ArchiveSift"
         
-        # 제목표시줄 라벨 찾아서 텍스트 업데이트 (두 번째 자식이 제목 레이블)
-        title_label = None
-        for child in self.title_bar.children():
-            if isinstance(child, QLabel) and not child.pixmap():  # pixmap이 없는 QLabel(텍스트 레이블)
-                title_label = child
-                break
-                
+        # 제목표시줄 레이블 찾아서 텍스트 업데이트
+        title_label = self.title_bar.controls.get('title_label')
         if title_label:
             title_label.setText(title_text)
-            # 라벨 텍스트 색상을 흰색으로 설정 (제목 표시줄은 남색 배경 유지)
-            title_label.setStyleSheet("color: white; background-color: transparent;")
+            # 텍스트를 변경해도 초기화 시 설정한 스타일은 유지됨
 
     def update_bookmark_ui(self):
         """북마크 관련 UI 요소들을 업데이트"""
