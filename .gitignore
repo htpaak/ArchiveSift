@@ -30,6 +30,7 @@ Thumbs.db
 UserData/
 *.log
 *.tmp
+temp/
 
 # Compiled MPV libs
 mpv/*.dll

@@ -553,11 +553,20 @@ class ControlsLayout(QWidget):
 
     def slider_clicked(self, value):
         """슬라이더를 클릭하면 해당 위치로 이동"""
+        print(f"슬라이더 클릭 값: {value}")
+        
         # 비디오 처리
         if self.parent.current_media_type == 'video':
             # 슬라이더 값을 초 단위로 변환 (value는 밀리초 단위)
             seconds = value / 1000.0  # 밀리초를 초 단위로 변환
+            print(f"비디오 seek 초 단위: {seconds}")
             self.parent.video_handler.seek(seconds)
+        # 오디오 처리
+        elif self.parent.current_media_type == 'audio':
+            # 슬라이더 값을 초 단위로 변환 (value는 밀리초 단위)
+            seconds = value / 1000.0  # 밀리초를 초 단위로 변환
+            print(f"오디오 seek 초 단위: {seconds}")
+            self.parent.audio_handler.seek(seconds)
         # 애니메이션 처리
         elif self.parent.current_media_type in ['gif_animation', 'webp_animation'] and hasattr(self.parent, 'animation_handler'):
             # AnimationHandler를 통해 프레임 이동
@@ -613,9 +622,9 @@ class ControlsLayout(QWidget):
                     # Use the VideoHandler's seek function to move to the precise position
                     self.parent.video_handler.seek(seconds)
                 elif self.parent.current_media_type == 'audio':
-                    # 오디오 핸들러에 mpv_player가 있고 유효하면 seek 실행
-                    if hasattr(self.parent.audio_handler, 'mpv_player') and self.parent.audio_handler.mpv_player:
-                        self.parent.audio_handler.mpv_player.seek(seconds)
+                    # 오디오 핸들러에 직접 seek 메서드 호출
+                    if hasattr(self.parent, 'audio_handler') and self.parent.audio_handler:
+                        self.parent.audio_handler.seek(seconds)
             except Exception as e:
                 pass
 

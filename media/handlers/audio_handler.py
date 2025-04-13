@@ -169,11 +169,56 @@ class AudioHandler(MediaHandler):
             self.is_playing = True
             if self.mpv_player:
                 self.mpv_player.pause = False
+                
+            # 슬라이더에 오디오 컨트롤 연결
+            if hasattr(self.parent, 'playback_slider'):
+                self.parent.playback_slider.connect_to_video_control(
+                    self.parent.seek_video,
+                    self.parent.slider_pressed,
+                    self.parent.slider_released,
+                    self.parent.slider_clicked
+                )
+                
+            # 지연 후 duration 다시 확인 (duration이 None인 경우를 처리)
+            if self.audio_duration is None or self.audio_duration <= 0:
+                from PyQt5.QtCore import QTimer
+                QTimer.singleShot(500, self._delayed_duration_check)
+                
             return True
         else:
             # 로드 실패 시 오류 메시지
             self.parent.show_message(f"오디오 파일 로드 실패: {audio_path}")
             return False
+
+    def _delayed_duration_check(self):
+        """500ms 후 duration을 다시 확인하는 메서드"""
+        if self.mpv_player:
+            try:
+                # mpv에서 duration 직접 가져오기
+                duration = self.mpv_player.duration
+                print(f"지연 확인된 오디오 길이: {duration}초")
+                
+                if duration is not None and duration > 0:
+                    # 정상적으로 duration이 감지된 경우
+                    self._on_duration_change("duration", duration)
+                else:
+                    # 여전히 duration이 없는 경우 대체 방법 시도
+                    # 파일 크기 기반 예상 길이 (약 10MB = 10분 가정)
+                    try:
+                        import os
+                        file_size_mb = os.path.getsize(self.current_media_path) / (1024 * 1024)
+                        estimated_duration = file_size_mb * 60  # 1MB당 약 1분으로 추정
+                        estimated_duration = max(60, min(3600, estimated_duration))  # 1분에서 1시간 사이로 제한
+                        print(f"예상 오디오 길이: {estimated_duration}초 (파일 크기 기반)")
+                        self._on_duration_change("duration", estimated_duration)
+                    except Exception as e:
+                        # 모든 방법 실패 시 기본값 설정 (5분)
+                        print(f"기본 오디오 길이 300초 설정")
+                        self._on_duration_change("duration", 300)
+            except Exception as e:
+                # 오류 발생 시 기본값 설정 (5분)
+                print(f"오디오 길이 감지 오류: {e}, 기본값 300초 설정")
+                self._on_duration_change("duration", 300)
 
     def stop_audio(self):
         """
@@ -237,11 +282,20 @@ class AudioHandler(MediaHandler):
             name: 속성 이름
             value: 변경된 값 (재생 시간)
         """
+        # value가 None이면 무시
+        if value is None:
+            print("오디오 길이가 None으로 감지됨, 업데이트 건너뜀")
+            return
+            
         self.audio_duration = value
+        print(f"오디오 총 길이: {value}초")
         
         # 만약 부모에 슬라이더와 시간 레이블이 있다면 업데이트
         if hasattr(self.parent, 'playback_slider') and value is not None:
-            self.parent.playback_slider.setRange(0, int(value))
+            # 슬라이더 범위를 밀리초 단위로 설정 (비디오 핸들러와 일관성 유지)
+            slider_max = int(value * 1000)
+            print(f"슬라이더 범위 설정: 0 ~ {slider_max} (밀리초)")
+            self.parent.playback_slider.setRange(0, slider_max)
         
         if hasattr(self.parent, 'time_label') and value is not None:
             formatted_duration = self.format_time(value)
@@ -258,6 +312,10 @@ class AudioHandler(MediaHandler):
         """
         self.audio_position = value
         
+        # 드래그 중이면 슬라이더 업데이트 건너뜀 (슬라이더가 드래그 중일 때만 체크)
+        if hasattr(self.parent, 'is_slider_dragging') and self.parent.is_slider_dragging:
+            return
+        
         # 시간 레이블과 슬라이더 업데이트
         if hasattr(self.parent, 'time_label') and value is not None:
             formatted_duration = self.format_time(self.audio_duration or 0)
@@ -269,7 +327,11 @@ class AudioHandler(MediaHandler):
             if not self.parent.playback_slider.isSliderDown():
                 # 슬라이더의 valueChanged 신호가 발생하지 않도록 블록
                 self.parent.playback_slider.blockSignals(True)
-                self.parent.playback_slider.setValue(int(value))
+                # 밀리초 단위로 변환하여 설정 (초 * 1000)
+                slider_value = int(value * 1000)
+                # 로그는 필요할 때 주석 해제
+                # print(f"슬라이더 값 업데이트: {slider_value} (오디오 위치: {value}초)")
+                self.parent.playback_slider.setValue(slider_value)
                 self.parent.playback_slider.blockSignals(False)
 
     def _on_audio_end(self, name, value):
@@ -335,9 +397,44 @@ class AudioHandler(MediaHandler):
         Args:
             position (float): 이동할 재생 위치 (초 단위)
         """
-        if self.mpv_player:
-            try:
-                self.mpv_player.seek(position)
-            except Exception as e:
-                print(f"오디오 탐색 중 오류: {str(e)}")
-                pass 
+        if not self.mpv_player:
+            return
+            
+        try:
+            # 오디오 길이 확인
+            max_duration = self.audio_duration
+            if max_duration is None or max_duration <= 0:
+                max_duration = 300  # 기본값 5분
+                
+            # 위치 범위 제한
+            position = max(0, min(position, max_duration))
+            
+            # 비디오 핸들러처럼 단순하게 처리 (지연 시간 없이)
+            print(f"오디오 seek: {position}초 위치로 이동")
+            self.mpv_player.command('seek', position, 'absolute')
+            
+            # 즉시 위치 업데이트
+            self.audio_position = position
+            
+            # UI 즉시 업데이트
+            if hasattr(self.parent, 'playback_slider'):
+                self.parent.playback_slider.blockSignals(True)
+                self.parent.playback_slider.setValue(int(position * 1000))
+                self.parent.playback_slider.blockSignals(False)
+                
+            # 시간 표시 업데이트
+            if hasattr(self.parent, 'time_label'):
+                formatted_duration = self.format_time(self.audio_duration or 0)
+                current_time = self.format_time(position)
+                self.parent.time_label.setText(f"{current_time} / {formatted_duration}")
+                
+        except Exception as e:
+            print(f"오디오 탐색 중 오류: {str(e)}")
+
+    def is_seeking(self):
+        """seek 작업 중인지 여부를 반환합니다"""
+        return False
+
+    def is_seeking_locked(self):
+        """seek 잠금 상태를 반환합니다"""
+        return False 
