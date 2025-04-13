@@ -214,6 +214,8 @@ class AudioHandler(MediaHandler):
         # 표시 레이블 초기화
         if self.display_label:
             self.display_label.clear()
+            # 배경색을 검은색으로 다시 설정
+            self.display_label.setStyleSheet("background-color: #000000;")
         
         # 현재 미디어 경로 초기화
         self.current_media_path = None
