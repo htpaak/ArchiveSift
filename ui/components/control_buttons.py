@@ -33,7 +33,6 @@ class OpenFolderButton(ControlButton):
     
     def __init__(self, parent=None):
         super().__init__('Open Folder', parent)
-        # 추가 맞춤 스타일 적용
         self.setStyleSheet("""
             QPushButton {
                 background-color: rgba(52, 73, 94, 0.6);
@@ -41,7 +40,7 @@ class OpenFolderButton(ControlButton):
                 border: none;
                 padding: 2px 4px;
                 margin: 0px;
-                font-size: 12px;
+                font-size: 18px;
                 font-weight: bold;
                 text-align: center;
                 qproperty-alignment: AlignCenter;
@@ -61,7 +60,6 @@ class SetBaseFolderButton(ControlButton):
     
     def __init__(self, parent=None):
         super().__init__('Set Folder', parent)
-        # 추가 맞춤 스타일 적용
         self.setStyleSheet("""
             QPushButton {
                 background-color: rgba(52, 73, 94, 0.6);
@@ -69,7 +67,7 @@ class SetBaseFolderButton(ControlButton):
                 border: none;
                 padding: 2px 4px;
                 margin: 0px;
-                font-size: 12px;
+                font-size: 18px;
                 font-weight: bold;
                 text-align: center;
                 qproperty-alignment: AlignCenter;

@@ -203,6 +203,26 @@ class ControlsLayout(QWidget):
                     font.setPointSize(font_size)
                     font.setBold(True)
                     control.setFont(font)
+                    
+                    # 폴더 버튼 전용 스타일시트 적용 (setup_custom_ui 메서드)
+                    control.setStyleSheet(f"""
+                        QPushButton {{
+                            background-color: rgba(52, 73, 94, 0.6);
+                            color: white;
+                            border: none;
+                            border-radius: 2px;
+                            font-size: {int(button_height * 0.5)}px;
+                            font-weight: bold;
+                            text-align: center;
+                            padding: 0px 8px;
+                            margin: 0px;
+                            height: {button_height}px;
+                            line-height: {button_height}px;
+                        }}
+                        QPushButton:hover {{
+                            background-color: rgba(52, 73, 94, 1.0);
+                        }}
+                    """)
                 else:  # 기타 버튼인 경우
                     control.setMinimumSize(int(button_height * 1.2), button_height)
                     control.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
@@ -365,16 +385,35 @@ class ControlsLayout(QWidget):
                     control.setContentsMargins(0, 0, 0, 0)
                 elif control == self.parent.open_button or control == self.parent.set_base_folder_button:
                     # 열기 버튼과 폴더 설정 버튼은 더 큰 최소 너비 설정
+                    # 높이를 원래 크기로 복원
                     control.setMinimumSize(int(control_width * 2.5), control_height)
                     control.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
                     control.setContentsMargins(0, 0, 0, 0)
                     
-                    # 버튼 텍스트 크기 조정 (폰트 크기를 창 크기에 맞게 조정)
+                    # 버튼 텍스트 크기 조정 (update_button_sizes 메서드)
                     font = control.font()
-                    font_size = max(11, min(14, int(control_height * 0.5)))  # 버튼 높이의 50%를 폰트 크기로 사용
-                    font.setPointSize(font_size)
+                    base_font_size = max(11, min(14, int(control_height * 0.5)))  # 버튼 높이의 50%로 설정
+                    font.setPointSize(base_font_size)
                     font.setBold(True)
                     control.setFont(font)
+                    
+                    # 폴더 버튼 전용 스타일시트 적용
+                    control.setStyleSheet(f"""
+                        QPushButton {{
+                            background-color: rgba(52, 73, 94, 0.6);
+                            color: white;
+                            border: none;
+                            border-radius: 2px;
+                            font-size: {base_font_size}px;
+                            font-weight: bold;
+                            text-align: center;
+                            padding: 0px 8px;
+                            margin: 0px;
+                        }}
+                        QPushButton:hover {{
+                            background-color: rgba(52, 73, 94, 1.0);
+                        }}
+                    """)
                 else:
                     control.setMinimumSize(control_width, control_height)
                     control.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
@@ -386,6 +425,10 @@ class ControlsLayout(QWidget):
                 # 북마크 버튼은 특별하게 처리
                 if control == self.parent.slider_bookmark_btn:
                     # 크기만 설정하고 스타일은 건드리지 않음 (북마크 상태에 따라 다르게 표시해야 하므로)
+                    continue
+                    
+                # 폴더 버튼은 이미 위에서 별도로 처리했으므로 스타일시트 적용 제외
+                if control == self.parent.open_button or control == self.parent.set_base_folder_button:
                     continue
                     
                 # 컨트롤 유형에 따라 적절한 스타일시트 적용

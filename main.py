@@ -800,7 +800,7 @@ class ArchiveSift(QWidget):
         self.slider_controls.append(self.ui_lock_btn)
 
         # 새로운 슬라이더 위젯을 하단 레이아웃에 추가
-        bottom_ui_layout.addWidget(self.slider_widget, 2)  # 슬라이더 위젯 비율 2
+        bottom_ui_layout.addWidget(self.slider_widget, 3)  # 슬라이더 위젯 비율 2
 
         # 버튼 컨테이너 위젯 생성
         button_container = QWidget()
