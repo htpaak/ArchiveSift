@@ -91,6 +91,10 @@ class FileOperations:
             if hasattr(self.viewer, 'undo_manager'):
                 self.viewer.undo_manager.track_copied_file(file_path, target_path, True)
             
+            # 레이아웃 비율 다시 설정 (UI 깨짐 방지)
+            if hasattr(self.viewer, 'ui_state_manager'):
+                self.viewer.ui_state_manager.update_layout_ratios()
+            
             # Display message
             # 메시지 표시
             self.viewer.show_message(f"Copied file to {path_display}")
@@ -199,6 +203,10 @@ class FileOperations:
                     # 동일한 인덱스 유지 (이제 다음 이미지를 가리킴)
                     if hasattr(self.viewer, 'show_image') and len(self.viewer.image_files) > current_index:
                         self.viewer.show_image(self.viewer.image_files[current_index])
+            
+            # 레이아웃 비율 다시 설정 (UI 깨짐 방지)
+            if hasattr(self.viewer, 'ui_state_manager'):
+                self.viewer.ui_state_manager.update_layout_ratios()
             
             # Display message
             self.viewer.show_message(f"Moved file to {path_display}")

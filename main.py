@@ -652,13 +652,13 @@ class ArchiveSift(QWidget):
 
         # 통합 하단 UI 컨테이너 생성
         self.bottom_ui_container = QWidget()
-        # Fixed에서 Preferred로 변경하여 비율 설정(12%)이 적용되도록 함
-        self.bottom_ui_container.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        # Fixed에서 Preferred로 변경하여 비율 설정(13%)이 적용되도록 함
+        self.bottom_ui_container.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         self.bottom_ui_container.setContentsMargins(0, 0, 0, 0)
         
-        # 최소 높이 설정 - 화면 높이의 12%를 최소값으로 사용
+        # 최소 높이 설정 - 화면 높이의 13%를 최소값으로 사용
         screen_height = QApplication.desktop().availableGeometry().height()
-        min_height = int(screen_height * 0.12)  # 12% 비율 적용
+        min_height = int(screen_height * 0.13)  # 13% 비율 적용
         self.bottom_ui_container.setMinimumHeight(min_height)
         
         bottom_ui_layout = QVBoxLayout(self.bottom_ui_container)
