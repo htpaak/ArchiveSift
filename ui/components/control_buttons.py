@@ -97,9 +97,9 @@ class PlayButton(ControlButton):
         """재생 상태에 따라 버튼 텍스트 변경"""
         self.is_playing = is_playing
         if is_playing:
-            self.setText("❚❚")  # 일시정지 아이콘
+            self.setText("❚❚ ")  # 일시정지 아이콘 뒤에 공백 추가
         else:
-            self.setText("▶")  # 재생 아이콘
+            self.setText("  ▶  ")  # 재생 아이콘에 앞뒤 공백 2개씩 추가
 
 
 class RotateButton(ControlButton):
