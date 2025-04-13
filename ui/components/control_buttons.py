@@ -16,8 +16,11 @@ class ControlButton(QPushButton):
                 background-color: rgba(52, 73, 94, 0.6);
                 color: white;
                 border: none;
-                padding: 0px;
+                padding: 2px 4px;
                 margin: 0px;
+                font-size: 12px;
+                font-weight: bold;
+                text-align: center;
             }
             QPushButton:hover {
                 background-color: rgba(52, 73, 94, 1.0);
@@ -30,6 +33,23 @@ class OpenFolderButton(ControlButton):
     
     def __init__(self, parent=None):
         super().__init__('Open Folder', parent)
+        # 추가 맞춤 스타일 적용
+        self.setStyleSheet("""
+            QPushButton {
+                background-color: rgba(52, 73, 94, 0.6);
+                color: white;
+                border: none;
+                padding: 2px 4px;
+                margin: 0px;
+                font-size: 12px;
+                font-weight: bold;
+                text-align: center;
+                qproperty-alignment: AlignCenter;
+            }
+            QPushButton:hover {
+                background-color: rgba(52, 73, 94, 1.0);
+            }
+        """)
         
     def connect_action(self, callback):
         """버튼 클릭 이벤트에 콜백 함수 연결"""
@@ -41,6 +61,23 @@ class SetBaseFolderButton(ControlButton):
     
     def __init__(self, parent=None):
         super().__init__('Set Folder', parent)
+        # 추가 맞춤 스타일 적용
+        self.setStyleSheet("""
+            QPushButton {
+                background-color: rgba(52, 73, 94, 0.6);
+                color: white;
+                border: none;
+                padding: 2px 4px;
+                margin: 0px;
+                font-size: 12px;
+                font-weight: bold;
+                text-align: center;
+                qproperty-alignment: AlignCenter;
+            }
+            QPushButton:hover {
+                background-color: rgba(52, 73, 94, 1.0);
+            }
+        """)
         
     def connect_action(self, callback):
         """버튼 클릭 이벤트에 콜백 함수 연결"""

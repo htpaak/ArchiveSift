@@ -182,6 +182,13 @@ class ControlsLayout(QWidget):
                     control.setMinimumSize(int(button_height * 2.5), button_height)
                     control.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
                     control.setContentsMargins(0, 0, 0, 0)  # 여백 제거
+                    
+                    # 버튼 텍스트 크기 조정 (폰트 크기를 창 크기에 맞게 조정)
+                    font = control.font()
+                    font_size = max(11, min(14, int(button_height * 0.5)))  # 버튼 높이의 50%를 폰트 크기로 사용
+                    font.setPointSize(font_size)
+                    font.setBold(True)
+                    control.setFont(font)
                 else:  # 기타 버튼인 경우
                     control.setMinimumSize(int(button_height * 1.2), button_height)
                     control.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
@@ -333,6 +340,13 @@ class ControlsLayout(QWidget):
                     control.setMinimumSize(int(control_width * 2.5), control_height)
                     control.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
                     control.setContentsMargins(0, 0, 0, 0)
+                    
+                    # 버튼 텍스트 크기 조정 (폰트 크기를 창 크기에 맞게 조정)
+                    font = control.font()
+                    font_size = max(11, min(14, int(control_height * 0.5)))  # 버튼 높이의 50%를 폰트 크기로 사용
+                    font.setPointSize(font_size)
+                    font.setBold(True)
+                    control.setFont(font)
                 else:
                     control.setMinimumSize(control_width, control_height)
                     control.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
