@@ -141,12 +141,20 @@ class ControlsLayout(QWidget):
             button_size = int(title_height * 0.8)  # 타이틀바 높이의 80%
             button_width = int(button_size * 1.2)
             
+            # 아이콘 경로 설정 - 여러 가능한 경로 시도
+            icon_path = self._get_icon_path()
+            
             # 모든 제목표시줄 컨트롤 버튼에 크기 적용
             for control_name, control in self.parent.title_bar.controls.items():
                 # 앱 아이콘과 타이틀 레이블은 특별히 처리
                 if control_name == 'app_icon_label':
-                    pixmap_size = int(title_height * 0.7)  # 타이틀바 높이의 70%
-                    control.setPixmap(QIcon('./core/ArchiveSift.ico').pixmap(pixmap_size, pixmap_size))
+                    # 버튼과 동일한 크기의 직사각형 형태로 아이콘 설정(너비도 똑같이)
+                    if icon_path:
+                        control.setPixmap(QIcon(icon_path).pixmap(button_width, button_size))
+                    else:
+                        # 아이콘을 찾지 못한 경우 기본 텍스트로 대체
+                        control.setText("AS")
+                        control.setStyleSheet("color: white; background-color: transparent; font-weight: bold;")
                 elif control_name == 'title_label':
                     # 타이틀 텍스트 크기 최적화
                     font = control.font()
@@ -336,12 +344,20 @@ class ControlsLayout(QWidget):
             button_size = int(title_height * 0.8)  # 타이틀바 높이의 80%
             button_width = int(button_size * 1.2)
             
+            # 아이콘 경로 설정 - 여러 가능한 경로 시도
+            icon_path = self._get_icon_path()
+            
             # 모든 제목표시줄 컨트롤 버튼에 크기 적용
             for control_name, control in self.parent.title_bar.controls.items():
                 # 앱 아이콘과 타이틀 레이블은 특별히 처리
                 if control_name == 'app_icon_label':
-                    pixmap_size = int(title_height * 0.7)  # 타이틀바 높이의 70%
-                    control.setPixmap(QIcon('./core/ArchiveSift.ico').pixmap(pixmap_size, pixmap_size))
+                    # 버튼과 동일한 크기의 직사각형 형태로 아이콘 설정(너비도 똑같이)
+                    if icon_path:
+                        control.setPixmap(QIcon(icon_path).pixmap(button_width, button_size))
+                    else:
+                        # 아이콘을 찾지 못한 경우 기본 텍스트로 대체
+                        control.setText("AS")
+                        control.setStyleSheet("color: white; background-color: transparent; font-weight: bold;")
                 elif control_name == 'title_label':
                     # 타이틀 텍스트 크기 최적화
                     font = control.font()
@@ -649,5 +665,29 @@ class ControlsLayout(QWidget):
                     self.play_button.setText("▶")  # play icon (currently paused)
         except Exception as e:
             pass
+
+    def _get_icon_path(self):
+        """
+        아이콘 파일의 경로를 찾습니다.
+        여러 가능한 경로를 시도하여 존재하는 첫 번째 경로를 반환합니다.
+        """
+        import os
+        
+        # 시도할 경로 목록
+        icon_paths = [
+            './core/ArchiveSift.ico',
+            'core/ArchiveSift.ico',
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../core/ArchiveSift.ico'),
+            os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'core', 'ArchiveSift.ico'),
+            'ArchiveSift.ico',
+            './ArchiveSift.ico'
+        ]
+        
+        # 찾은 첫 번째 유효한 아이콘 경로 사용
+        for path in icon_paths:
+            if os.path.exists(path):
+                return path
+                
+        return None
 
     # 여기에 main.py에서 옮겨올 메서드들이 추가될 예정 
