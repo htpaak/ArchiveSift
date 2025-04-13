@@ -215,7 +215,7 @@ class ControlsLayout(QWidget):
                     
                     # 버튼 텍스트 크기 조정 (폰트 크기를 창 크기에 맞게 조정)
                     font = control.font()
-                    font_size = max(11, min(14, int(button_height * 0.5)))  # 버튼 높이의 50%를 폰트 크기로 사용
+                    font_size = max(11, min(16, int(button_height * 0.6)))  # 버튼 높이의 60%를 폰트 크기로 사용
                     font.setPointSize(font_size)
                     font.setBold(True)
                     control.setFont(font)
@@ -227,7 +227,7 @@ class ControlsLayout(QWidget):
                             color: white;
                             border: none;
                             border-radius: 2px;
-                            font-size: {int(button_height * 0.5)}px;
+                            font-size: {int(button_height * 0.6)}px;
                             font-weight: bold;
                             text-align: center;
                             padding: 0px 8px;
@@ -408,7 +408,7 @@ class ControlsLayout(QWidget):
                     
                     # 버튼 텍스트 크기 조정 (update_button_sizes 메서드)
                     font = control.font()
-                    base_font_size = max(11, min(14, int(control_height * 0.5)))  # 버튼 높이의 50%로 설정
+                    base_font_size = max(11, min(16, int(control_height * 0.6)))  # 0.5에서 0.6으로 1.2배 증가
                     font.setPointSize(base_font_size)
                     font.setBold(True)
                     control.setFont(font)
@@ -436,7 +436,7 @@ class ControlsLayout(QWidget):
                     control.setContentsMargins(0, 0, 0, 0)
                 
                 # 폰트 크기 계산
-                font_size = max(9, min(14, int(control_height * 0.4)))
+                font_size = max(9, min(16, int(control_height * 0.6)))  # 0.4에서 0.6으로 1.2배 증가
                 
                 # 북마크 버튼은 특별하게 처리
                 if control == self.parent.slider_bookmark_btn:
