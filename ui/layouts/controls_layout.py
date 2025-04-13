@@ -150,9 +150,9 @@ class ControlsLayout(QWidget):
                 elif control_name == 'title_label':
                     # 타이틀 텍스트 크기 최적화
                     font = control.font()
-                    font_size = max(11, min(14, int(title_height * 0.5)))  # 타이틀바 높이의 50%를 폰트 크기로 사용
+                    font_size = max(11, min(16, int(title_height * 0.5)))  # 타이틀바 높이의 50%를 폰트 크기로 사용
                     font.setPointSize(font_size)
-                    font.setBold(True)
+                    font.setBold(False)  # 볼드 제거
                     control.setFont(font)
                     
                     # 스타일 최적화
@@ -162,7 +162,7 @@ class ControlsLayout(QWidget):
                             background-color: transparent;
                             padding: 2px 8px;
                             font-size: {font_size}px;
-                            font-weight: bold;
+                            font-weight: normal;  /* 볼드 제거 */
                         }}
                     """)
                 else:
@@ -217,7 +217,7 @@ class ControlsLayout(QWidget):
                     font = control.font()
                     font_size = max(11, min(16, int(button_height * 0.6)))  # 버튼 높이의 60%를 폰트 크기로 사용
                     font.setPointSize(font_size)
-                    font.setBold(True)
+                    font.setBold(False)  # 볼드 제거
                     control.setFont(font)
                     
                     # 폴더 버튼 전용 스타일시트 적용 (setup_custom_ui 메서드)
@@ -228,7 +228,7 @@ class ControlsLayout(QWidget):
                             border: none;
                             border-radius: 2px;
                             font-size: {int(button_height * 0.6)}px;
-                            font-weight: bold;
+                            font-weight: normal;  /* 볼드 제거 */
                             text-align: center;
                             padding: 0px 8px;
                             margin: 0px;
@@ -345,9 +345,9 @@ class ControlsLayout(QWidget):
                 elif control_name == 'title_label':
                     # 타이틀 텍스트 크기 최적화
                     font = control.font()
-                    font_size = max(11, min(14, int(title_height * 0.5)))  # 타이틀바 높이의 50%를 폰트 크기로 사용
+                    font_size = max(11, min(16, int(title_height * 0.5)))  # 타이틀바 높이의 50%를 폰트 크기로 사용
                     font.setPointSize(font_size)
-                    font.setBold(True)
+                    font.setBold(False)  # 볼드 제거
                     control.setFont(font)
                     
                     # 스타일 최적화
@@ -357,7 +357,7 @@ class ControlsLayout(QWidget):
                             background-color: transparent;
                             padding: 2px 8px;
                             font-size: {font_size}px;
-                            font-weight: bold;
+                            font-weight: normal;  /* 볼드 제거 */
                         }}
                     """)
                 else:
@@ -410,7 +410,7 @@ class ControlsLayout(QWidget):
                     font = control.font()
                     base_font_size = max(11, min(16, int(control_height * 0.6)))  # 0.5에서 0.6으로 1.2배 증가
                     font.setPointSize(base_font_size)
-                    font.setBold(True)
+                    font.setBold(False)  # 볼드 제거
                     control.setFont(font)
                     
                     # 폴더 버튼 전용 스타일시트 적용
@@ -421,7 +421,7 @@ class ControlsLayout(QWidget):
                             border: none;
                             border-radius: 2px;
                             font-size: {base_font_size}px;
-                            font-weight: bold;
+                            font-weight: normal;  /* 볼드 제거 */
                             text-align: center;
                             padding: 0px 8px;
                             margin: 0px;
