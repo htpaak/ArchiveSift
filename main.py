@@ -641,7 +641,7 @@ class ArchiveSift(QWidget):
         # 통합 하단 UI 컨테이너 생성
         self.bottom_ui_container = QWidget()
         # Fixed에서 Preferred로 변경하여 비율 설정(12%)이 적용되도록 함
-        self.bottom_ui_container.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        self.bottom_ui_container.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.bottom_ui_container.setContentsMargins(0, 0, 0, 0)
         
         # 최소 높이 설정 - 화면 높이의 12%를 최소값으로 사용
@@ -652,6 +652,7 @@ class ArchiveSift(QWidget):
         bottom_ui_layout = QVBoxLayout(self.bottom_ui_container)
         bottom_ui_layout.setContentsMargins(0, 0, 0, 0)
         bottom_ui_layout.setSpacing(0)
+        bottom_ui_layout.setAlignment(Qt.AlignTop | Qt.AlignVCenter)
 
         # 슬라이더 위젯과 레이아웃
         self.slider_widget = QWidget()
@@ -671,6 +672,8 @@ class ArchiveSift(QWidget):
         new_slider_layout = QHBoxLayout(self.slider_widget)
         new_slider_layout.setContentsMargins(0, 0, 0, 0)  # 여백을 완전히 제거
         new_slider_layout.setSpacing(0)  # 위젯 간 간격도 0으로 설정
+        # 레이아웃 정렬 방식을 모든 방향으로 꽉 차게 설정
+        new_slider_layout.setAlignment(Qt.AlignTop | Qt.AlignVCenter | Qt.AlignHCenter | Qt.AlignJustify)
 
         # 폴더 열기 버튼 (첫 번째 위치)
         self.open_button = OpenFolderButton(self)
@@ -786,7 +789,7 @@ class ArchiveSift(QWidget):
         self.slider_controls.append(self.ui_lock_btn)
 
         # 새로운 슬라이더 위젯을 하단 레이아웃에 추가
-        bottom_ui_layout.addWidget(self.slider_widget, 2)  # 슬라이더 위젯 비율 2
+        bottom_ui_layout.addWidget(self.slider_widget, 3)  # 슬라이더 위젯 비율 3으로 증가 (기존 2에서 변경)
 
         # 버튼 컨테이너 위젯 생성
         button_container = QWidget()

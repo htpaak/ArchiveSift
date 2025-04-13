@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QPushButton, QSlider, QMenu, QAction, QLabel
+from PyQt5.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QPushButton, QSlider, QMenu, QAction, QLabel, QSizePolicy
 from PyQt5.QtCore import Qt, QTimer, pyqtSignal
 from PyQt5.QtGui import QIcon, QFont
 from media.handlers.animation_handler import AnimationHandler  # AnimationHandler 클래스 임포트
@@ -144,24 +144,48 @@ class ControlsLayout(QWidget):
         slider_height = max(slider_height, 25)  # 최소 높이 보장
         
         # 슬라이더 스타일 적용 (UI 일관성)
-        self.parent.playback_slider.setStyleSheet(self.parent.slider_style)  # 재생 슬라이더 스타일 적용
+        self.parent.playback_slider.setStyleSheet(self.parent.slider_style)
         self.parent.volume_slider.setStyleSheet(self.parent.slider_style)  # 음량 조절 슬라이더 스타일 적용
         
-        # 슬라이더 높이를 창 높이 비율에 맞게 설정
-        button_height = int(slider_height * 0.8)  # 슬라이더 높이의 80%
-        self.parent.playback_slider.setFixedHeight(button_height)  # 재생 슬라이더 높이 설정
-        self.parent.volume_slider.setFixedHeight(button_height)    # 볼륨 슬라이더 높이 설정
+        # 슬라이더 위젯의 레이아웃 패딩 제거
+        if hasattr(self.parent, 'slider_widget'):
+            layout = self.parent.slider_widget.layout()
+            if layout:
+                layout.setContentsMargins(0, 0, 0, 0)
+                layout.setSpacing(0)
+                layout.setAlignment(Qt.AlignVCenter | Qt.AlignJustify)
         
-        # 슬라이더 컨트롤 크기 업데이트 (제목표시줄과 같은 로직)
+        # 슬라이더 높이 설정을 고정값에서 비율 기반으로 변경
+        # 고정 높이(setFixedHeight) 대신 최소 높이(setMinimumHeight) 사용
+        button_height = int(slider_height * 0.8)  # 슬라이더 높이의 80%
+        self.parent.playback_slider.setMinimumHeight(button_height)
+        self.parent.volume_slider.setMinimumHeight(button_height)
+        
+        # 플레이어 컨트롤들에 Expanding 정책 설정하여 레이아웃에 꽉 차게 함
+        self.parent.playback_slider.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.parent.volume_slider.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
+        
+        # 슬라이더 컨트롤들의 마진과 패딩 제거 (UI 요소 간 공간 없애기)
+        for control in [self.parent.playback_slider, self.parent.volume_slider]:
+            control.setContentsMargins(0, 0, 0, 0)
+        
+        # 슬라이더 컨트롤 크기 업데이트 (고정 크기 대신 비율 기반으로 조정)
         if hasattr(self.parent, 'slider_controls'):
             for control in self.parent.slider_controls:
+                # 모든 컨트롤에 Expanding 사이즈 정책 설정
                 if isinstance(control, QLabel):  # 레이블인 경우 (시간 표시)
-                    control.setFixedHeight(button_height)
+                    control.setMinimumHeight(button_height)
+                    control.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Expanding)
+                    control.setContentsMargins(0, 0, 0, 0)  # 여백 제거
                 elif control == self.parent.open_button or control == self.parent.set_base_folder_button:
-                    # 열기 버튼과 폴더 설정 버튼은 더 큰 크기로 설정
-                    control.setFixedSize(int(button_height * 2.5), button_height)
+                    # 열기 버튼과 폴더 설정 버튼은 더 큰 최소 너비로 설정
+                    control.setMinimumSize(int(button_height * 2.5), button_height)
+                    control.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
+                    control.setContentsMargins(0, 0, 0, 0)  # 여백 제거
                 else:  # 기타 버튼인 경우
-                    control.setFixedSize(int(button_height * 1.2), button_height)
+                    control.setMinimumSize(int(button_height * 1.2), button_height)
+                    control.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
+                    control.setContentsMargins(0, 0, 0, 0)  # 여백 제거
         
         # 슬라이더의 부모 위젯인 slider_widget에 배경 스타일을 적용
         self.parent.slider_widget.setStyleSheet("""
@@ -279,22 +303,40 @@ class ControlsLayout(QWidget):
             control_height = int(slider_height * 0.8)  # 슬라이더 높이의 80%
             control_width = int(control_height * 1.2)  # 높이의 1.2배
             
-            # 슬라이더 높이 설정
-            if hasattr(self.parent, 'playback_slider'):
-                self.parent.playback_slider.setFixedHeight(control_height)
-            if hasattr(self.parent, 'volume_slider'):
-                self.parent.volume_slider.setFixedHeight(control_height)
+            # 슬라이더 위젯의 레이아웃 패딩 제거
+            layout = self.parent.slider_widget.layout()
+            if layout:
+                layout.setContentsMargins(0, 0, 0, 0)
+                layout.setSpacing(0)
+                layout.setAlignment(Qt.AlignVCenter | Qt.AlignJustify)
             
-            # 슬라이더 컨트롤 크기 조절
+            # 슬라이더 높이 설정을 고정값에서 비율 기반으로 변경
+            if hasattr(self.parent, 'playback_slider'):
+                self.parent.playback_slider.setMinimumHeight(control_height)
+                self.parent.playback_slider.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+                self.parent.playback_slider.setContentsMargins(0, 0, 0, 0)
+                
+            if hasattr(self.parent, 'volume_slider'):
+                self.parent.volume_slider.setMinimumHeight(control_height)
+                self.parent.volume_slider.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
+                self.parent.volume_slider.setContentsMargins(0, 0, 0, 0)
+            
+            # 슬라이더 컨트롤 크기 조절 (고정 크기 대신 비율 기반으로 조정)
             for control in self.parent.slider_controls:
                 if control == self.parent.time_label:
-                    # 시간 레이블만 너비를 더 넓게 설정
-                    control.setFixedSize(int(control_width * 1.5), control_height)
+                    # 시간 레이블만 더 넓은 최소 너비 설정
+                    control.setMinimumSize(int(control_width * 1.5), control_height)
+                    control.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Expanding)
+                    control.setContentsMargins(0, 0, 0, 0)
                 elif control == self.parent.open_button or control == self.parent.set_base_folder_button:
-                    # 열기 버튼과 폴더 설정 버튼은 더 큰 크기로 설정
-                    control.setFixedSize(int(control_width * 2.5), control_height)
+                    # 열기 버튼과 폴더 설정 버튼은 더 큰 최소 너비 설정
+                    control.setMinimumSize(int(control_width * 2.5), control_height)
+                    control.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
+                    control.setContentsMargins(0, 0, 0, 0)
                 else:
-                    control.setFixedSize(control_width, control_height)
+                    control.setMinimumSize(control_width, control_height)
+                    control.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
+                    control.setContentsMargins(0, 0, 0, 0)
                 
                 # 폰트 크기 계산
                 font_size = max(9, min(14, int(control_height * 0.4)))
