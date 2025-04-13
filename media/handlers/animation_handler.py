@@ -91,7 +91,6 @@ class AnimationHandler(QObject):
         if self.parent and hasattr(self.parent, 'show_loading_indicator'):
             self.parent.show_loading_indicator()
             filename = os.path.basename(file_path)
-            self.parent.show_message(f"Start loading GIF: {filename}")
             # GIF 로딩 시작: {filename}
         
         # Check GIF file
@@ -181,10 +180,6 @@ class AnimationHandler(QObject):
             filename = os.path.basename(file_path)
             # Even if it is an animation, frame count information is not displayed
             # 애니메이션인 경우에도 프레임 수 정보 제거
-            if media_type == 'gif_animation':
-                self.parent.show_message(f"GIF image load complete: {filename}, size: {size_mb:.2f}MB")
-            else:
-                self.parent.show_message(f"GIF image load complete: {filename}, size: {size_mb:.2f}MB")
         
         # Update image information (current media index/total count, etc.)
         # 이미지 정보 업데이트 (현재 미디어 인덱스/총 갯수 등)
@@ -215,7 +210,8 @@ class AnimationHandler(QObject):
             if self.parent and hasattr(self.parent, 'show_loading_indicator'):
                 self.parent.show_loading_indicator()
                 filename = os.path.basename(file_path)
-                self.parent.show_message(f"Start loading WEBP: {filename}")
+                # 로딩 시작 메시지 제거
+                # self.parent.show_message(f"Start loading WEBP: {filename}")
         
         # WEBP 파일 확인
         reader = QImageReader(file_path)
@@ -283,10 +279,7 @@ class AnimationHandler(QObject):
             self.parent.hide_loading_indicator()
             filename = os.path.basename(file_path)
             # Remove frame count info even for animations   // 애니메이션인 경우에도 프레임 수 정보 제거
-            if media_type == 'webp_animation':
-                self.parent.show_message(f"WEBP image load complete: {filename}, Size: {size_mb:.2f}MB")
-            else:
-                self.parent.show_message(f"WEBP image load complete: {filename}, Size: {size_mb:.2f}MB")
+        
         # 이미지 정보 업데이트 (현재 미디어 인덱스/총 갯수 등)
         if self.parent and hasattr(self.parent, 'update_image_info'):
             self.parent.update_image_info()
@@ -677,7 +670,8 @@ class AnimationHandler(QObject):
             
             # Loading complete message
             file_type = "GIF" if file_path.lower().endswith('.gif') else "WEBP"
-            self.parent.show_message(f"{file_type} image load complete: {filename}, size: {size_mb:.2f}MB")
+            # 로딩 완료 메시지 제거
+            # self.parent.show_message(f"{file_type} image load complete: {filename}, size: {size_mb:.2f}MB")
         else:
             if self.parent:
                 self.parent.show_message(f"Image load failed: {filename}")

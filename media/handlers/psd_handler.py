@@ -98,10 +98,6 @@ class PSDHandler(MediaHandler):
             # 현재 경로 설정
             self.current_media_path = psd_path
             
-            # 로딩 완료 메시지
-            size_mb = os.path.getsize(psd_path) / (1024 * 1024)  # 파일 크기 계산
-            self.parent.show_message(f"PSD image load complete: {filename}, size: {size_mb:.2f}MB")
-            
             # 현재 미디어 타입 설정
             if hasattr(self.parent, 'current_media_type'):
                 self.parent.current_media_type = 'psd'
@@ -126,7 +122,7 @@ class PSDHandler(MediaHandler):
             self.current_media_path = psd_path
             
             # 비동기 로딩 시작
-            self.parent.show_message(f"PSD image loading started: {filename}")
+            # self.parent.show_message(f"PSD image loading started: {filename}")
             
             # 로더 스레드 생성 및 시작
             loader = ImageLoaderThread(psd_path, file_type='psd')
@@ -175,9 +171,11 @@ class PSDHandler(MediaHandler):
             # 이미지 크기 조정 후 표시
             self._apply_pixmap(image)
             
-            # 로딩 완료 메시지
-            filename = os.path.basename(path)
-            self.parent.show_message(f"PSD image load complete: {filename}, size: {size_mb:.2f}MB")
+            # 파일 크기 계산
+            size_mb = os.path.getsize(path) / (1024 * 1024)
+            
+            # 로딩 완료 메시지 제거
+            # self.parent.show_message(f"PSD image load complete: {filename}, size: {size_mb:.2f}MB")
     
     def _on_psd_error(self, path, error_msg):
         """

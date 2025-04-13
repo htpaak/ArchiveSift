@@ -162,14 +162,9 @@ class ImageHandler(MediaHandler):
                     if hasattr(self.parent, 'show_loading_indicator'):
                         self.parent.show_loading_indicator()
                     
-                    # 로딩 메시지 표시
+                    # Check if parent has show_message method
                     if hasattr(self.parent, 'show_message'):
-                        self.parent.show_message(f"JPEG 2000 image loading... {os.path.basename(image_path)}")
-                    
-                    # Check if Pillow has JP2 support
-                    from PIL import features
-                    if not features.check('jpg_2000'):
-                        self.parent.show_message("Pillow JPEG 2000 support is required to process JP2 files.")
+                        pass
                     
                     # JP2 이미지를 PIL로 로드
                     with Image.open(image_path) as pil_image:
@@ -196,16 +191,12 @@ class ImageHandler(MediaHandler):
                         if hasattr(self.parent, 'hide_loading_indicator'):
                             self.parent.hide_loading_indicator()
                         
-                        # 로딩 완료 메시지
-                        if hasattr(self.parent, 'show_message'):
-                            self.parent.show_message(f"JPEG 2000 image load complete: {os.path.basename(image_path)}, Size: {file_size_mb:.2f}MB")
-                        
                         return
                 except Exception as e:
                     if hasattr(self.parent, 'hide_loading_indicator'):
                         self.parent.hide_loading_indicator()
                     if hasattr(self.parent, 'show_message'):
-                        self.parent.show_message(f"Error occurred during JP2 image processing: {e}")
+                        pass
                     return
             
             # 일반 이미지 파일 처리 (표준 라이브러리로 처리 가능한 이미지)
@@ -265,7 +256,7 @@ class ImageHandler(MediaHandler):
                     if hasattr(self.parent, 'hide_loading_indicator'):
                         self.parent.hide_loading_indicator()
                     if hasattr(self.parent, 'show_message'):
-                        self.parent.show_message(f"Error occurred during image processing: {e}")
+                        pass
                     return
             
             # AVIF 이미지 파일 처리 (pillow-avif-plugin 라이브러리 필요)
@@ -275,13 +266,9 @@ class ImageHandler(MediaHandler):
                     if hasattr(self.parent, 'show_loading_indicator'):
                         self.parent.show_loading_indicator()
                     
-                    # Display loading message
+                    # Check if parent has show_message method
                     if hasattr(self.parent, 'show_message'):
-                        self.parent.show_message(f"AVIF image loading... {os.path.basename(image_path)}")
-                    
-                    # Check if pillow-avif-plugin is installed
-                    if not AVIF_SUPPORT:
-                        self.parent.show_message("pillow-avif-plugin is required to process AVIF files.")
+                        pass
                     
                     # Load AVIF image using PIL
                     with Image.open(image_path) as pil_image:
@@ -310,16 +297,12 @@ class ImageHandler(MediaHandler):
                         if hasattr(self.parent, 'hide_loading_indicator'):
                             self.parent.hide_loading_indicator()
                         
-                        # Loading complete message
-                        if hasattr(self.parent, 'show_message'):
-                            self.parent.show_message(f"AVIF image load complete: {os.path.basename(image_path)}, Size: {file_size_mb:.2f}MB")
-                        
                         return
                 except Exception as e:
                     if hasattr(self.parent, 'hide_loading_indicator'):
                         self.parent.hide_loading_indicator()
                     if hasattr(self.parent, 'show_message'):
-                        self.parent.show_message(f"Error occurred during AVIF image processing: {e}")
+                        pass
                     # Do not proceed with regular image processing and raise an error
                     raise ValueError(f"Error occurred during AVIF image processing: {e}")
             # RAW 이미지 파일 처리 - 전역 상수 사용 (rawpy 라이브러리 필요)
@@ -329,14 +312,14 @@ class ImageHandler(MediaHandler):
                     if hasattr(self.parent, 'show_loading_indicator'):
                         self.parent.show_loading_indicator()
                         
-                    # 로딩 메시지 표시
+                    # Check if parent has show_message method
                     if hasattr(self.parent, 'show_message'):
-                        self.parent.show_message(f"RAW image loading... {os.path.basename(image_path)}")  # RAW image loading... {os.path.basename(image_path)} // RAW 이미지 로딩 중... {os.path.basename(image_path)}
+                        pass
                     
                     # Load RAW file using rawpy library  // rawpy 라이브러리를 사용하여 RAW 파일 로드
                     with rawpy.imread(image_path) as raw:
                         if hasattr(self.parent, 'show_message'):
-                            self.parent.show_message(f"RAW image processing... {os.path.basename(image_path)}")  # RAW image processing... {os.path.basename(image_path)} // RAW 이미지 처리 중... {os.path.basename(image_path)}
+                            pass
                         
                         # 이미지 처리 및 변환 (대용량 파일 처리를 위한 최적화)
                         # 파일 크기에 따라 처리 옵션 조정
@@ -410,10 +393,6 @@ class ImageHandler(MediaHandler):
                         if hasattr(self.parent, 'hide_loading_indicator'):
                             self.parent.hide_loading_indicator()
                         
-                        # 로딩 완료 메시지
-                        if hasattr(self.parent, 'show_message'):
-                            self.parent.show_message(f"RAW image load complete: {os.path.basename(image_path)}, size: {file_size_mb:.2f}MB")
-                        
                         return
                         
                 except ImportError as ie:
@@ -447,9 +426,9 @@ class ImageHandler(MediaHandler):
                     if hasattr(self.parent, 'show_loading_indicator'):
                         self.parent.show_loading_indicator()
                     
-                    # 로딩 메시지 표시
+                    # Check if parent has show_message method
                     if hasattr(self.parent, 'show_message'):
-                        self.parent.show_message(f"HEIC/HEIF image loading... {os.path.basename(image_path)}")
+                        pass
                     
                     # pillow-heif 라이브러리를 사용
                     from pillow_heif import register_heif_opener
@@ -477,10 +456,6 @@ class ImageHandler(MediaHandler):
                         if hasattr(self.parent, 'hide_loading_indicator'):
                             self.parent.hide_loading_indicator()
                         
-                        # 로딩 완료 메시지
-                        if hasattr(self.parent, 'show_message'):
-                            self.parent.show_message(f"HEIC/HEIF image load complete: {os.path.basename(image_path)}, size: {file_size_mb:.2f}MB")
-                            
                         return
                 except ImportError:
                     if hasattr(self.parent, 'hide_loading_indicator'):

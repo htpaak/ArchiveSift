@@ -73,12 +73,9 @@ class VideoHandler(MediaHandler):
             self.parent.show_message(f"File not found: {video_path}")
             return False
         
-        # Extract file extension
+        # Get the filename from the full path
         filename = os.path.basename(video_path)
-        extension = os.path.splitext(filename)[1].upper().lstrip('.')
-        
-        # Display video loading message
-        self.parent.show_message(f"{extension} video loading started: {filename}")
+        extension = os.path.splitext(filename)[1].upper()
         
         # 로딩 인디케이터 표시
         self.parent.show_loading_indicator()
@@ -133,13 +130,11 @@ class VideoHandler(MediaHandler):
             if hasattr(self.parent, 'update_image_info'):
                 self.parent.update_image_info()
             
-            # 로드 완료 메시지
-            file_size_mb = os.path.getsize(video_path) / (1024 * 1024)  # Calculate file size in MB // MB 단위로 파일 크기를 계산
-            self.parent.show_message(f"{extension} Video load complete: {filename}, Size: {file_size_mb:.2f}MB")  # Display message: "Video load complete" with file size // "비디오 로드 완료" 및 파일 크기를 표시하는 메시지를 출력
-            
             # Update play button (if parent has update_play_button method) // 재생 버튼 업데이트 (parent에 update_play_button 메서드가 있다면)
             if hasattr(self.parent, 'update_play_button'):
                 self.parent.update_play_button()  # Call update_play_button if available // 사용 가능한 경우 update_play_button 호출
+            
+            file_size_mb = os.path.getsize(video_path) / (1024 * 1024)  # Convert bytes to MB
             
             return True  # Return True on success // 성공 시 True 반환
             
