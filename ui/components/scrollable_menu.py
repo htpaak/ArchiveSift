@@ -88,15 +88,15 @@ class ScrollableMenu(QMenu):
         
     def showEvent(self, event):
         """
-        메뉴가 표시될 때 호출되는 이벤트
+        메뉴가 표시될 때 호출되는 이벤트 핸들러입니다.
         
-        메뉴가 화면에 나타날 때 스크롤 속성을 설정해요.
+        메뉴가 표시되기 전에 스크롤 가능하도록 속성을 설정해요.
         
         매개변수:
-            event: 표시 이벤트 정보
+            event: 이벤트 객체
         """
-        # 메뉴가 표시될 때 호출되는 이벤트
         super().showEvent(event)
+        
         # 스크롤을 지원하도록 다시 설정
         self.setProperty("_q_scrollable", True)
         # 스타일시트 재적용
@@ -104,7 +104,7 @@ class ScrollableMenu(QMenu):
         
         # 화면 크기에 맞게 최대 높이 조절
         desktop = QApplication.desktop().availableGeometry()
-        self.setMaximumHeight(min(800, desktop.height() * 0.7))
+        self.setMaximumHeight(min(800, int(desktop.height() * 0.7)))
     
     def addMultipleActions(self, actions):
         """
