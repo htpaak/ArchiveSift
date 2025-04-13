@@ -1,0 +1,23 @@
+ArchiveSift 1.3.0 Release Notes
+Major Updates
+Responsive UI Improvements
+Implemented responsive UI that automatically adjusts to screen resolution changes
+Dynamic button size and spacing adjustments based on window dimensions
+Optimized layouts for various aspect ratios to support different monitor environments
+Enhanced Audio Support
+Completed audio file playback functionality
+Support for various audio formats (MP3, WAV, FLAC, AAC, etc.)
+Improved visual feedback during audio file playback
+UI Consistency Enhancements
+Unified button design for better visual consistency
+Optimized font styling for improved readability
+Standardized control elements including play/pause buttons
+Additional Improvements
+Fixed background color handling issues during media transitions
+Improved slider control responsiveness
+Redesigned UI element sizing with ratio-based approach for consistent experience during scaling
+Technical Changes
+Improved media handler architecture for better code modularity
+Optimized resource management to reduce memory usage
+Introduced dynamic UI styling system
+This release focuses on enhancing the user experience through a fluid UI system. We've put significant effort into ensuring a consistent user experience across various environments.

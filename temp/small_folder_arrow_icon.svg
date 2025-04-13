@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="256px" height="256px" viewBox="0 0 24 24" version="1.1" xmlns="http://www.w3.org/2000/svg">
+  <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+    <!-- 검은색 원형 배경 -->
+    <circle cx="12" cy="12" r="11" fill="#000000"/>
+    
+    <!-- 폴더와 화살표를 하나의 그룹으로 -->
+    <g transform="translate(0, 0)">
+      <!-- 작은 폴더 모양 -->
+      <path d="M9,7 L10.8,7 L11.2,7.8 L15,7.8 C15.28,7.8 15.5,8.02 15.5,8.3 L15.5,11.2 L8.5,11.2 L8.5,7.5 C8.5,7.22 8.72,7 9,7 Z" fill="#FFFFFF"/>
+      <path d="M8.5,8.3 L15.5,8.3 L15.5,11.2 C15.5,11.48 15.28,11.7 15,11.7 L9,11.7 C8.72,11.7 8.5,11.48 8.5,11.2 L8.5,8.3 Z" fill="#FFFFFF" opacity="0.9"/>
+      
+      <!-- 아래 방향 화살표 -->
+      <path d="M6,11 L12,17 L18,11" stroke="#FFFFFF" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+  </g>
+</svg> 

@@ -244,8 +244,12 @@ class BookmarkManager:
                 file_ext = os.path.splitext(path)[1].lower()
                 
                 # 비디오 파일만 추가 처리
-                if file_ext in ['.mp4', '.avi', '.mkv', '.mov', '.flv', '.wmv']:
+                if file_ext in ['.mp4', '.avi', '.mkv', '.mov', '.qt', '.flv', '.wmv', '.ts', '.mpg', '.mpeg', '.vob', '.m2ts', '.m4v', '.3gp']:
                     self.viewer.play_video(path)
+                # 오디오 파일 추가 처리 (필요한 경우)
+                elif file_ext in ['.mp3', '.wav', '.flac', '.aac', '.ogg', '.m4a', '.wma', '.aiff', '.alac']:
+                    if hasattr(self.viewer, 'load_audio_media'):
+                        self.viewer.load_audio_media(path)
             
             # 이미지 파일 목록이 제대로 설정되었는지 확인
             if self.viewer.file_navigator and self.viewer.image_files != self.viewer.file_navigator.get_files():

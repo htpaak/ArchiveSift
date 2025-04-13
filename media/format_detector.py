@@ -42,7 +42,7 @@ class FormatDetector:
         ext = ext[1:]  # 점(.) 제거
         
         # 기본 미디어 타입 분류
-        if ext in ['mp4', 'avi', 'mov', 'mkv', 'wmv', 'flv', 'webm']:
+        if ext in ['mp4', 'avi', 'mov', 'qt', 'mkv', 'wmv', 'flv', 'webm', 'ts', 'mpg', 'mpeg', 'vob', 'm2ts', 'm4v', '3gp']:
             return 'video'
         elif ext in ['mp3', 'wav', 'flac', 'aac', 'ogg', 'm4a', 'wma', 'aiff', 'alac']:
             return 'audio'
@@ -64,7 +64,7 @@ class FormatDetector:
             return FormatDetector._analyze_webp(file_path)
         
         # 일반 이미지 파일 반환
-        if ext in ['jpg', 'jpeg', 'png', 'bmp', 'tiff', 'tif', 'jpe', 'jps', 'jfif', 'jp2', 'tga']:
+        if ext in ['jpg', 'jpeg', 'png', 'bmp', 'tiff', 'tif', 'jpe', 'jps', 'jfif', 'jp2', 'tga', 'ico']:
             return 'image'
             
         # 확장자로 판단 불가능한 경우 파일 내용 분석 시도

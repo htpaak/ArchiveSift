@@ -107,6 +107,9 @@ ArchiveSift is a powerful file organization tool that allows you to easily and q
 - AAC
 - OGG
 - M4A
+- WMA
+- AIFF
+- ALAC
 
 ### Design Files
 
