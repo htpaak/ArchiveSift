@@ -442,67 +442,67 @@ class MouseHandler(QObject):
                     return True
                 
                 # 리사이징 중이 아닐 때 커서 모양 변경
-                edge_size = 4
-                
-                # 제목표시줄의 버튼 영역인지 확인
-                is_in_titlebar = local_pos.y() <= 30
-                
-                # 버튼 영역 판단 수정 - 버튼 위젯 객체를 직접 확인
-                is_in_titlebar_buttons = False
-                if is_in_titlebar:
-                    # 제목 표시줄의 모든 자식 버튼 검사
-                    for child in self.parent.title_bar.children():
-                        if isinstance(child, QPushButton):
-                            # 버튼의 전역 위치와 크기로 사각형 생성
-                            button_pos = child.mapToGlobal(QPoint(0, 0))
-                            button_rect = QRect(button_pos, child.size())
-                            # 마우스 포인터가 버튼 위에 있는지 확인
-                            if button_rect.contains(event.globalPos()):
-                                is_in_titlebar_buttons = True
-                                QApplication.setOverrideCursor(Qt.ArrowCursor)  # 버튼 위에서는 항상 화살표 커서
-                                break
-                
-                # 마우스 커서 위치에 따른 크기 조절 방향 결정
-                if not is_in_titlebar_buttons:  # 버튼 영역이 아닐 때만 리사이징 방향 결정
-                    if local_pos.x() <= edge_size and local_pos.y() <= edge_size:
-                        QApplication.setOverrideCursor(Qt.SizeFDiagCursor)
-                        self.parent.resize_direction = 'top_left'
-                    elif local_pos.x() >= self.parent.width() - edge_size and local_pos.y() <= edge_size:
-                        QApplication.setOverrideCursor(Qt.SizeBDiagCursor)
-                        self.parent.resize_direction = 'top_right'
-                    elif local_pos.x() <= edge_size and local_pos.y() >= self.parent.height() - edge_size:
-                        QApplication.setOverrideCursor(Qt.SizeBDiagCursor)
-                        self.parent.resize_direction = 'bottom_left'
-                    elif local_pos.x() >= self.parent.width() - edge_size and local_pos.y() >= self.parent.height() - edge_size:
-                        QApplication.setOverrideCursor(Qt.SizeFDiagCursor)
-                        self.parent.resize_direction = 'bottom_right'
-                    elif local_pos.x() <= edge_size:
-                        QApplication.setOverrideCursor(Qt.SizeHorCursor)
-                        self.parent.resize_direction = 'left'
-                    elif local_pos.x() >= self.parent.width() - edge_size:
-                        QApplication.setOverrideCursor(Qt.SizeHorCursor)
-                        self.parent.resize_direction = 'right'
-                    elif local_pos.y() <= edge_size:
-                        QApplication.setOverrideCursor(Qt.SizeVerCursor)
-                        self.parent.resize_direction = 'top'
-                    elif local_pos.y() >= self.parent.height() - edge_size:
-                        QApplication.setOverrideCursor(Qt.SizeVerCursor)
-                        self.parent.resize_direction = 'bottom'
-                    else:
-                        if is_in_titlebar and not is_in_titlebar_buttons:
-                            QApplication.setOverrideCursor(Qt.ArrowCursor)
-                            self.parent.resize_direction = None
-                        elif hasattr(self.parent, 'image_label') and self.parent.image_label.geometry().contains(local_pos) or \
-                            any(button.geometry().contains(local_pos) for row in self.parent.buttons for button in row):
-                            QApplication.setOverrideCursor(Qt.ArrowCursor)
-                            self.parent.resize_direction = None
+                # --- 수정 시작: 전체 화면 아닐 때만 커서 변경 ---
+                if not self.parent.isFullScreen():
+                    edge_size = 4
+
+                    # 제목표시줄의 버튼 영역인지 확인
+                    is_in_titlebar = local_pos.y() <= 30
+
+                    # 버튼 영역 판단 수정 - 버튼 위젯 객체를 직접 확인
+                    is_in_titlebar_buttons = False
+                    if is_in_titlebar:
+                        # 제목 표시줄의 모든 자식 버튼 검사
+                        for child in self.parent.title_bar.children():
+                            if isinstance(child, QPushButton):
+                                # 버튼의 전역 위치와 크기로 사각형 생성
+                                button_pos = child.mapToGlobal(QPoint(0, 0))
+                                button_rect = QRect(button_pos, child.size())
+                                # 마우스 포인터가 버튼 위에 있는지 확인
+                                if button_rect.contains(event.globalPos()):
+                                    is_in_titlebar_buttons = True
+                                    QApplication.setOverrideCursor(Qt.ArrowCursor)  # 버튼 위에서는 항상 화살표 커서
+                                    break
+
+                    # 마우스 커서 위치에 따른 크기 조절 방향 결정
+                    if not is_in_titlebar_buttons:  # 버튼 영역이 아닐 때만 리사이징 방향 결정
+                        if local_pos.x() <= edge_size and local_pos.y() <= edge_size:
+                            QApplication.setOverrideCursor(Qt.SizeFDiagCursor)
+                            self.parent.resize_direction = 'top_left'
+                        elif local_pos.x() >= self.parent.width() - edge_size and local_pos.y() <= edge_size:
+                            QApplication.setOverrideCursor(Qt.SizeBDiagCursor)
+                            self.parent.resize_direction = 'top_right'
+                        elif local_pos.x() <= edge_size and local_pos.y() >= self.parent.height() - edge_size:
+                            QApplication.setOverrideCursor(Qt.SizeBDiagCursor)
+                            self.parent.resize_direction = 'bottom_left'
+                        elif local_pos.x() >= self.parent.width() - edge_size and local_pos.y() >= self.parent.height() - edge_size:
+                            QApplication.setOverrideCursor(Qt.SizeFDiagCursor)
+                            self.parent.resize_direction = 'bottom_right'
+                        elif local_pos.x() <= edge_size:
+                            QApplication.setOverrideCursor(Qt.SizeHorCursor)
+                            self.parent.resize_direction = 'left'
+                        elif local_pos.x() >= self.parent.width() - edge_size:
+                            QApplication.setOverrideCursor(Qt.SizeHorCursor)
+                            self.parent.resize_direction = 'right'
+                        elif local_pos.y() <= edge_size:
+                            QApplication.setOverrideCursor(Qt.SizeVerCursor)
+                            self.parent.resize_direction = 'top'
+                        elif local_pos.y() >= self.parent.height() - edge_size:
+                            QApplication.setOverrideCursor(Qt.SizeVerCursor)
+                            self.parent.resize_direction = 'bottom'
                         else:
-                            QApplication.restoreOverrideCursor()
-                            self.parent.resize_direction = None
-                else:
-                    # 제목표시줄 버튼 영역에서는 기본 커서 사용
-                    QApplication.setOverrideCursor(Qt.ArrowCursor)
-                    self.parent.resize_direction = None
+                            if is_in_titlebar and not is_in_titlebar_buttons:
+                                QApplication.setOverrideCursor(Qt.ArrowCursor)
+                                self.parent.resize_direction = None
+                            elif hasattr(self.parent, 'image_label') and self.parent.image_label.geometry().contains(local_pos) or \
+                                any(button.geometry().contains(local_pos) for row in self.parent.buttons for button in row):
+                                QApplication.setOverrideCursor(Qt.ArrowCursor)
+                                self.parent.resize_direction = None
+                            else:
+                                # 다른 영역에서는 커서 리셋
+                                QApplication.restoreOverrideCursor()
+                                self.parent.resize_direction = None
+                # --- 수정 끝 ---
 
         elif event.type() == QEvent.MouseButtonPress and event.button() == Qt.LeftButton:
             local_pos = self.parent.mapFromGlobal(event.globalPos())
