@@ -494,12 +494,12 @@ class ArchiveSiftInitializer:
         new_slider_layout.addWidget(viewer.play_button)
 
         viewer.rotate_ccw_button = RotateButton(clockwise=False, parent=viewer)
-        viewer.rotate_ccw_button.connect_action(lambda: viewer.rotate_image(False))
+        viewer.rotate_ccw_button.connect_action(lambda clockwise: viewer.rotate_image(clockwise))
         viewer.rotate_ccw_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
         new_slider_layout.addWidget(viewer.rotate_ccw_button)
 
         viewer.rotate_cw_button = RotateButton(clockwise=True, parent=viewer)
-        viewer.rotate_cw_button.connect_action(lambda: viewer.rotate_image(True))
+        viewer.rotate_cw_button.connect_action(lambda clockwise: viewer.rotate_image(clockwise))
         viewer.rotate_cw_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
         new_slider_layout.addWidget(viewer.rotate_cw_button)
 
