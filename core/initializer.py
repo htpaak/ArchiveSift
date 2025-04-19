@@ -404,11 +404,25 @@ class ArchiveSiftInitializer:
         title_layout.addWidget(fullscreen_btn)
         title_layout.addWidget(close_btn)
 
-        # 제목 표시줄을 메인 레이아웃에 추가
-        layout.addWidget(viewer.title_bar, 2)
+        # 각 주요 요소의 기본 비율 정의 (하단은 내부 요소 합으로 계산됨)
+        viewer.title_stretch = 2
+        viewer.slider_stretch = 3
+        # viewer.button_stretch = 10 # -> 동적 계산으로 변경
+        
+        # 버튼 줄 수 및 줄당 비율 정의
+        viewer.button_row_stretch = 2
+        total_button_rows = 5 # 초기 총 버튼 줄 수
+        viewer.button_stretch = total_button_rows * viewer.button_row_stretch
+        
+        # 하단 전체 및 메인 레이아웃 비율 계산
+        viewer.total_bottom_stretch = viewer.slider_stretch + viewer.button_stretch
+        viewer.main_stretch = 100 - (viewer.title_stretch + viewer.total_bottom_stretch)
+        
+        # 제목 표시줄을 메인 레이아웃에 추가 (저장된 비율 사용)
+        layout.addWidget(viewer.title_bar, viewer.title_stretch)
 
-        # 메인 레이아웃을 레이아웃에 추가
-        layout.addWidget(viewer.main_layout, 85)
+        # 메인 레이아웃을 레이아웃에 추가 (계산된 비율 사용)
+        layout.addWidget(viewer.main_layout, viewer.main_stretch)
 
         # 북마크 메뉴 초기화
         viewer.bookmark_manager.update_bookmark_menu()
@@ -433,9 +447,9 @@ class ArchiveSiftInitializer:
         viewer.bottom_ui_container.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         viewer.bottom_ui_container.setContentsMargins(0, 0, 0, 0)
 
-        # 최소 높이 설정
-        screen_height = QApplication.desktop().availableGeometry().height()
-        min_height = int(screen_height * 0.13)
+        # 최소 높이를 동적 비율 기반으로 설정
+        initial_window_height = viewer.height() # 현재 viewer의 높이 사용
+        min_height = int(initial_window_height * (viewer.total_bottom_stretch / 100.0))
         viewer.bottom_ui_container.setMinimumHeight(min_height)
 
         bottom_ui_layout = QVBoxLayout(viewer.bottom_ui_container)
@@ -533,7 +547,7 @@ class ArchiveSiftInitializer:
         ]
 
         # 새로운 슬라이더 위젯을 하단 레이아웃에 추가
-        bottom_ui_layout.addWidget(viewer.slider_widget, 3)
+        bottom_ui_layout.addWidget(viewer.slider_widget, viewer.slider_stretch)
 
         # 버튼 컨테이너 위젯 생성
         button_container = QWidget()
@@ -547,7 +561,7 @@ class ArchiveSiftInitializer:
         # 폴더 버튼 생성
         viewer.buttons = []
         total_width = viewer.width() # viewer 사용
-        for row_idx in range(4):
+        for row_idx in range(total_button_rows - 1): # 마지막 줄 제외하고 폴더 버튼 행 생성
             row_widget = QWidget()
             row_widget.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Preferred)
             button_layout = QHBoxLayout(row_widget)
@@ -621,16 +635,9 @@ class ArchiveSiftInitializer:
         # 버튼 컨테이너를 bottom_ui_layout에 추가 (이 라인은 이제 불필요)
         # bottom_ui_layout.addWidget(viewer.button_container, 10)
 
-        # 하단 UI 컨테이너를 메인 레이아웃에 추가하는 라인 삭제
-        # layout.addWidget(viewer.bottom_ui_container, 13)
-
         # 슬라이더 위젯과 버튼 컨테이너를 메인 레이아웃에 직접 추가 -> 다시 bottom_ui_layout에 추가
         # layout.addWidget(viewer.slider_widget, 3)
         # layout.addWidget(viewer.button_container, 10)
-        
-        # 각 하단 요소의 기본 비율 정의 및 저장
-        viewer.slider_stretch = 3
-        viewer.button_stretch = 10
         
         # 슬라이더 위젯을 bottom_ui_layout에 추가
         bottom_ui_layout.addWidget(viewer.slider_widget, viewer.slider_stretch)
@@ -638,9 +645,9 @@ class ArchiveSiftInitializer:
         # 버튼 컨테이너를 bottom_ui_layout에 추가
         bottom_ui_layout.addWidget(viewer.button_container, viewer.button_stretch)
         
-        # bottom_ui_container를 메인 레이아웃에 동적 비율로 추가
-        total_bottom_stretch = viewer.slider_stretch + viewer.button_stretch
-        layout.addWidget(viewer.bottom_ui_container, total_bottom_stretch)
+        # bottom_ui_container를 메인 레이아웃에 동적 비율로 추가 (저장된 비율 사용)
+        # total_bottom_stretch = viewer.slider_stretch + viewer.button_stretch # 이미 계산됨
+        layout.addWidget(viewer.bottom_ui_container, viewer.total_bottom_stretch)
 
         # 메인 레이아웃에 이미지 컨테이너 추가
         viewer.main_layout.set_media_display(viewer.image_label)

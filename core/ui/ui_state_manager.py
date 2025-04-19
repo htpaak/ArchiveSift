@@ -268,16 +268,29 @@ class UIStateManager(QObject):
         if not layout or not isinstance(layout, QVBoxLayout):
             return
             
+        # --- 수정 시작: viewer 속성에서 기본 비율 가져오기 ---
         # 기본 비율 정의 (viewer 속성 참조)
-        title_ratio = 2     # 타이틀바 2%
-        main_ratio = 85     # 메인 영역 85%
+        # title_ratio = 2     # 타이틀바 2%
+        # main_ratio = 85     # 메인 영역 85%
         # 하단 전체 비율은 viewer 속성에서 가져옴
         try:
-            total_bottom_stretch = self.parent.slider_stretch + self.parent.button_stretch
+            # viewer 객체에 저장된 기본 비율 속성 사용
+            base_title_stretch = self.parent.title_stretch
+            base_main_stretch = self.parent.main_stretch
+            base_total_bottom_stretch = self.parent.total_bottom_stretch
+            # total_bottom_stretch = self.parent.slider_stretch + self.parent.button_stretch
         except AttributeError:
-            total_bottom_stretch = 13 # 속성이 없으면 기본값
-        
-        bottom_ratio = total_bottom_stretch # 초기값 설정
+            # 속성이 없으면 안전한 기본값 사용
+            base_title_stretch = 2
+            base_main_stretch = 85
+            base_total_bottom_stretch = 13 
+            # total_bottom_stretch = 13 # 속성이 없으면 기본값
+            
+        # 동적 계산을 위한 초기 비율 설정
+        title_ratio = base_title_stretch 
+        main_ratio = base_main_stretch
+        bottom_ratio = base_total_bottom_stretch # 초기값 설정
+        # --- 수정 끝 ---
         
         # _ui_visibility에 저장된 UI 상태와 잠금 상태를 함께 고려
         # 제목표시줄 가시성 확인
@@ -290,9 +303,7 @@ class UIStateManager(QObject):
         if not bottom_locked and not self._ui_visibility['bottom_ui']:
             # 하단 컨트롤 전체가 잠기지 않고 숨겨진 경우, 슬라이더와 버튼 비율을 메인 영역에 추가
             # main_ratio += slider_ratio + button_ratio
-            main_ratio += total_bottom_stretch # 전체 하단 비율을 더함
-            # slider_ratio = 0
-            # button_ratio = 0
+            main_ratio += bottom_ratio # 전체 하단 비율을 더함
             bottom_ratio = 0 # 하단 비율을 0으로 설정
             
         # 레이아웃 비율 업데이트
@@ -310,13 +321,9 @@ class UIStateManager(QObject):
                 layout.setStretch(i, title_ratio)
             elif widget == self.parent.main_layout:
                 layout.setStretch(i, main_ratio)
-            # --- 수정 시작: bottom_ui_container 처리 ---
-            # elif widget == self.parent.slider_widget:
-            #     layout.setStretch(i, slider_ratio)
-            # elif widget == self.parent.button_container:
-            #     layout.setStretch(i, button_ratio)
+            # --- 수정 시작: bottom_ui_container 처리 (저장된 값 사용) ---
             elif widget == self.parent.bottom_ui_container: # bottom_ui_container 식별
-                layout.setStretch(i, bottom_ratio) # 계산된 하단 비율 적용
+                layout.setStretch(i, bottom_ratio) # viewer에서 가져온 기본 하단 비율 적용
             # --- 수정 끝 ---
     
     def _reset_layout_ratios(self):
@@ -329,14 +336,24 @@ class UIStateManager(QObject):
         if not layout or not isinstance(layout, QVBoxLayout):
             return
         
+        # --- 수정 시작: viewer 속성에서 기본 비율 가져오기 ---
         # 기본 비율 설정 (viewer 속성 참조)
-        title_ratio = 2     # 타이틀바 2%
-        main_ratio = 85     # 메인 영역 85%
+        # title_ratio = 2     # 타이틀바 2%
+        # main_ratio = 85     # 메인 영역 85%
         # 하단 전체 비율은 viewer 속성에서 가져옴
         try:
-            total_bottom_stretch = self.parent.slider_stretch + self.parent.button_stretch
+            # viewer 객체에 저장된 기본 비율 속성 사용
+            title_ratio = self.parent.title_stretch
+            main_ratio = self.parent.main_stretch
+            total_bottom_stretch = self.parent.total_bottom_stretch
+            # total_bottom_stretch = self.parent.slider_stretch + self.parent.button_stretch
         except AttributeError:
-            total_bottom_stretch = 13 # 속성이 없으면 기본값
+             # 속성이 없으면 안전한 기본값 사용
+            title_ratio = 2
+            main_ratio = 85
+            total_bottom_stretch = 13
+            # total_bottom_stretch = 13 # 속성이 없으면 기본값
+        # --- 수정 끝 ---
         
         # 레이아웃 비율 초기화
         for i in range(layout.count()):
@@ -353,13 +370,9 @@ class UIStateManager(QObject):
                 layout.setStretch(i, title_ratio)
             elif widget == self.parent.main_layout:
                 layout.setStretch(i, main_ratio)
-            # --- 수정 시작: bottom_ui_container 처리 ---
-            # elif widget == self.parent.slider_widget:
-            #     layout.setStretch(i, slider_ratio)
-            # elif widget == self.parent.button_container:
-            #     layout.setStretch(i, button_ratio)
+            # --- 수정 시작: bottom_ui_container 처리 (저장된 값 사용) ---
             elif widget == self.parent.bottom_ui_container: # bottom_ui_container 식별
-                layout.setStretch(i, total_bottom_stretch) # 계산된 기본 하단 비율 적용
+                layout.setStretch(i, total_bottom_stretch) # viewer에서 가져온 기본 하단 비율 적용
             # --- 수정 끝 ---
     
     def get_ui_visibility(self, component_name):
