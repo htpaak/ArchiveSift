@@ -7,7 +7,7 @@
 from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
                             QPushButton, QTableWidget, QTableWidgetItem, 
                             QHeaderView, QFrame, QStackedWidget, QWidget, QComboBox,
-                            QSpinBox, QSpacerItem, QSizePolicy)
+                            QSpinBox, QSpacerItem, QSizePolicy, QRadioButton, QButtonGroup, QGroupBox)
 from PyQt5.QtCore import Qt, QEvent
 from PyQt5.QtGui import QIcon, QKeySequence
 
@@ -486,47 +486,57 @@ class PreferencesDialog(QDialog):
         general_page = QWidget()
         general_layout = QVBoxLayout(general_page)
         # general_layout.addWidget(QLabel("General settings are still under development.")) # 기존 라벨 제거
-        
-        # --- 추가: 폴더 버튼 줄 수 설정 UI ---
-        button_rows_layout = QHBoxLayout()
-        button_rows_label = QLabel("Folder Button Rows:")
-        self.button_rows_combo = QComboBox()
-        self.button_rows_combo.addItems([str(i) for i in range(1, 6)]) # 1부터 5까지 항목 추가
-        
-        # 로드된 설정값으로 초기 선택 설정
-        current_rows = self.layout_settings.get("button_rows", 5)
-        self.button_rows_combo.setCurrentText(str(current_rows))
-        
-        button_rows_layout.addWidget(button_rows_label)
-        button_rows_layout.addWidget(self.button_rows_combo)
-        button_rows_layout.addStretch()
-        
-        general_layout.addLayout(button_rows_layout)
-        general_layout.addStretch() # 나머지 공간 채우기
-        # --- 추가 끝 ---
-        
+
+        # --- 폴더 버튼 줄 수 설정 (QRadioButton 사용) ---
+        button_rows_groupbox = QGroupBox("Folder Button Rows")
+        button_rows_layout = QHBoxLayout() # 라디오 버튼을 가로로 배치
+        self.button_rows_group = QButtonGroup(self) # 라디오 버튼 그룹
+
+        for i in range(1, 6): # 1부터 5까지 라디오 버튼 생성
+            radio_button = QRadioButton(f"{i} Row{'s' if i > 1 else ''}")
+            # 라디오 버튼에 값(줄 수) 저장 (userData 사용은 여기선 불필요, 값으로 직접 식별)
+            button_rows_layout.addWidget(radio_button)
+            self.button_rows_group.addButton(radio_button, i) # 버튼과 ID(줄 수) 매핑
+
+        # 저장된 설정값으로 초기 상태 설정
+        current_rows = self.layout_settings.get("button_rows", 5) # 기본값 5
+        button_to_check = self.button_rows_group.button(current_rows)
+        if button_to_check:
+            button_to_check.setChecked(True)
+
+        button_rows_groupbox.setLayout(button_rows_layout)
+        general_layout.addWidget(button_rows_groupbox) # general_layout에 추가
+        # --- 폴더 버튼 줄 수 설정 끝 ---
+
+        general_layout.addStretch(1) # 그룹박스 아래에 여유 공간 추가
+
         # --- 추가: 일반 설정 페이지용 버튼 ---
         general_button_layout = QHBoxLayout()
         general_button_layout.setContentsMargins(0, 15, 0, 0)
+
         # 기본값 버튼 (일반 설정용 - 현재는 기능 없음)
-        general_reset_button = QPushButton("Reset to Default")
-        general_reset_button.setObjectName("resetButton")
-        general_reset_button.setEnabled(False) # 아직 기능 없으므로 비활성화
-        general_button_layout.addWidget(general_reset_button)
-        general_button_layout.addStretch()
-        # 취소/저장 버튼
+        # general_reset_button = QPushButton("Reset to Default")
+        # general_reset_button.setObjectName("resetButton")
+        # general_reset_button.setEnabled(False) # 아직 기능 없으므로 비활성화
+        # general_button_layout.addWidget(general_reset_button)
+
+        general_button_layout.addStretch() # 버튼들을 오른쪽으로 밀기
+
+        # 취소 버튼
         general_cancel_button = QPushButton("Cancel")
         general_cancel_button.setObjectName("cancelButton")
         general_cancel_button.clicked.connect(self.reject)
         general_button_layout.addWidget(general_cancel_button)
+
+        # 저장 버튼
         general_save_button = QPushButton("Save")
         general_save_button.setObjectName("saveButton")
         general_save_button.clicked.connect(self.accept)
         general_button_layout.addWidget(general_save_button)
-        
+
         general_layout.addLayout(general_button_layout)
         # --- 추가 끝 ---
-        
+
         # 스택 위젯에 페이지 추가
         self.stack.addWidget(keyboard_page)  # 인덱스 0: 키보드 설정
         self.stack.addWidget(theme_page)     # 인덱스 1: 테마 설정
@@ -930,31 +940,30 @@ class PreferencesDialog(QDialog):
     # --- 추가: 설정 저장 로직 (accept 메서드 오버라이드) ---
     def accept(self):
         """설정을 저장하고 대화상자를 닫습니다."""
-        # 레이아웃 설정 저장
-        try:
-            selected_rows = int(self.button_rows_combo.currentText())
-            self.layout_settings["button_rows"] = selected_rows
-            save_settings(self.layout_settings, "layout_settings.json")
-        except ValueError:
-            print("Error saving layout settings: Invalid button row value.")
-            # 필요시 사용자에게 오류 메시지 표시
-        
-        # 마우스 설정 저장 (기존 로직)
-        # self.mouse_settings는 이미 on_mouse_action_changed 등에서 업데이트됨
-        # save_settings(self.mouse_settings, "mouse_settings.json") # -> App 클래스에서 처리
-        
-        # 키 설정 저장 (기존 로직)
-        # self.key_settings는 eventFilter 등에서 업데이트됨
-        # save_settings(self.key_settings, "key_settings.json") # -> App 클래스에서 처리
-        
-        super().accept() # 부모 클래스의 accept 호출 (대화상자 닫기 등)
-    # --- 추가 끝 ---
+        # 변경된 키 설정을 가져와서 저장해요
+        self.key_settings = self.get_key_settings()
+        self.save_key_settings() # 설정 저장 함수 호출
 
-    # --- 추가: 선택된 버튼 줄 수 반환 메서드 ---
+        # 변경된 마우스 설정을 가져와서 저장해요
+        self.mouse_settings = self.get_mouse_settings()
+        self.save_mouse_settings() # 설정 저장 함수 호출
+        
+        # --- 추가: 레이아웃 설정 저장 ---
+        self.layout_settings["button_rows"] = self.get_selected_button_rows()
+        save_settings(self.layout_settings, "layout_settings.json")
+        # --- 추가 끝 ---
+
+        super().accept() # 부모 클래스의 accept 호출 (대화상자 닫기)
+
+    def save_key_settings(self):
+        """키 설정을 저장합니다."""
+        save_settings(self.key_settings, "key_settings.json")
+
+    def save_mouse_settings(self):
+        """마우스 설정을 저장합니다."""
+        save_settings(self.mouse_settings, "mouse_settings.json")
+        
     def get_selected_button_rows(self):
-        """콤보박스에서 선택된 버튼 줄 수를 반환합니다."""
-        try:
-            return int(self.button_rows_combo.currentText())
-        except ValueError:
-            return 5 # 오류 발생 시 기본값 반환
-    # --- 추가 끝 --- 
+        """선택된 폴더 버튼 줄 수를 반환합니다."""
+        # QButtonGroup에서 선택된 버튼의 ID(줄 수)를 반환
+        return self.button_rows_group.checkedId() 
