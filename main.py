@@ -1944,8 +1944,8 @@ class ArchiveSift(QWidget):
                 undo_button.setStyleSheet("""
                     QPushButton { background-color: rgba(241, 196, 15, 0.9); color: white; border: none; border-radius: 3px; font-weight: bold; }
                     QPushButton:hover { background-color: rgba(241, 196, 15, 1.0); }
-                    QPushButton:disabled { background-color: grey; }
-                """) # 비활성화 스타일 추가
+                    QPushButton:disabled { background-color: rgba(241, 196, 15, 0.9); } /* 비활성화 시 활성과 동일하게 */
+                """) # 비활성화 스타일 수정
                 undo_button.clicked.connect(self.undo_last_action)
                 self.undo_button = undo_button # 참조 업데이트
                 # UndoManager 시그널 연결 (기존 연결 해제 후 재연결 필요할 수 있음)
