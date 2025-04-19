@@ -408,7 +408,7 @@ class ArchiveSiftInitializer:
         layout.addWidget(viewer.title_bar, 2)
 
         # 메인 레이아웃을 레이아웃에 추가
-        layout.addWidget(viewer.main_layout, 86)
+        layout.addWidget(viewer.main_layout, 85)
 
         # 북마크 메뉴 초기화
         viewer.bookmark_manager.update_bookmark_menu()
@@ -618,11 +618,15 @@ class ArchiveSiftInitializer:
         viewer.buttons.append(last_button_row)
         button_container_layout.addWidget(last_row_widget, 2)
 
-        # 버튼 컨테이너를 bottom_ui_layout에 추가
-        bottom_ui_layout.addWidget(viewer.button_container, 10)
+        # 버튼 컨테이너를 bottom_ui_layout에 추가 (이 라인은 이제 불필요)
+        # bottom_ui_layout.addWidget(viewer.button_container, 10)
 
-        # 하단 UI 컨테이너를 메인 레이아웃에 추가
-        layout.addWidget(viewer.bottom_ui_container, 12)
+        # 하단 UI 컨테이너를 메인 레이아웃에 추가하는 라인 삭제
+        # layout.addWidget(viewer.bottom_ui_container, 13)
+
+        # 슬라이더 위젯과 버튼 컨테이너를 메인 레이아웃에 직접 추가
+        layout.addWidget(viewer.slider_widget, 3)
+        layout.addWidget(viewer.button_container, 10)
 
         # 메인 레이아웃에 이미지 컨테이너 추가
         viewer.main_layout.set_media_display(viewer.image_label)
