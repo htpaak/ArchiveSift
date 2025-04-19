@@ -342,18 +342,37 @@ class MouseHandler(QObject):
             if not (title_locked and bottom_locked):
                 # 변수를 조건문 외부에서 정의
                 title_bar_area_height = 50  # 마우스가 상단 50px 이내일 때 타이틀바 표시
-                bottom_area_height = 250  # 마우스가 하단 250px 이내일 때 컨트롤 표시
+                # bottom_area_height = 250  # -> 제거: 동적 영역 계산으로 변경
     
                 # UI 상태 변경 여부를 추적하기 위한 변수
                 ui_state_changed = False
+                
+                # --- 추가: 예상 하단 UI 영역 계산 ---
+                is_over_expected_bottom_area = False
+                try:
+                    window_height = self.parent.height()
+                    bottom_stretch = self.parent.total_bottom_stretch
+                    # 비율이 0일 경우 최소 높이 보장 (예: 10px)
+                    expected_bottom_height = max(10, int(window_height * (bottom_stretch / 100.0)))
+                    expected_bottom_rect = QRect(0, window_height - expected_bottom_height, self.parent.width(), expected_bottom_height)
+                    is_over_expected_bottom_area = expected_bottom_rect.contains(local_pos)
+                except AttributeError:
+                    # 속성이 없는 경우 이전 방식과 유사하게 고정 높이 사용 (안전 장치)
+                    fallback_bottom_area_height = 100 # 이전 250보다 작게 설정
+                    if local_pos.y() >= self.parent.height() - fallback_bottom_area_height:
+                         is_over_expected_bottom_area = True
+                # --- 추가 끝 ---
     
                 # 마우스가 상단 영역에 있는 경우 (타이틀바 영역) - 타이틀바만 표시
                 if local_pos.y() <= title_bar_area_height:
                     # 상단 UI만 표시 (제목표시줄이 잠긴 경우 이미 표시된 상태)
                     if not title_locked:
                         ui_state_changed = self.handle_top_ui_visibility(True)
-                # 마우스가 하단 영역에 있는 경우 (컨트롤 영역) - 컨트롤만 표시
-                elif local_pos.y() >= self.parent.height() - bottom_area_height:
+                # --- 수정: 하단 영역 체크 변경 ---
+                # 마우스가 예상 하단 영역에 있는 경우 - 컨트롤만 표시
+                # elif is_over_bottom_ui: # 실제 bottom_ui_container 영역 기준 -> 변경
+                elif is_over_expected_bottom_area: # 예상 하단 영역 기준
+                # --- 수정 끝 ---
                     # 하단 UI만 표시 (하단 UI가 잠긴 경우 이미 표시된 상태)
                     if not bottom_locked:
                         ui_state_changed = self.handle_bottom_ui_visibility(True)
@@ -366,8 +385,11 @@ class MouseHandler(QObject):
                     if not title_locked:
                         ui_state_changed_top = self.handle_top_ui_visibility(False)
                     
-                    # 하단 UI가 잠기지 않은 경우만 숨김
-                    if not bottom_locked:
+                    # --- 수정: 하단 UI 숨김 조건 추가 ---
+                    # 하단 UI가 잠기지 않고, 마우스가 예상 하단 영역 밖에 있는 경우만 숨김
+                    # if not bottom_locked:
+                    if not bottom_locked and not is_over_expected_bottom_area:
+                    # --- 수정 끝 ---
                         ui_state_changed_bottom = self.handle_bottom_ui_visibility(False)
                     
                     ui_state_changed = ui_state_changed_top or ui_state_changed_bottom
