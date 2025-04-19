@@ -211,27 +211,26 @@ class UIStateManager(QObject):
         # 하단 UI 가시성 설정 (통합 관리)
         bottom_visible = self._ui_visibility['bottom_ui']
         
-        # 슬라이더 위젯 가시성 설정
-        if hasattr(self.parent, 'slider_widget'):
-            slider_target_visible = bottom_visible and self._media_has_slider
-            if (slider_target_visible and self.parent.slider_widget.isHidden()) or \
-               (not slider_target_visible and not self.parent.slider_widget.isHidden()):
+        # 하단 UI 컨테이너 가시성 설정 (복원)
+        if hasattr(self.parent, 'bottom_ui_container'):
+            if (bottom_visible and self.parent.bottom_ui_container.isHidden()) or \
+               (not bottom_visible and not self.parent.bottom_ui_container.isHidden()):
                 has_changed = True
-                if slider_target_visible:
-                    self.parent.slider_widget.show()
+                if bottom_visible:
+                    self.parent.bottom_ui_container.show()
                 else:
-                    self.parent.slider_widget.hide()
-        
-        # 버튼 컨테이너 가시성 설정
-        if hasattr(self.parent, 'button_container'):
-            button_target_visible = bottom_visible
-            if (button_target_visible and self.parent.button_container.isHidden()) or \
-               (not button_target_visible and not self.parent.button_container.isHidden()):
-                has_changed = True
-                if button_target_visible:
-                    self.parent.button_container.show()
-                else:
-                    self.parent.button_container.hide()
+                    self.parent.bottom_ui_container.hide()
+                    
+            # 하단 UI가 보이는 상태일 때만 그 안의 슬라이더 가시성 결정
+            if bottom_visible and hasattr(self.parent, 'slider_widget'):
+                slider_visible = self._media_has_slider
+                if (slider_visible and self.parent.slider_widget.isHidden()) or \
+                   (not slider_visible and not self.parent.slider_widget.isHidden()):
+                    # 내부 위젯 가시성 변경은 has_changed에 직접 영향을 주지 않음 (컨테이너 가시성으로 판단)
+                    if slider_visible:
+                        self.parent.slider_widget.show()
+                    else:
+                        self.parent.slider_widget.hide()
         
         # 정보 레이블 가시성 설정
         if hasattr(self.parent, 'image_info_label'):
@@ -269,11 +268,16 @@ class UIStateManager(QObject):
         if not layout or not isinstance(layout, QVBoxLayout):
             return
             
-        # 기본 비율 정의 (새로운 구조 반영)
+        # 기본 비율 정의 (viewer 속성 참조)
         title_ratio = 2     # 타이틀바 2%
         main_ratio = 85     # 메인 영역 85%
-        slider_ratio = 3    # 슬라이더 영역 3%
-        button_ratio = 10   # 버튼 영역 10%
+        # 하단 전체 비율은 viewer 속성에서 가져옴
+        try:
+            total_bottom_stretch = self.parent.slider_stretch + self.parent.button_stretch
+        except AttributeError:
+            total_bottom_stretch = 13 # 속성이 없으면 기본값
+        
+        bottom_ratio = total_bottom_stretch # 초기값 설정
         
         # _ui_visibility에 저장된 UI 상태와 잠금 상태를 함께 고려
         # 제목표시줄 가시성 확인
@@ -285,9 +289,11 @@ class UIStateManager(QObject):
         # 하단 컨트롤 영역 전체 가시성 확인 (통합 UI 영역)
         if not bottom_locked and not self._ui_visibility['bottom_ui']:
             # 하단 컨트롤 전체가 잠기지 않고 숨겨진 경우, 슬라이더와 버튼 비율을 메인 영역에 추가
-            main_ratio += slider_ratio + button_ratio
-            slider_ratio = 0
-            button_ratio = 0
+            # main_ratio += slider_ratio + button_ratio
+            main_ratio += total_bottom_stretch # 전체 하단 비율을 더함
+            # slider_ratio = 0
+            # button_ratio = 0
+            bottom_ratio = 0 # 하단 비율을 0으로 설정
             
         # 레이아웃 비율 업데이트
         for i in range(layout.count()):
@@ -304,10 +310,14 @@ class UIStateManager(QObject):
                 layout.setStretch(i, title_ratio)
             elif widget == self.parent.main_layout:
                 layout.setStretch(i, main_ratio)
-            elif widget == self.parent.slider_widget:
-                layout.setStretch(i, slider_ratio)
-            elif widget == self.parent.button_container:
-                layout.setStretch(i, button_ratio)
+            # --- 수정 시작: bottom_ui_container 처리 ---
+            # elif widget == self.parent.slider_widget:
+            #     layout.setStretch(i, slider_ratio)
+            # elif widget == self.parent.button_container:
+            #     layout.setStretch(i, button_ratio)
+            elif widget == self.parent.bottom_ui_container: # bottom_ui_container 식별
+                layout.setStretch(i, bottom_ratio) # 계산된 하단 비율 적용
+            # --- 수정 끝 ---
     
     def _reset_layout_ratios(self):
         """레이아웃 비율을 기본값으로 초기화"""
@@ -319,11 +329,14 @@ class UIStateManager(QObject):
         if not layout or not isinstance(layout, QVBoxLayout):
             return
         
-        # 기본 비율 설정 (새로운 구조 반영)
+        # 기본 비율 설정 (viewer 속성 참조)
         title_ratio = 2     # 타이틀바 2%
         main_ratio = 85     # 메인 영역 85%
-        slider_ratio = 3    # 슬라이더 영역 3%
-        button_ratio = 10   # 버튼 영역 10%
+        # 하단 전체 비율은 viewer 속성에서 가져옴
+        try:
+            total_bottom_stretch = self.parent.slider_stretch + self.parent.button_stretch
+        except AttributeError:
+            total_bottom_stretch = 13 # 속성이 없으면 기본값
         
         # 레이아웃 비율 초기화
         for i in range(layout.count()):
@@ -340,10 +353,14 @@ class UIStateManager(QObject):
                 layout.setStretch(i, title_ratio)
             elif widget == self.parent.main_layout:
                 layout.setStretch(i, main_ratio)
-            elif widget == self.parent.slider_widget:
-                layout.setStretch(i, slider_ratio)
-            elif widget == self.parent.button_container:
-                layout.setStretch(i, button_ratio)
+            # --- 수정 시작: bottom_ui_container 처리 ---
+            # elif widget == self.parent.slider_widget:
+            #     layout.setStretch(i, slider_ratio)
+            # elif widget == self.parent.button_container:
+            #     layout.setStretch(i, button_ratio)
+            elif widget == self.parent.bottom_ui_container: # bottom_ui_container 식별
+                layout.setStretch(i, total_bottom_stretch) # 계산된 기본 하단 비율 적용
+            # --- 수정 끝 ---
     
     def get_ui_visibility(self, component_name):
         """

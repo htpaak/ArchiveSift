@@ -624,9 +624,23 @@ class ArchiveSiftInitializer:
         # 하단 UI 컨테이너를 메인 레이아웃에 추가하는 라인 삭제
         # layout.addWidget(viewer.bottom_ui_container, 13)
 
-        # 슬라이더 위젯과 버튼 컨테이너를 메인 레이아웃에 직접 추가
-        layout.addWidget(viewer.slider_widget, 3)
-        layout.addWidget(viewer.button_container, 10)
+        # 슬라이더 위젯과 버튼 컨테이너를 메인 레이아웃에 직접 추가 -> 다시 bottom_ui_layout에 추가
+        # layout.addWidget(viewer.slider_widget, 3)
+        # layout.addWidget(viewer.button_container, 10)
+        
+        # 각 하단 요소의 기본 비율 정의 및 저장
+        viewer.slider_stretch = 3
+        viewer.button_stretch = 10
+        
+        # 슬라이더 위젯을 bottom_ui_layout에 추가
+        bottom_ui_layout.addWidget(viewer.slider_widget, viewer.slider_stretch)
+        
+        # 버튼 컨테이너를 bottom_ui_layout에 추가
+        bottom_ui_layout.addWidget(viewer.button_container, viewer.button_stretch)
+        
+        # bottom_ui_container를 메인 레이아웃에 동적 비율로 추가
+        total_bottom_stretch = viewer.slider_stretch + viewer.button_stretch
+        layout.addWidget(viewer.bottom_ui_container, total_bottom_stretch)
 
         # 메인 레이아웃에 이미지 컨테이너 추가
         viewer.main_layout.set_media_display(viewer.image_label)
