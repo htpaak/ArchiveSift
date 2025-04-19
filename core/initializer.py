@@ -407,12 +407,22 @@ class ArchiveSiftInitializer:
         # 각 주요 요소의 기본 비율 정의 (하단은 내부 요소 합으로 계산됨)
         viewer.title_stretch = 2
         viewer.slider_stretch = 3
-        # viewer.button_stretch = 10 # -> 동적 계산으로 변경
         
         # 버튼 줄 수 및 줄당 비율 정의
         viewer.button_row_stretch = 2
-        total_button_rows = 5 # 초기 총 버튼 줄 수
-        viewer.button_stretch = total_button_rows * viewer.button_row_stretch
+        layout_settings = load_settings("layout_settings.json")
+        try:
+            # 저장된 값이 정수형인지 확인 후 로드
+            loaded_button_rows = int(layout_settings.get("button_rows", 5))
+            if not 1 <= loaded_button_rows <= 5:
+                 loaded_button_rows = 5 # 유효 범위 벗어나면 기본값
+        except (ValueError, TypeError):
+            loaded_button_rows = 5 # 유효하지 않으면 기본값
+            
+        viewer.current_button_rows = loaded_button_rows # 현재 적용된 줄 수 저장
+        
+        # 버튼 컨테이너 비율 계산 (로드된 값 사용)
+        viewer.button_stretch = viewer.current_button_rows * viewer.button_row_stretch
         
         # 하단 전체 및 메인 레이아웃 비율 계산
         viewer.total_bottom_stretch = viewer.slider_stretch + viewer.button_stretch
@@ -558,90 +568,91 @@ class ArchiveSiftInitializer:
         button_container_layout.setContentsMargins(0, 0, 0, 0)
         button_container_layout.setSpacing(0)
 
-        # 폴더 버튼 생성
-        viewer.buttons = []
-        total_width = viewer.width() # viewer 사용
-        for row_idx in range(total_button_rows - 1): # 마지막 줄 제외하고 폴더 버튼 행 생성
-            row_widget = QWidget()
-            row_widget.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Preferred)
-            button_layout = QHBoxLayout(row_widget)
-            button_layout.setContentsMargins(0, 0, 0, 0)
-            button_layout.setSpacing(0)
-            button_row = []
-
-            # 사용 가능한 너비 계산 (초기 창 크기 기준)
-            available_width = total_width - button_layout.contentsMargins().left() - button_layout.contentsMargins().right()
-            button_width = max(1, available_width // 20) # 0으로 나누는 것을 방지
-
-            for i in range(20):
-                empty_button = DualActionButton('', viewer)
-                empty_button.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Preferred)
-                empty_button.clicked.connect(viewer.on_button_click)
-
-                if i == 19:
-                    remaining_width = total_width - (button_width * 19)
-                    empty_button.setFixedWidth(remaining_width)
-                else:
-                    empty_button.setFixedWidth(button_width)
-
-                button_row.append(empty_button)
-                button_layout.addWidget(empty_button)
-
-            viewer.buttons.append(button_row)
-            button_container_layout.addWidget(row_widget, 2)
-
-        # 마지막 행 (Undo 버튼 포함)
-        last_row_widget = QWidget()
-        last_row_widget.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Preferred)
-        last_button_layout = QHBoxLayout(last_row_widget)
-        last_button_layout.setContentsMargins(0, 0, 0, 0)
-        last_button_layout.setSpacing(0)
-        last_button_row = []
-
-        # 사용 가능한 너비 계산 (초기 창 크기 기준)
-        available_width = total_width - last_button_layout.contentsMargins().left() - last_button_layout.contentsMargins().right()
-        button_width = max(1, available_width // 20) # 0으로 나누는 것을 방지
-
-        for i in range(20):
-            if i == 19:
-                empty_button = QPushButton('Undo', viewer)
-                empty_button.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Preferred)
-                empty_button.setStyleSheet("""
-                    QPushButton { background-color: rgba(241, 196, 15, 0.9); color: white; border: none; border-radius: 3px; font-weight: bold; }
-                    QPushButton:hover { background-color: rgba(241, 196, 15, 1.0); }
-                """)
-                empty_button.clicked.connect(viewer.undo_last_action)
-                viewer.undo_button = empty_button # viewer 사용
-                viewer.undo_button.setEnabled(False)
-                # viewer.undo_manager.undo_status_changed.connect(viewer.update_undo_button_state) # viewer 사용
-                # connect는 viewer 객체가 완전히 생성된 후에 호출되어야 함
-                viewer.undo_manager.undo_status_changed.connect(lambda enabled: viewer.update_undo_button_state(enabled))
-
-
-                remaining_width = total_width - (int(button_width) * 19)
-                empty_button.setFixedWidth(remaining_width)
-            else:
-                empty_button = DualActionButton('', viewer)
-                empty_button.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Preferred)
-                empty_button.clicked.connect(viewer.on_button_click)
-                empty_button.setFixedWidth(int(button_width))
-
-            last_button_row.append(empty_button)
-            last_button_layout.addWidget(empty_button)
-
-        viewer.buttons.append(last_button_row)
-        button_container_layout.addWidget(last_row_widget, 2)
-
-        # 버튼 컨테이너를 bottom_ui_layout에 추가 (이 라인은 이제 불필요)
-        # bottom_ui_layout.addWidget(viewer.button_container, 10)
-
-        # 슬라이더 위젯과 버튼 컨테이너를 메인 레이아웃에 직접 추가 -> 다시 bottom_ui_layout에 추가
-        # layout.addWidget(viewer.slider_widget, 3)
-        # layout.addWidget(viewer.button_container, 10)
+        # --- 제거 시작: 기존 인라인 버튼 생성 로직 ---
+        # # 폴더 버튼 생성
+        # viewer.buttons = []
+        # total_width = viewer.width() # viewer 사용
+        # # for row_idx in range(total_button_rows - 1): # 마지막 줄 제외하고 폴더 버튼 행 생성
+        # for row_idx in range(viewer.current_button_rows - 1): # 마지막 줄 제외하고 폴더 버튼 행 생성
+        #     row_widget = QWidget()
+        #     row_widget.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Preferred)
+        #     button_layout = QHBoxLayout(row_widget)
+        #     button_layout.setContentsMargins(0, 0, 0, 0)
+        #     button_layout.setSpacing(0)
+        #     button_row = []
+        # 
+        #     # 사용 가능한 너비 계산 (초기 창 크기 기준)
+        #     available_width = total_width - button_layout.contentsMargins().left() - button_layout.contentsMargins().right()
+        #     button_width = max(1, available_width // 20) # 0으로 나누는 것을 방지
+        # 
+        #     for i in range(20):
+        #         empty_button = DualActionButton('', viewer)
+        #         empty_button.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Preferred)
+        #         empty_button.clicked.connect(viewer.on_button_click)
+        # 
+        #         if i == 19:
+        #             remaining_width = total_width - (button_width * 19)
+        #             empty_button.setFixedWidth(remaining_width)
+        #         else:
+        #             empty_button.setFixedWidth(button_width)
+        # 
+        #         button_row.append(empty_button)
+        #         button_layout.addWidget(empty_button)
+        # 
+        #     viewer.buttons.append(button_row)
+        #     # button_container_layout.addWidget(row_widget, 2) # 비율 적용 방식 변경
+        #     button_container_layout.addWidget(row_widget)
+        # 
+        # # 마지막 행 (Undo 버튼 포함)
+        # last_row_widget = QWidget()
+        # last_row_widget.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Preferred)
+        # last_button_layout = QHBoxLayout(last_row_widget)
+        # last_button_layout.setContentsMargins(0, 0, 0, 0)
+        # last_button_layout.setSpacing(0)
+        # last_button_row = []
+        # 
+        # # 사용 가능한 너비 계산 (초기 창 크기 기준)
+        # available_width = total_width - last_button_layout.contentsMargins().left() - last_button_layout.contentsMargins().right()
+        # button_width = max(1, available_width // 20) # 0으로 나누는 것을 방지
+        # 
+        # for i in range(20):
+        #     if i == 19:
+        #         empty_button = QPushButton('Undo', viewer)
+        #         empty_button.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Preferred)
+        #         empty_button.setStyleSheet("""\n        #             QPushButton { background-color: rgba(241, 196, 15, 0.9); color: white; border: none; border-radius: 3px; font-weight: bold; }\n        #             QPushButton:hover { background-color: rgba(241, 196, 15, 1.0); }\n        #         """)
+        #         empty_button.clicked.connect(viewer.undo_last_action)
+        #         viewer.undo_button = empty_button # viewer 사용
+        #         viewer.undo_button.setEnabled(False)
+        #         # viewer.undo_manager.undo_status_changed.connect(viewer.update_undo_button_state) # viewer 사용
+        #         # connect는 viewer 객체가 완전히 생성된 후에 호출되어야 함
+        #         # UndoManager 시그널 연결 (재생성 시 필요)
+        #         # try: 
+        #         #     viewer.undo_manager.undo_status_changed.disconnect(viewer.update_undo_button_state)
+        #         # except TypeError:
+        #         #     pass 
+        #         # viewer.undo_manager.undo_status_changed.connect(lambda enabled: viewer.update_undo_button_state(enabled))
+        #         viewer.undo_manager.undo_status_changed.connect(viewer.update_undo_button_state) # 시그널 직접 연결
+        # 
+        #         remaining_width = total_width - (int(button_width) * 19)
+        #         empty_button.setFixedWidth(remaining_width)
+        #     else:
+        #         empty_button = DualActionButton('', viewer)
+        #         empty_button.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Preferred)
+        #         empty_button.clicked.connect(viewer.on_button_click)
+        #         empty_button.setFixedWidth(int(button_width))
+        # 
+        #     last_button_row.append(empty_button)
+        #     last_button_layout.addWidget(empty_button)
+        # 
+        # viewer.buttons.append(last_button_row)
+        # # button_container_layout.addWidget(last_row_widget, 2)
+        # button_container_layout.addWidget(last_row_widget)
+        # --- 제거 끝 ---
         
-        # 슬라이더 위젯을 bottom_ui_layout에 추가
-        bottom_ui_layout.addWidget(viewer.slider_widget, viewer.slider_stretch)
-        
+        # --- 추가 시작: 헬퍼 메서드 호출로 버튼 생성 ---
+        viewer._create_button_rows(viewer.current_button_rows)
+        # --- 추가 끝 ---
+
         # 버튼 컨테이너를 bottom_ui_layout에 추가
         bottom_ui_layout.addWidget(viewer.button_container, viewer.button_stretch)
         

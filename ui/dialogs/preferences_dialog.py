@@ -6,9 +6,12 @@
 
 from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
                             QPushButton, QTableWidget, QTableWidgetItem, 
-                            QHeaderView, QFrame, QStackedWidget, QWidget, QComboBox)
+                            QHeaderView, QFrame, QStackedWidget, QWidget, QComboBox,
+                            QSpinBox, QSpacerItem, QSizePolicy)
 from PyQt5.QtCore import Qt, QEvent
 from PyQt5.QtGui import QIcon, QKeySequence
+
+from core.config_manager import load_settings, save_settings
 
 from events.handlers.keyboard_handler import KeyInputEdit
 from events.handlers.mouse_input import MouseButtonWidget
@@ -168,6 +171,21 @@ class PreferencesDialog(QDialog):
             "shift_wheel_up": "Shift + Wheel Up",
             "shift_wheel_down": "Shift + Wheel Down"
         }
+        
+        # --- 추가: 레이아웃 설정 로드 ---
+        self.layout_settings = load_settings("layout_settings.json")
+        default_layout_settings = {
+            "button_rows": 5
+        }
+        for key, value in default_layout_settings.items():
+            if key not in self.layout_settings:
+                self.layout_settings[key] = value
+            # 로드된 값이 int인지 확인 및 변환
+            try:
+                self.layout_settings[key] = int(self.layout_settings[key])
+            except (ValueError, TypeError):
+                self.layout_settings[key] = default_layout_settings[key]
+        # --- 추가 끝 ---
         
         # 메인 레이아웃 - 수평 레이아웃으로 변경
         # 왼쪽에는 설정 메뉴 버튼들, 오른쪽에는 설정 내용이 표시돼요
@@ -423,7 +441,6 @@ class PreferencesDialog(QDialog):
         cooldown_label = QLabel("Wheel event cooldown (milliseconds):")
         cooldown_label.setStyleSheet("min-width: 120px; padding: 5px;")
         
-        from PyQt5.QtWidgets import QSpinBox
         self.cooldown_spinner = QSpinBox()
         self.cooldown_spinner.setMinimum(0)
         self.cooldown_spinner.setMaximum(2000)
@@ -468,7 +485,47 @@ class PreferencesDialog(QDialog):
         # 일반 설정 페이지 (미구현 - 나중에 추가될 기능)
         general_page = QWidget()
         general_layout = QVBoxLayout(general_page)
-        general_layout.addWidget(QLabel("General settings are still under development."))
+        # general_layout.addWidget(QLabel("General settings are still under development.")) # 기존 라벨 제거
+        
+        # --- 추가: 폴더 버튼 줄 수 설정 UI ---
+        button_rows_layout = QHBoxLayout()
+        button_rows_label = QLabel("Folder Button Rows:")
+        self.button_rows_combo = QComboBox()
+        self.button_rows_combo.addItems([str(i) for i in range(1, 6)]) # 1부터 5까지 항목 추가
+        
+        # 로드된 설정값으로 초기 선택 설정
+        current_rows = self.layout_settings.get("button_rows", 5)
+        self.button_rows_combo.setCurrentText(str(current_rows))
+        
+        button_rows_layout.addWidget(button_rows_label)
+        button_rows_layout.addWidget(self.button_rows_combo)
+        button_rows_layout.addStretch()
+        
+        general_layout.addLayout(button_rows_layout)
+        general_layout.addStretch() # 나머지 공간 채우기
+        # --- 추가 끝 ---
+        
+        # --- 추가: 일반 설정 페이지용 버튼 ---
+        general_button_layout = QHBoxLayout()
+        general_button_layout.setContentsMargins(0, 15, 0, 0)
+        # 기본값 버튼 (일반 설정용 - 현재는 기능 없음)
+        general_reset_button = QPushButton("Reset to Default")
+        general_reset_button.setObjectName("resetButton")
+        general_reset_button.setEnabled(False) # 아직 기능 없으므로 비활성화
+        general_button_layout.addWidget(general_reset_button)
+        general_button_layout.addStretch()
+        # 취소/저장 버튼
+        general_cancel_button = QPushButton("Cancel")
+        general_cancel_button.setObjectName("cancelButton")
+        general_cancel_button.clicked.connect(self.reject)
+        general_button_layout.addWidget(general_cancel_button)
+        general_save_button = QPushButton("Save")
+        general_save_button.setObjectName("saveButton")
+        general_save_button.clicked.connect(self.accept)
+        general_button_layout.addWidget(general_save_button)
+        
+        general_layout.addLayout(general_button_layout)
+        # --- 추가 끝 ---
         
         # 스택 위젯에 페이지 추가
         self.stack.addWidget(keyboard_page)  # 인덱스 0: 키보드 설정
@@ -869,3 +926,35 @@ class PreferencesDialog(QDialog):
         
         # 콤보박스 닫기
         combo.close() 
+
+    # --- 추가: 설정 저장 로직 (accept 메서드 오버라이드) ---
+    def accept(self):
+        """설정을 저장하고 대화상자를 닫습니다."""
+        # 레이아웃 설정 저장
+        try:
+            selected_rows = int(self.button_rows_combo.currentText())
+            self.layout_settings["button_rows"] = selected_rows
+            save_settings(self.layout_settings, "layout_settings.json")
+        except ValueError:
+            print("Error saving layout settings: Invalid button row value.")
+            # 필요시 사용자에게 오류 메시지 표시
+        
+        # 마우스 설정 저장 (기존 로직)
+        # self.mouse_settings는 이미 on_mouse_action_changed 등에서 업데이트됨
+        # save_settings(self.mouse_settings, "mouse_settings.json") # -> App 클래스에서 처리
+        
+        # 키 설정 저장 (기존 로직)
+        # self.key_settings는 eventFilter 등에서 업데이트됨
+        # save_settings(self.key_settings, "key_settings.json") # -> App 클래스에서 처리
+        
+        super().accept() # 부모 클래스의 accept 호출 (대화상자 닫기 등)
+    # --- 추가 끝 ---
+
+    # --- 추가: 선택된 버튼 줄 수 반환 메서드 ---
+    def get_selected_button_rows(self):
+        """콤보박스에서 선택된 버튼 줄 수를 반환합니다."""
+        try:
+            return int(self.button_rows_combo.currentText())
+        except ValueError:
+            return 5 # 오류 발생 시 기본값 반환
+    # --- 추가 끝 --- 

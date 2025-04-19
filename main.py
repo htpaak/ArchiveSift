@@ -1396,6 +1396,12 @@ class ArchiveSift(QWidget):
             # Save mouse settings
             self.save_mouse_settings()
             
+            # --- 추가: 레이아웃 설정 변경 적용 ---
+            new_button_rows = dialog.get_selected_button_rows()
+            if hasattr(self, 'current_button_rows') and self.current_button_rows != new_button_rows:
+                self._update_button_rows(new_button_rows)
+            # --- 추가 끝 ---
+            
             # Display message
             self.show_message("Settings have been updated.")
 
@@ -1801,6 +1807,255 @@ class ArchiveSift(QWidget):
         """
         if hasattr(self, 'undo_button') and self.undo_button:
             self.undo_button.setEnabled(enabled)
+
+    # --- 추가: 버튼 행 업데이트 헬퍼 메서드 ---
+    def _update_button_rows(self, new_rows):
+        """폴더 버튼 줄 수 변경에 따라 레이아웃 및 버튼을 업데이트합니다."""
+        print(f"Updating button rows to: {new_rows}")
+        
+        # 1. 현재 상태 업데이트
+        self.current_button_rows = new_rows
+        
+        # 2. 레이아웃 비율 재계산
+        self.button_stretch = self.current_button_rows * self.button_row_stretch
+        self.total_bottom_stretch = self.slider_stretch + self.button_stretch
+        self.main_stretch = 100 - (self.title_stretch + self.total_bottom_stretch)
+        
+        # 3. 레이아웃 비율 적용
+        main_layout = self.layout()
+        if main_layout:
+            for i in range(main_layout.count()):
+                item = main_layout.itemAt(i)
+                widget = item.widget()
+                if widget == self.title_bar:
+                    main_layout.setStretch(i, self.title_stretch)
+                elif widget == self.main_layout:
+                    main_layout.setStretch(i, self.main_stretch)
+                elif widget == self.bottom_ui_container:
+                    main_layout.setStretch(i, self.total_bottom_stretch)
+        
+        bottom_layout = self.bottom_ui_container.layout()
+        if bottom_layout:
+             for i in range(bottom_layout.count()):
+                item = bottom_layout.itemAt(i)
+                widget = item.widget()
+                if widget == self.slider_widget:
+                    bottom_layout.setStretch(i, self.slider_stretch)
+                elif widget == self.button_container:
+                    bottom_layout.setStretch(i, self.button_stretch)
+        
+        # 4. 버튼 행 동적 재생성
+        # 기존 레이아웃 내용 제거
+        self._clear_layout(self.button_container.layout())
+        # 새 줄 수에 맞게 버튼 행 재생성
+        self._create_button_rows(new_rows)
+        # 폴더 버튼 내용 업데이트 (기본 폴더 설정 시)
+        self.update_folder_buttons()
+
+        # 5. 최소 높이 업데이트
+        if hasattr(self, 'bottom_ui_container'):
+             try:
+                 initial_window_height = self.height() 
+                 min_height = int(initial_window_height * (self.total_bottom_stretch / 100.0))
+                 # 비율이 0이 되어도 최소한의 높이는 보장 (예: 10px)
+                 self.bottom_ui_container.setMinimumHeight(max(10, min_height)) 
+             except AttributeError:
+                 pass # 속성 없으면 무시
+
+        # 6. UI 업데이트 강제
+        self.updateGeometry() # 위젯 지오메트리 업데이트 요청
+        if main_layout:
+             main_layout.activate() # 레이아웃 강제 활성화
+        if bottom_layout:
+             bottom_layout.activate()
+             
+        self.show_message(f"Folder button rows set to {new_rows}.")
+    # --- 추가 끝 ---
+
+    # --- 추가: 레이아웃 클리어 헬퍼 메서드 ---
+    def _clear_layout(self, layout):
+        """주어진 레이아웃의 모든 자식 위젯과 레이아웃을 제거합니다."""
+        if layout is not None:
+            while layout.count():
+                item = layout.takeAt(0)
+                widget = item.widget()
+                if widget is not None:
+                    widget.setParent(None)
+                    widget.deleteLater()
+                else:
+                    sub_layout = item.layout()
+                    if sub_layout is not None:
+                        self._clear_layout(sub_layout)
+                        # sub_layout.deleteLater() # QVBoxLayout cannot be deleted?
+    # --- 추가 끝 ---
+    
+    # --- 추가: 버튼 행 생성 헬퍼 메서드 ---
+    def _create_button_rows(self, num_rows):
+        """주어진 줄 수(num_rows)에 맞춰 폴더 및 Undo 버튼 행을 생성합니다."""
+        self.buttons = [] # 버튼 리스트 초기화
+        button_container_layout = self.button_container.layout()
+        total_width = self.width()
+        
+        # 폴더 버튼 행 생성 (num_rows - 1 줄)
+        folder_button_rows = num_rows - 1
+        for row_idx in range(folder_button_rows):
+            row_widget = QWidget()
+            row_widget.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Preferred)
+            button_layout = QHBoxLayout(row_widget)
+            button_layout.setContentsMargins(0, 0, 0, 0)
+            button_layout.setSpacing(0)
+            button_row = []
+
+            available_width = total_width - button_layout.contentsMargins().left() - button_layout.contentsMargins().right()
+            button_width = max(1, available_width // 20) 
+
+            for i in range(20):
+                empty_button = DualActionButton('', self) # self(viewer) 전달
+                empty_button.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Preferred)
+                empty_button.clicked.connect(self.on_button_click)
+
+                if i == 19:
+                    remaining_width = total_width - (button_width * 19)
+                    empty_button.setFixedWidth(remaining_width)
+                else:
+                    empty_button.setFixedWidth(button_width)
+
+                button_row.append(empty_button)
+                button_layout.addWidget(empty_button)
+
+            self.buttons.append(button_row)
+            button_container_layout.addWidget(row_widget, 1) # 각 행에 stretch 1 부여
+            
+        # 마지막 행 (Undo 버튼 포함)
+        last_row_widget = QWidget()
+        last_button_layout = QHBoxLayout(last_row_widget)
+        last_button_layout.setContentsMargins(0, 0, 0, 0)
+        last_button_layout.setSpacing(0)
+        last_button_row = []
+
+        available_width = total_width - last_button_layout.contentsMargins().left() - last_button_layout.contentsMargins().right()
+        button_width = max(1, available_width // 20)
+
+        for i in range(20):
+            if i == 19:
+                # Undo 버튼 재생성 또는 기존 참조 사용 (재생성 권장)
+                undo_button = QPushButton('Undo', self)
+                undo_button.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Preferred)
+                undo_button.setStyleSheet("""
+                    QPushButton { background-color: rgba(241, 196, 15, 0.9); color: white; border: none; border-radius: 3px; font-weight: bold; }
+                    QPushButton:hover { background-color: rgba(241, 196, 15, 1.0); }
+                    QPushButton:disabled { background-color: grey; }
+                """) # 비활성화 스타일 추가
+                undo_button.clicked.connect(self.undo_last_action)
+                self.undo_button = undo_button # 참조 업데이트
+                # UndoManager 시그널 연결 (기존 연결 해제 후 재연결 필요할 수 있음)
+                try: 
+                    self.undo_manager.undo_status_changed.disconnect(self.update_undo_button_state)
+                except TypeError:
+                    pass # 연결 안되어 있었으면 무시
+                self.undo_manager.undo_status_changed.connect(self.update_undo_button_state)
+                self.update_undo_button_state(self.undo_manager.can_undo()) # 초기 상태 업데이트
+
+                remaining_width = total_width - (int(button_width) * 19)
+                undo_button.setFixedWidth(remaining_width)
+                last_button_row.append(undo_button)
+                last_button_layout.addWidget(undo_button)
+            else:
+                empty_button = DualActionButton('', self) # self(viewer) 전달
+                empty_button.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Preferred)
+                empty_button.clicked.connect(self.on_button_click)
+                empty_button.setFixedWidth(int(button_width))
+                last_button_row.append(empty_button)
+                last_button_layout.addWidget(empty_button)
+
+        self.buttons.append(last_button_row)
+        button_container_layout.addWidget(last_row_widget, 1) # 마지막 행에도 stretch 1 부여
+        
+        # 기본 폴더 설정이 되어 있다면 버튼 업데이트
+        if self.base_folder:
+            self.update_folder_buttons() # 폴더 버튼 업데이트 함수 호출 (set_base_folder 로직 재사용/분리 필요)
+            
+    # --- 추가 끝 ---
+
+    # --- 추가: 폴더 버튼 업데이트 헬퍼 메서드 (set_base_folder 로직 분리) ---
+    def update_folder_buttons(self):
+        """현재 base_folder 기준으로 폴더 버튼 내용을 업데이트합니다."""
+        if not self.base_folder or not os.path.exists(self.base_folder):
+            # 기본 폴더가 없거나 유효하지 않으면 모든 버튼 초기화
+            for row in self.buttons:
+                for button in row:
+                    if hasattr(button, 'set_folder_info'):
+                        button.set_folder_info('', '')
+                    # Undo 버튼은 텍스트 유지
+                    elif button == self.undo_button:
+                         button.setText("Undo")
+                    else:
+                        button.setText('')
+                        button.setToolTip('')
+            return
+            
+        # 하위 폴더 목록 가져오기 및 정렬
+        try:
+            subfolders = [f.path for f in os.scandir(self.base_folder) if f.is_dir()]
+            subfolders.sort(key=lambda x: natural_keys(os.path.basename(x).lower()))
+        except OSError:
+            subfolders = [] # 오류 발생 시 빈 리스트
+
+        # 버튼 너비 계산 (현재 창 너비 기준)
+        total_width = self.width()
+        # button_container_layout의 마진/패딩 고려 필요 시 추가
+        button_width = max(1, total_width // 20)
+
+        # 폴더 버튼 업데이트
+        button_index = 0
+        for i, row in enumerate(self.buttons):
+            for j, button in enumerate(row):
+                # 마지막 Undo 버튼은 건너뜀
+                if button == self.undo_button:
+                    continue
+                
+                if button_index < len(subfolders):
+                    folder_path = subfolders[button_index]
+                    folder_name = os.path.basename(folder_path)
+                    
+                    # 버튼 너비 재계산 및 설정 (마지막 열 버튼 처리 포함)
+                    current_button_width = button_width
+                    if j == 19: # 이 계산은 초기화 시와 약간 다를 수 있음, 확인 필요
+                        remaining_width = total_width - (button_width * 19)
+                        current_button_width = remaining_width
+                    button.setFixedWidth(current_button_width) 
+
+                    available_width = current_button_width - 16 
+                    font_metrics = button.fontMetrics()
+                    text_width = font_metrics.horizontalAdvance(folder_name)
+                    
+                    truncated_name = folder_name
+                    if text_width > available_width:
+                        for k in range(len(folder_name), 0, -1):
+                            truncated = folder_name[:k] + ".."
+                            if font_metrics.horizontalAdvance(truncated) <= available_width:
+                                truncated_name = truncated
+                                break
+                               
+                    if hasattr(button, 'set_folder_info'):
+                        button.set_folder_info(folder_path, truncated_name)
+                    else:
+                        button.setText(truncated_name)
+                        button.setToolTip(folder_path)
+                else:
+                    # 남는 버튼 초기화
+                    if hasattr(button, 'set_folder_info'):
+                         button.set_folder_info('', '')
+                    else:
+                        button.setText('')
+                        button.setToolTip('')
+               
+                button_index += 1
+                
+        # Undo 버튼 텍스트 유지 (필요 시)
+        if hasattr(self, 'undo_button') and self.undo_button:
+             self.undo_button.setText("Undo")
+    # --- 추가 끝 ---
 
 # Main function
 def main():
