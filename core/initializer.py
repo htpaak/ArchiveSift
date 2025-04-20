@@ -85,6 +85,21 @@ from core.memory import ResourceCleaner, TimerManager
 # 이벤트 핸들러
 from events.handlers.button_handler import ButtonEventHandler
 
+# --- 추가 시작: 리소스 경로 얻는 함수 ---
+def resource_path(relative_path):
+    """ Get absolute path to resource, works for dev and for PyInstaller """
+    try:
+        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        base_path = sys._MEIPASS
+    except Exception:
+        # _MEIPASS 속성이 없으면 개발 환경으로 간주
+        base_path = os.path.abspath(".") # 또는 os.path.dirname(__file__) 등 기준 경로
+
+    # base_path와 상대 경로를 결합하여 최종 경로 반환
+    # .spec 파일에서 ('core/ArchiveSift.ico', '.') 로 설정했으므로,
+    # 번들 환경에서는 base_path 바로 아래에 아이콘이 있음
+    return os.path.join(base_path, os.path.basename(relative_path))
+# --- 추가 끝 ---
 
 class ArchiveSiftInitializer:
     def initialize(self, viewer):
@@ -103,32 +118,30 @@ class ArchiveSiftInitializer:
 
         viewer.setWindowTitle('Image Viewer')  # 창 제목 설정
 
-        # 작업 표시줄 아이콘 설정 (절대 경로와 여러 대체 경로 시도)
-        icon_paths = [
-            './core/ArchiveSift.ico',
-            'core/ArchiveSift.ico',
-            os.path.join(get_app_directory(), 'core', 'ArchiveSift.ico'),
-            'ArchiveSift.ico',
-            './ArchiveSift.ico'
-        ]
+        # --- 수정 시작: 작업 표시줄 아이콘 설정 ---
+        icon_filename = 'ArchiveSift.ico' # 아이콘 파일 이름
+        try:
+            # resource_path 함수를 사용하여 아이콘 경로 탐색
+            # .spec 파일에서 ('core/ArchiveSift.ico', '.') 로 설정했으므로,
+            # 번들 환경 루트에 있는 'ArchiveSift.ico'를 찾도록 함
+            icon_path = resource_path(icon_filename)
 
-        # 찾은 첫 번째 유효한 아이콘 경로 사용
-        icon_path = None
-        for path in icon_paths:
-            # 경로 정규화 추가
-            normalized_path = os.path.normpath(path)
-            if os.path.exists(normalized_path):
-                icon_path = normalized_path
+            if os.path.exists(icon_path):
+                viewer.setWindowIcon(QIcon(icon_path))  # 앱 아이콘 설정
                 print(f"Found window icon at: {icon_path}")
-                break
+            else:
+                # 개발 환경 등에서 다른 경로 시도 (예: core 폴더 내부)
+                dev_icon_path = os.path.join('core', icon_filename)
+                if os.path.exists(dev_icon_path):
+                     viewer.setWindowIcon(QIcon(dev_icon_path))
+                     print(f"Found window icon at (dev path): {dev_icon_path}")
+                else:
+                    print(f"Warning: Could not find icon file '{icon_filename}' at '{icon_path}' or '{dev_icon_path}'.")
+                    # 아이콘 설정 실패 시 별도 처리는 하지 않음 (기본 아이콘 표시됨)
 
-        if icon_path:
-            viewer.setWindowIcon(QIcon(icon_path))  # 앱 아이콘 설정
-        else:
-            # 기본 경로로 설정 (존재하지 않더라도)
-            default_icon_path = os.path.normpath('core/ArchiveSift.ico') # 프로젝트 루트 기준
-            viewer.setWindowIcon(QIcon(default_icon_path))
-            print(f"Warning: Could not find icon file, using default path: {default_icon_path}")
+        except Exception as e:
+            print(f"Error setting window icon: {e}")
+        # --- 수정 끝 ---
 
         viewer.setGeometry(100, 100, 800, 600)  # 창 위치와 크기 설정
 
