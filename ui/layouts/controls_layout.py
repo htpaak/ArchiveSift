@@ -156,15 +156,17 @@ class ControlsLayout(QWidget):
                         control.setText("AS")
                         control.setStyleSheet("color: white; background-color: transparent; font-weight: bold;")
                 elif control_name == 'title_label':
-                    # --- 수정: 스타일시트 고정 폰트 크기 적용 ---
+                    # --- 복구: 스타일시트 고정 폰트 크기 (8pt) ---
+                    fixed_font_size = 8 # 원하는 고정 pt 크기
                     control.setStyleSheet(f"""
                         QLabel {{
                             color: white;
                             background-color: transparent;
                             padding: 2px 8px;
+                            font-size: {fixed_font_size}pt; /* pt 단위 사용 */
                             font-weight: normal;  /* 볼드 제거 */
                         }}
-                    """)
+                    """) # 폰트 크기 복구
                 else:
                     # 나머지 버튼들
                     control.setFixedSize(button_width, button_size)
@@ -335,15 +337,17 @@ class ControlsLayout(QWidget):
                         control.setText("AS")
                         control.setStyleSheet("color: white; background-color: transparent; font-weight: bold;")
                 elif control_name == 'title_label':
-                    # --- 수정: 스타일시트 고정 폰트 크기 적용 ---
+                    # --- 복구: 스타일시트 고정 폰트 크기 (8pt) ---
+                    fixed_font_size = 8 # 원하는 고정 pt 크기
                     control.setStyleSheet(f"""
                         QLabel {{
                             color: white;
                             background-color: transparent;
                             padding: 2px 8px;
+                            font-size: {fixed_font_size}pt; /* pt 단위 사용 */
                             font-weight: normal;  /* 볼드 제거 */
                         }}
-                    """)
+                    """) # 폰트 크기 복구
                 else:
                     # 나머지 버튼들
                     control.setFixedSize(button_width, button_size)
