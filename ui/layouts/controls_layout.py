@@ -157,13 +157,11 @@ class ControlsLayout(QWidget):
                         control.setStyleSheet("color: white; background-color: transparent; font-weight: bold;")
                 elif control_name == 'title_label':
                     # --- 수정: 스타일시트 고정 폰트 크기 적용 ---
-                    fixed_font_size = 8 # 원하는 고정 pt 크기
                     control.setStyleSheet(f"""
                         QLabel {{
                             color: white;
                             background-color: transparent;
                             padding: 2px 8px;
-                            font-size: {fixed_font_size}pt; /* pt 단위 사용 */
                             font-weight: normal;  /* 볼드 제거 */
                         }}
                     """)
@@ -338,13 +336,11 @@ class ControlsLayout(QWidget):
                         control.setStyleSheet("color: white; background-color: transparent; font-weight: bold;")
                 elif control_name == 'title_label':
                     # --- 수정: 스타일시트 고정 폰트 크기 적용 ---
-                    fixed_font_size = 8 # 원하는 고정 pt 크기
                     control.setStyleSheet(f"""
                         QLabel {{
                             color: white;
                             background-color: transparent;
                             padding: 2px 8px;
-                            font-size: {fixed_font_size}pt; /* pt 단위 사용 */
                             font-weight: normal;  /* 볼드 제거 */
                         }}
                     """)
@@ -394,7 +390,7 @@ class ControlsLayout(QWidget):
                     control.setContentsMargins(0, 0, 0, 0)
                     
                     # --- 수정: 폴더 버튼 스타일시트 고정 폰트 크기 적용 ---
-                    fixed_font_size = 8 # 예시: 폴더 버튼은 10pt
+                    fixed_font_size = 8 # 폴더 버튼은 8pt
                     control.setStyleSheet(f"""
                         QPushButton {{
                             background-color: rgba(52, 73, 94, 0.6);
@@ -428,8 +424,8 @@ class ControlsLayout(QWidget):
                     
                 # 컨트롤 유형에 따라 적절한 스타일시트 적용
                 if isinstance(control, QLabel):  # 레이블인 경우 (시간 표시)
-                    # --- 수정: 시간 레이블 고정 폰트 크기 적용 --- 
-                    fixed_font_size = 8 # 원하는 고정 pt 크기
+                    # --- 복구: 시간 레이블 고정 폰트 크기 (8pt) ---
+                    fixed_font_size = 8 # 시간 레이블은 8pt
                     control.setStyleSheet(f"""
                         QLabel {{
                             background-color: rgba(52, 73, 94, 0.6);
@@ -445,8 +441,8 @@ class ControlsLayout(QWidget):
                         }}
                     """)
                 else:  # 일반 버튼 (Play, Rotate, Mute, Menu, UI Lock 등)
-                    # --- 수정: 일반 버튼 고정 폰트 크기 적용 --- 
-                    fixed_font_size = 9 # 예시: 일반 버튼은 9pt
+                    # --- 복구: 일반 버튼 고정 폰트 크기 (9pt) ---
+                    fixed_font_size = 9 # 일반 버튼은 9pt
                     control.setStyleSheet(f"""
                         QPushButton {{
                             background-color: rgba(52, 73, 94, 0.6);
@@ -484,6 +480,21 @@ class ControlsLayout(QWidget):
         
         # 북마크 버튼 상태 업데이트 (별도로 호출)
         self.update_bookmark_button_state()
+
+        # --- 추가 시작: bottom_ui_container 최소 높이 업데이트 ---
+        if hasattr(self.parent, 'bottom_ui_container') and hasattr(self.parent, 'total_bottom_stretch'):
+             try:
+                 window_height = self.parent.height()
+                 # 현재 total_bottom_stretch 비율을 사용하여 최소 높이 계산
+                 min_height = int(window_height * (self.parent.total_bottom_stretch / 100.0))
+                 # 비율이 0이 되어도 최소한의 높이는 보장 (예: 20px 정도로 늘림)
+                 self.parent.bottom_ui_container.setMinimumHeight(max(20, min_height))
+                 # 디버깅 로그 추가
+                 # print(f"DEBUG: bottom_ui_container minHeight set to {max(20, min_height)} (stretch: {self.parent.total_bottom_stretch}%)")
+             except AttributeError:
+                 # 필요한 속성이 없으면 무시
+                 pass
+        # --- 추가 끝 ---
 
     def on_button_click(self):
         """하위 폴더 버튼 클릭 처리 - button_handler로 이벤트 위임"""
