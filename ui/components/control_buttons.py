@@ -166,14 +166,14 @@ class BookmarkButton(ControlButton):
         """북마크 버튼 전용 스타일 설정"""
         self.setStyleSheet("""
             QPushButton {
-                background-color: rgba(52, 73, 94, 0.6); 
+                background-color: rgba(241, 196, 15, 0.9); /* 북마크된 상태와 동일한 색상으로 변경 */
                 color: white;
                 border: none;
                 padding: 0px;
                 margin: 0px;
             }
             QPushButton:hover {
-                background-color: rgba(52, 73, 94, 1.0); 
+                background-color: rgba(241, 196, 15, 1.0); /* 북마크된 상태와 동일한 호버 색상으로 변경 */
             }
         """)
         
@@ -188,13 +188,14 @@ class BookmarkButton(ControlButton):
             self.setStyleSheet("""
                 QPushButton {
                     background-color: rgba(241, 196, 15, 0.9);
-                    color: white;
+                    color: rgba(231, 76, 60, 0.9); /* UI 잠금 버튼 배경색과 동일하게 변경 */
                     border: none;
                     padding: 0px;
                     margin: 0px;
                 }
                 QPushButton:hover {
-                    background-color: rgba(241, 196, 15, 1.0); 
+                    background-color: rgba(241, 196, 15, 1.0);
+                    color: rgba(231, 76, 60, 1.0); /* 호버 시에도 동일한 색상 유지 (불투명) */
                 }
             """)
         else:
