@@ -64,12 +64,31 @@ class AboutDialog(QDialog):
         
         # 프로그램 설명 - 프로그램이 무엇인지 간단히 설명해요
         description = QLabel(
-            "This program organizes media files such as photos, videos, and animations into folders."
+            "ArchiveSift is a powerful file organization tool designed to help you "
+            "easily and quickly categorize and manage various media files, "
+            "including images, videos, and animations. With its intuitive interface, "
+            "you can view your media and instantly copy or move them to your desired folders."
         )
         description.setWordWrap(True)  # 글이 길면 자동으로 줄바꿈 해요
         description.setAlignment(Qt.AlignLeft)  # 왼쪽 정렬해요
         description.setStyleSheet("font-size: 11pt;")  # 글씨 크기를 설정해요
         scroll_layout.addWidget(description)
+        
+        # 추가: 링크 섹션
+        links_label = QLabel("<b>Links:</b>")
+        links_label.setStyleSheet("font-size: 11pt; margin-top: 10px;") # 위쪽 여백 추가
+        scroll_layout.addWidget(links_label)
+
+        links_detail = QLabel(
+            '• <a href="https://github.com/htpaak/ArchiveSift">GitHub Repository</a><br>'
+            '• <a href="https://github.com/htpaak/ArchiveSift/releases/latest">Download Latest Version</a><br>'
+            '• <a href="https://github.com/htpaak/ArchiveSift/discussions">Feedback</a>'
+        )
+        links_detail.setOpenExternalLinks(True) # 링크 클릭 시 외부 브라우저에서 열기
+        links_detail.setStyleSheet("margin-left: 15px;")
+        links_detail.setWordWrap(True)
+        scroll_layout.addWidget(links_detail)
+        # 링크 섹션 끝
         
         # Supported formats - Shows what file types this program can open
         # 지원 형식 관련 주석을 영어로 변경함 -> 영어: Supported formats - Shows what file types this program can open

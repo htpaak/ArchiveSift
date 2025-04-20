@@ -9,13 +9,13 @@ from typing import Dict, Tuple, Any
 
 
 # 애플리케이션 버전 (메이저, 마이너, 패치)
-VERSION: Tuple[int, int, int] = (0, 1, 0)
+VERSION: Tuple[int, int, int] = (1, 0, 0)
 
 # 빌드 날짜 (자동 생성)
 BUILD_DATE = datetime.datetime.now().strftime("%Y-%m-%d")
 
 # 코드명 (선택 사항)
-CODENAME = "Alpha"
+CODENAME = ""
 
 
 def get_version_string() -> str:
@@ -35,7 +35,10 @@ def get_full_version_string() -> str:
     Returns:
         전체 버전 문자열
     """
-    return f"{get_version_string()} ({CODENAME})"
+    if CODENAME:
+        return f"{get_version_string()} ({CODENAME})"
+    else:
+        return get_version_string()
 
 
 def get_version_info() -> Dict[str, Any]:
