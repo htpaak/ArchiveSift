@@ -13,7 +13,7 @@ import platform
 import subprocess
 from pathlib import Path
 from PyQt5.QtWidgets import QMessageBox, QApplication
-from PyQt5.QtCore import QObject, pyqtSignal
+from PyQt5.QtCore import QObject, pyqtSignal, QTimer
 
 # Windows 환경에서 사용할 winshell 패키지
 try:
@@ -314,68 +314,45 @@ class UndoManager(QObject):
             copy_action: 복사 작업 정보 딕셔너리
             
         Returns:
-            tuple: (성공 여부, 원본 파일 경로)
+            tuple: (성공 여부, 복원된 파일 경로 - 복사 취소는 null 반환)
         """
-        original_path = copy_action.get('original_path')
         copied_path = copy_action.get('copied_path')
-        
-        # 복사 취소가 가능한지 확인
+        original_path = copy_action.get('original_path') # 원래 이미지 경로도 가져옴 (네비게이션용)
+        original_index = copy_action.get('index', -1) # 원래 인덱스도 가져옴
+
+        # 복사된 파일이 존재하는지 확인
         if not os.path.exists(copied_path):
-            self.viewer.show_message(f"Copied file does not exist: {os.path.basename(copied_path)}")
+            self.viewer.show_message(f"Copied file not found, cannot undo: {os.path.basename(copied_path)}")
             # 더 이상 실행 취소할 항목이 없으면 상태 업데이트
             if not self.actions:
                 self.undo_status_changed.emit(False)
             return False, None
         
+        # 복사된 파일 삭제 시도
         try:
-            # Path 객체 사용하여 경로 정규화
-            copied_path_obj = Path(copied_path).resolve()
-            file_name = copied_path_obj.name
-            copied_path_str = str(copied_path_obj)
+            # 파일 삭제 (휴지통으로 보내지 않음)
+            os.remove(copied_path)
+            self.viewer.show_message(f"Copy undone, file deleted: {os.path.basename(copied_path)}")
             
-            # 현재 열려있는 파일이라면 리소스 정리
-            if hasattr(self.viewer, 'current_image_path') and self.viewer.current_image_path == copied_path_str:
-                if hasattr(self.viewer, 'file_operations') and hasattr(self.viewer.file_operations, '_cleanup_resources_for_file'):
-                    self.viewer.file_operations._cleanup_resources_for_file(copied_path_str)
-                    # 이벤트 처리를 위한 시간 확보
-                    QApplication.processEvents()
-                    time.sleep(0.1)
-            
-            # 휴지통으로 파일 이동 (복사본 삭제)
-            self.viewer.show_message(f"Deleting copied file: {file_name}")
-            
-            deleted = False
-            try:
-                # send2trash 사용하여 파일을 휴지통으로 이동
-                from send2trash import send2trash
-                # 디버그 메시지 출력
-                print(f"Moving to trash: {copied_path_str}")
-                send2trash(copied_path_str)
-                # 삭제 확인
-                deleted = not os.path.exists(copied_path_str)
-            except Exception as e:
-                self.viewer.show_message(f"Failed to move file to trash: {str(e)}")
-                print(f"Error moving to trash: {str(e)}")
-                # 이벤트 처리
-                QApplication.processEvents()
-                time.sleep(0.1)
-                return False, None
-            
+            # --- 추가: 복사 취소 후 이전 이미지로 이동 ---
+            # 원래 파일이 여전히 존재하고, viewer에 show_previous_image 메서드가 있는지 확인
+            if original_path and os.path.exists(original_path) and hasattr(self.viewer, 'show_previous_image'):
+                 # 현재 표시되는 이미지가 (복사 작업 직후 넘어간) 다음 이미지일 가능성이 높으므로,
+                 # show_previous_image를 호출하여 원래 복사했던 이미지로 돌아갑니다.
+                 # show_previous_image는 내부적으로 index 등을 업데이트합니다.
+                 QTimer.singleShot(0, self.viewer.show_previous_image) # UI 업데이트를 위해 singleShot 사용
+            # --- 추가 끝 ---
+
             # 더 이상 실행 취소할 항목이 없으면 상태 업데이트
             if not self.actions:
                 self.undo_status_changed.emit(False)
                 
-            if deleted:
-                self.viewer.show_message(f"Copied file has been deleted: {file_name}")
-                return True, original_path
-            else:
-                self.viewer.show_message(f"Failed to delete file: {file_name}. File may be in use by another program.")
-                return False, None
+            return True, None # 복사 취소는 특정 경로를 복원하는 것이 아니므로 None 반환
                 
         except Exception as e:
-            # 전체 처리 과정에서 오류 발생
-            self.viewer.show_message(f"Failed to undo copy operation: {str(e)}")
-            print(f"Undo copy failed: {str(e)}")
+            self.viewer.show_message(f"Failed to delete copied file during undo: {str(e)}")
+            # 실패 시 작업 큐에 다시 넣기 (선택 사항)
+            # self.actions.appendleft(copy_action)
             return False, None
     
     def _restore_from_trash(self, original_path):
