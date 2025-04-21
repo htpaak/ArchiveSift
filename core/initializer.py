@@ -7,7 +7,7 @@ import os
 import platform
 import sys
 
-# main.py에서 사용되는 모듈들을 상대 경로로 가져옵니다.
+# main.py에서 사용되는 모듈들을 절대 경로로 가져옵니다.
 # 경로 관련 기능
 from core.utils.path_utils import get_app_directory, get_user_data_directory
 # 유틸리티 함수
@@ -20,15 +20,13 @@ from core.config_manager import load_settings, save_settings
 # 파일 형식 감지
 from media.format_detector import FormatDetector
 # 이미지 로딩 기능
-from media.loaders.image_loader import ImageLoaderThread
 from media.loaders.image_loader import ImageLoader, ImageLoaderThread
 # 미디어 처리
-from media.handlers.image_handler import ImageHandler
+from media.handlers.image_handler import ImageHandler, RAW_EXTENSIONS
 from media.handlers.psd_handler import PSDHandler
 from media.handlers.video_handler import VideoHandler
 from media.handlers.animation_handler import AnimationHandler
 from media.handlers.audio_handler import AudioHandler
-from media.handlers.image_handler import RAW_EXTENSIONS
 # 사용자 정의 UI 위젯
 from ui.components.slider import ClickableSlider
 from ui.components.scrollable_menu import ScrollableMenu
@@ -154,7 +152,7 @@ class ArchiveSiftInitializer:
         # --- 추가: 레이아웃 설정 로드 --- #
         viewer.layout_settings = load_settings("layout_settings.json")
         default_layout_settings = {
-            "button_rows": 5 # 기본값 5줄
+            "button_rows": 5 # 기본값 5줄로 수정
         }
         for key, value in default_layout_settings.items():
             if key not in viewer.layout_settings:
@@ -167,6 +165,11 @@ class ArchiveSiftInitializer:
                 viewer.layout_settings[key] = default_layout_settings[key]
         # --- 추가 끝 ---
 
+        # --- 수정: 로드된 레이아웃 설정에서 버튼 행 수 가져오기 ---
+        # 저장된 버튼 행 수를 가져오고, 없거나 잘못된 경우 기본값 5 사용
+        viewer.current_button_rows = viewer.layout_settings.get("button_rows", 5)
+        # --- 수정 끝 ---
+
         # 폴더 및 파일 관련 변수 초기화
         viewer.current_folder = ""  # 현재 폴더 경로
         viewer.image_files = []     # 이미지 파일 리스트
@@ -175,6 +178,33 @@ class ArchiveSiftInitializer:
         app_data_dir = get_user_data_directory()
         if not os.path.exists(app_data_dir):
             os.makedirs(app_data_dir, exist_ok=True)
+
+        # --- 레이아웃 관련 비율 설정 (current_button_rows 로드 후 수행) ---
+        # --- 제목 표시줄 비율 변경: 2 -> 3 --- # 이전 요청 반영됨
+        viewer.title_stretch = 3  # 제목 표시줄 비율 (값 3 유지)
+        # --- 변경 끝 ---
+        # --- 슬라이더 비율 변경: 3 -> 4 ---
+        viewer.slider_stretch = 4 # 슬라이더 영역 비율 (사용자 요청 반영)
+        # --- 변경 끝 ---
+        # --- 버튼 한 줄 비율 변경: 2 -> 3 ---
+        viewer.button_row_stretch = 3 # 버튼 한 줄당 비율 (사용자 요청 반영)
+        # --- 변경 끝 ---
+
+        # 로드된 버튼 행 수로 버튼 컨테이너 비율 계산 (변경된 button_row_stretch 사용)
+        viewer.button_stretch = viewer.current_button_rows * viewer.button_row_stretch
+
+        # 하단 UI 전체 비율 계산 (변경된 slider_stretch, button_stretch 사용)
+        viewer.total_bottom_stretch = viewer.slider_stretch + viewer.button_stretch
+
+        # 메인 콘텐츠 영역 비율 계산 (전체 100에서 나머지 제외)
+        viewer.main_stretch = 100 - (viewer.title_stretch + viewer.total_bottom_stretch)
+
+        # 메인 콘텐츠 비율이 음수가 되지 않도록 최소값 보장 (예: 10)
+        if viewer.main_stretch < 10:
+            viewer.logger.warning(f"Calculated main_stretch ({viewer.main_stretch}) is too small. Adjusting to 10.")
+            viewer.main_stretch = 10
+            # 비율 재조정 필요 시 로직 추가 가능 (예: 하단 UI 비율 줄이기)
+        # --- 레이아웃 비율 설정 끝 ---
 
         # 상태 관리자 초기화
         viewer.state_manager = StateManager()
@@ -434,27 +464,31 @@ class ArchiveSiftInitializer:
         title_layout.addWidget(close_btn)
 
         # 각 주요 요소의 기본 비율 정의 (하단은 내부 요소 합으로 계산됨)
-        viewer.title_stretch = 2
-        viewer.slider_stretch = 3
+        viewer.title_stretch = 3 # 값 3 유지
+        # --- 슬라이더 비율 변경: 3 -> 4 ---
+        viewer.slider_stretch = 4
+        # --- 변경 끝 ---
 
         # 버튼 줄 수 및 줄당 비율 정의
-        viewer.button_row_stretch = 2
+        # --- 버튼 한 줄 비율 변경: 2 -> 3 ---
+        viewer.button_row_stretch = 3
+        # --- 변경 끝 ---
         try:
             # 저장된 값이 정수형인지 확인 후 로드 (viewer.layout_settings 사용)
-            loaded_button_rows = int(viewer.layout_settings.get("button_rows", 5))
+            loaded_button_rows = int(viewer.layout_settings.get("button_rows", 5)) # 기본값 5 유지
             # --- 수정: 유효 범위 10으로 변경 ---
-            if not 1 <= loaded_button_rows <= 10: # 5 -> 10
-                 loaded_button_rows = 5 # 유효 범위 벗어나면 기본값 5로 (또는 10으로?) - 일단 5 유지
+            if not 1 <= loaded_button_rows <= 10: # 4 -> 10
+                 loaded_button_rows = 5 # 유효 범위 벗어나면 기본값 5로 수정
         except (ValueError, TypeError):
-            loaded_button_rows = 5 # 유효하지 않으면 기본값
+            loaded_button_rows = 5 # 유효하지 않으면 기본값 5로 수정
 
         # 이제 loaded_button_rows 는 1~10 사이의 유효한 값임
         viewer.current_button_rows = loaded_button_rows # 현재 적용된 줄 수 저장
 
-        # 버튼 컨테이너 비율 계산 (올바른 값 사용)
+        # 버튼 컨테이너 비율 계산 (변경된 값 사용)
         viewer.button_stretch = viewer.current_button_rows * viewer.button_row_stretch
 
-        # 하단 전체 및 메인 레이아웃 비율 계산
+        # 하단 전체 및 메인 레이아웃 비율 계산 (변경된 값 사용)
         viewer.total_bottom_stretch = viewer.slider_stretch + viewer.button_stretch
         viewer.main_stretch = 100 - (viewer.title_stretch + viewer.total_bottom_stretch)
 
@@ -689,6 +723,13 @@ class ArchiveSiftInitializer:
         # bottom_ui_container를 메인 레이아웃에 동적 비율로 추가 (저장된 비율 사용)
         # total_bottom_stretch = viewer.slider_stretch + viewer.button_stretch # 이미 계산됨
         layout.addWidget(viewer.bottom_ui_container, viewer.total_bottom_stretch)
+
+        # --- 추가: 레이아웃 비율 디버깅 출력 ---
+        print(f"DEBUG: Layout Stretch Ratios Applied:")
+        print(f"  - Title Bar Stretch: {viewer.title_stretch}")
+        print(f"  - Main Layout Stretch: {viewer.main_stretch}")
+        print(f"  - Bottom UI Container Stretch: {viewer.total_bottom_stretch}")
+        # --- 추가 끝 ---
 
         # 메인 레이아웃에 이미지 컨테이너 추가
         viewer.main_layout.set_media_display(viewer.image_label)

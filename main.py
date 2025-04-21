@@ -1934,7 +1934,9 @@ class ArchiveSift(QWidget):
                 button_layout.addWidget(empty_button)
 
             self.buttons.append(button_row)
-            button_container_layout.addWidget(row_widget, 1) # 각 행에 stretch 1 부여
+            # --- 비율 변경: 1 -> 2 ---
+            button_container_layout.addWidget(row_widget, 2) # 각 행에 stretch 2 부여
+            # --- 변경 끝 ---
 
         # 마지막 행 (Undo 버튼 포함)
         last_row_widget = QWidget()
@@ -1979,7 +1981,9 @@ class ArchiveSift(QWidget):
                 last_button_layout.addWidget(empty_button)
 
         self.buttons.append(last_button_row)
-        button_container_layout.addWidget(last_row_widget, 1) # 마지막 행에도 stretch 1 부여
+        # --- 비율 변경: 1 -> 2 ---
+        button_container_layout.addWidget(last_row_widget, 2) # 마지막 행에도 stretch 2 부여
+        # --- 변경 끝 ---
 
         # 기본 폴더 설정이 되어 있다면 버튼 업데이트
         if self.base_folder:
