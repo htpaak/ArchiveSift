@@ -492,17 +492,19 @@ class PreferencesDialog(QDialog):
         button_rows_layout = QHBoxLayout() # 라디오 버튼을 가로로 배치
         self.button_rows_group = QButtonGroup(self) # 라디오 버튼 그룹
 
-        for i in range(1, 6): # 1부터 5까지 라디오 버튼 생성
-            radio_button = QRadioButton(f"{i} Row{'s' if i > 1 else ''}")
-            # 라디오 버튼에 값(줄 수) 저장 (userData 사용은 여기선 불필요, 값으로 직접 식별)
-            button_rows_layout.addWidget(radio_button)
-            self.button_rows_group.addButton(radio_button, i) # 버튼과 ID(줄 수) 매핑
-
-        # 저장된 설정값으로 초기 상태 설정
+        self.button_rows_label = QLabel("Number of rows for folder buttons:")
+        self.button_rows_combo = QComboBox()
+        # 여기서 1부터 5까지 추가하고 있습니다. -> 1부터 10까지로 변경
+        self.button_rows_combo.addItems([str(i) for i in range(1, 11)]) # 1 ~ 10
+        # 현재 설정된 값으로 초기 선택
         current_rows = self.layout_settings.get("button_rows", 5) # 기본값 5
-        button_to_check = self.button_rows_group.button(current_rows)
-        if button_to_check:
-            button_to_check.setChecked(True)
+        # 만약 저장된 값이 10보다 크면 10으로 제한 (이전 버전 호환성)
+        if current_rows > 10:
+            current_rows = 10
+        self.button_rows_combo.setCurrentText(str(current_rows))
+
+        button_rows_layout.addWidget(self.button_rows_label)
+        button_rows_layout.addWidget(self.button_rows_combo)
 
         button_rows_groupbox.setLayout(button_rows_layout)
         general_layout.addWidget(button_rows_groupbox) # general_layout에 추가
@@ -965,5 +967,9 @@ class PreferencesDialog(QDialog):
         
     def get_selected_button_rows(self):
         """선택된 폴더 버튼 줄 수를 반환합니다."""
-        # QButtonGroup에서 선택된 버튼의 ID(줄 수)를 반환
-        return self.button_rows_group.checkedId() 
+        # QComboBox에서 현재 선택된 텍스트를 가져와 정수로 변환하여 반환
+        try:
+            return int(self.button_rows_combo.currentText())
+        except (ValueError, AttributeError):
+            # 오류 발생 시 기본값 반환 (예: 5)
+            return 5 # 기본값은 메인 창의 설정과 일치시키는 것이 좋음 

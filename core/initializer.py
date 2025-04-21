@@ -113,7 +113,7 @@ class ArchiveSiftInitializer:
         viewer.logger.info("Image viewer initialization start")
 
         # TooltipManager import는 클래스 정의 밖으로 이동했습니다.
-        # 툴팁 매니저 초기화
+        # 툴크 매니저 초기화
         viewer.tooltip_manager = TooltipManager(viewer)
 
         viewer.setWindowTitle('Image Viewer')  # 창 제목 설정
@@ -150,6 +150,22 @@ class ArchiveSiftInitializer:
 
         # 마우스 설정 로드 - 마우스 버튼 액션을 저장하는 사전
         viewer.load_mouse_settings()
+
+        # --- 추가: 레이아웃 설정 로드 --- #
+        viewer.layout_settings = load_settings("layout_settings.json")
+        default_layout_settings = {
+            "button_rows": 5 # 기본값 5줄
+        }
+        for key, value in default_layout_settings.items():
+            if key not in viewer.layout_settings:
+                viewer.layout_settings[key] = value
+            # 로드된 값이 int인지 확인 및 변환
+            try:
+                viewer.layout_settings[key] = int(viewer.layout_settings[key])
+            except (ValueError, TypeError):
+                # 변환 실패 시 기본값 사용
+                viewer.layout_settings[key] = default_layout_settings[key]
+        # --- 추가 끝 ---
 
         # 폴더 및 파일 관련 변수 초기화
         viewer.current_folder = ""  # 현재 폴더 경로
@@ -420,27 +436,28 @@ class ArchiveSiftInitializer:
         # 각 주요 요소의 기본 비율 정의 (하단은 내부 요소 합으로 계산됨)
         viewer.title_stretch = 2
         viewer.slider_stretch = 3
-        
+
         # 버튼 줄 수 및 줄당 비율 정의
         viewer.button_row_stretch = 2
-        layout_settings = load_settings("layout_settings.json")
         try:
-            # 저장된 값이 정수형인지 확인 후 로드
-            loaded_button_rows = int(layout_settings.get("button_rows", 5))
-            if not 1 <= loaded_button_rows <= 5:
-                 loaded_button_rows = 5 # 유효 범위 벗어나면 기본값
+            # 저장된 값이 정수형인지 확인 후 로드 (viewer.layout_settings 사용)
+            loaded_button_rows = int(viewer.layout_settings.get("button_rows", 5))
+            # --- 수정: 유효 범위 10으로 변경 ---
+            if not 1 <= loaded_button_rows <= 10: # 5 -> 10
+                 loaded_button_rows = 5 # 유효 범위 벗어나면 기본값 5로 (또는 10으로?) - 일단 5 유지
         except (ValueError, TypeError):
             loaded_button_rows = 5 # 유효하지 않으면 기본값
-            
+
+        # 이제 loaded_button_rows 는 1~10 사이의 유효한 값임
         viewer.current_button_rows = loaded_button_rows # 현재 적용된 줄 수 저장
-        
-        # 버튼 컨테이너 비율 계산 (로드된 값 사용)
+
+        # 버튼 컨테이너 비율 계산 (올바른 값 사용)
         viewer.button_stretch = viewer.current_button_rows * viewer.button_row_stretch
-        
+
         # 하단 전체 및 메인 레이아웃 비율 계산
         viewer.total_bottom_stretch = viewer.slider_stretch + viewer.button_stretch
         viewer.main_stretch = 100 - (viewer.title_stretch + viewer.total_bottom_stretch)
-        
+
         # 제목 표시줄을 메인 레이아웃에 추가 (저장된 비율 사용)
         layout.addWidget(viewer.title_bar, viewer.title_stretch)
 
@@ -781,3 +798,6 @@ class ArchiveSiftInitializer:
 
         # 전체 창에 휠 이벤트 필터 설치
         viewer.installEventFilter(viewer)
+
+        # 최종 UI 상태 업데이트 (사이즈 정책 등)
+        viewer.updateGeometry()
