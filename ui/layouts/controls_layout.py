@@ -469,12 +469,12 @@ class ControlsLayout(QWidget):
                 row_widget.setMaximumWidth(total_width)
                 
                 # 버튼 너비 계산
-                button_width = total_width / 20
+                button_width = total_width / 15
                 
                 # 각 버튼의 너비 설정
                 for i, button in enumerate(row):
-                    if i == 19:  # 마지막 버튼
-                        remaining_width = total_width - (int(button_width) * 19)
+                    if i == 14:  # 마지막 버튼
+                        remaining_width = total_width - (int(button_width) * 14)
                         button.setFixedWidth(remaining_width)
                     else:
                         button.setFixedWidth(int(button_width))

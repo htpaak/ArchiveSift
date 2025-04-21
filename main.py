@@ -1905,7 +1905,7 @@ class ArchiveSift(QWidget):
         self.buttons = [] # 버튼 리스트 초기화
         button_container_layout = self.button_container.layout()
         total_width = self.width()
-        
+
         # 폴더 버튼 행 생성 (num_rows - 1 줄)
         folder_button_rows = num_rows - 1
         for row_idx in range(folder_button_rows):
@@ -1917,15 +1917,15 @@ class ArchiveSift(QWidget):
             button_row = []
 
             available_width = total_width - button_layout.contentsMargins().left() - button_layout.contentsMargins().right()
-            button_width = max(1, available_width // 20) 
+            button_width = max(1, available_width // 15)
 
-            for i in range(20):
+            for i in range(15):
                 empty_button = DualActionButton('', self) # self(viewer) 전달
                 empty_button.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Preferred)
                 empty_button.clicked.connect(self.on_button_click)
 
-                if i == 19:
-                    remaining_width = total_width - (button_width * 19)
+                if i == 14:
+                    remaining_width = total_width - (button_width * 14)
                     empty_button.setFixedWidth(remaining_width)
                 else:
                     empty_button.setFixedWidth(button_width)
@@ -1935,7 +1935,7 @@ class ArchiveSift(QWidget):
 
             self.buttons.append(button_row)
             button_container_layout.addWidget(row_widget, 1) # 각 행에 stretch 1 부여
-            
+
         # 마지막 행 (Undo 버튼 포함)
         last_row_widget = QWidget()
         last_button_layout = QHBoxLayout(last_row_widget)
@@ -1944,10 +1944,10 @@ class ArchiveSift(QWidget):
         last_button_row = []
 
         available_width = total_width - last_button_layout.contentsMargins().left() - last_button_layout.contentsMargins().right()
-        button_width = max(1, available_width // 20)
+        button_width = max(1, available_width // 15)
 
-        for i in range(20):
-            if i == 19:
+        for i in range(15):
+            if i == 14:
                 # Undo 버튼 재생성 또는 기존 참조 사용 (재생성 권장)
                 undo_button = QPushButton('Undo', self)
                 undo_button.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Preferred)
@@ -1959,14 +1959,14 @@ class ArchiveSift(QWidget):
                 undo_button.clicked.connect(self.undo_last_action)
                 self.undo_button = undo_button # 참조 업데이트
                 # UndoManager 시그널 연결 (기존 연결 해제 후 재연결 필요할 수 있음)
-                try: 
+                try:
                     self.undo_manager.undo_status_changed.disconnect(self.update_undo_button_state)
                 except TypeError:
                     pass # 연결 안되어 있었으면 무시
                 self.undo_manager.undo_status_changed.connect(self.update_undo_button_state)
                 self.update_undo_button_state(self.undo_manager.can_undo()) # 초기 상태 업데이트
 
-                remaining_width = total_width - (int(button_width) * 19)
+                remaining_width = total_width - (int(button_width) * 14)
                 undo_button.setFixedWidth(remaining_width)
                 last_button_row.append(undo_button)
                 last_button_layout.addWidget(undo_button)
@@ -1980,18 +1980,18 @@ class ArchiveSift(QWidget):
 
         self.buttons.append(last_button_row)
         button_container_layout.addWidget(last_row_widget, 1) # 마지막 행에도 stretch 1 부여
-        
+
         # 기본 폴더 설정이 되어 있다면 버튼 업데이트
         if self.base_folder:
             self.update_folder_buttons() # 폴더 버튼 업데이트 함수 호출 (set_base_folder 로직 재사용/분리 필요)
-            
+
     # --- 추가 끝 ---
 
     # --- 추가: 폴더 버튼 업데이트 헬퍼 메서드 (set_base_folder 로직 분리) ---
     def update_folder_buttons(self):
         """현재 base_folder 기준으로 폴더 버튼 내용을 업데이트합니다."""
         print("DEBUG: update_folder_buttons entered") # 함수 진입 로그 추가
-        
+
         if not self.base_folder or not os.path.exists(self.base_folder):
             print("DEBUG: No base folder set or path invalid, returning early.") # 조기 리턴 로그 추가
             # 기본 폴더가 없거나 유효하지 않으면 모든 버튼 초기화
@@ -2000,7 +2000,7 @@ class ArchiveSift(QWidget):
                     # 폰트 크기 초기화 (기본값으로 되돌림)
                     if hasattr(button, 'setFont'):
                         button.setFont(QApplication.font()) # 애플리케이션 기본 폰트로 설정
-                        
+
                     if hasattr(button, 'set_folder_info'):
                         button.set_folder_info('', '')
                     # Undo 버튼은 텍스트 유지
@@ -2010,7 +2010,7 @@ class ArchiveSift(QWidget):
                         button.setText('')
                         button.setToolTip('')
             return
-            
+
         # 하위 폴더 목록 가져오기 및 정렬
         try:
             subfolders = [f.path for f in os.scandir(self.base_folder) if f.is_dir()]
@@ -2020,8 +2020,7 @@ class ArchiveSift(QWidget):
 
         # 버튼 너비 계산 (현재 창 너비 기준)
         total_width = self.width()
-        # button_container_layout의 마진/패딩 고려 필요 시 추가
-        button_width = max(1, total_width // 20)
+        button_width = max(1, total_width // 15)
 
         # 폴더 버튼 업데이트
         button_index = 0
@@ -2033,27 +2032,23 @@ class ArchiveSift(QWidget):
                     if hasattr(button, 'setFont'):
                         button.setFont(QApplication.font())
                     continue
-                
+
                 if button_index < len(subfolders):
                     folder_path = subfolders[button_index]
                     folder_name = os.path.basename(folder_path)
-                    
+
                     # 버튼 너비 재계산 및 설정 (마지막 열 버튼 처리 포함)
                     current_button_width = button_width
-                    if j == 19: 
-                        remaining_width = total_width - (button_width * 19)
+                    if j == 14:
+                        remaining_width = total_width - (button_width * 14)
                         current_button_width = max(button_width, remaining_width) # 마지막 버튼이 너무 작아지지 않도록
-                    button.setFixedWidth(current_button_width) 
+                    button.setFixedWidth(current_button_width)
 
                     # --- 폰트 크기 고정 로직 (High DPI 스케일링 활용) ---
                     # 동적 계산 제거하고 고정 포인트 크기 설정 (예: 9pt)
                     # Qt의 High DPI 스케일링 기능이 DPI에 따라 실제 픽셀 크기를 조절함
                     font_size = 8 # 고정 포인트 크기
-                    
-                    # 디버그 로그 제거
-                    # if i == 0 and j == 0:
-                    #     print(f"DEBUG: Button Width: {current_button_width}, Final Font Size: {font_size}")
-                    
+
                     # 버튼 폰트 가져오기 및 크기 설정
                     font = button.font()
                     font.setPointSize(font_size)
@@ -2061,11 +2056,11 @@ class ArchiveSift(QWidget):
                     # --- 폰트 크기 고정 로직 끝 ---
 
                     # 사용 가능한 너비 계산 (패딩 고려)
-                    available_width = current_button_width - 16 
+                    available_width = current_button_width - 16
                     # 현재 버튼의 폰트 메트릭스 가져오기 (변경된 폰트 기준)
                     font_metrics = QFontMetrics(button.font())
                     text_width = font_metrics.horizontalAdvance(folder_name)
-                    
+
                     # 텍스트 길이 조절 (변경된 폰트 기준)
                     truncated_name = folder_name
                     if text_width > available_width and available_width > 0:
@@ -2078,7 +2073,7 @@ class ArchiveSift(QWidget):
                         # 그래도 너무 길면 (극단적인 경우) 첫 글자와 .. 만 표시
                         if font_metrics.horizontalAdvance(truncated_name) > available_width:
                              truncated_name = folder_name[0] + ".." if folder_name else ".."
-                             
+
                     # 버튼 정보 설정 (텍스트 및 툴팁)
                     if hasattr(button, 'set_folder_info'):
                         button.set_folder_info(folder_path, truncated_name)
@@ -2094,15 +2089,13 @@ class ArchiveSift(QWidget):
                     else:
                         button.setText('')
                         button.setToolTip('')
-               
+
                 button_index += 1
-                
+
         # Undo 버튼 텍스트 유지 (필요 시)
         if hasattr(self, 'undo_button') and self.undo_button:
              # Undo 버튼 폰트 크기 재설정 (다른 버튼과 스타일 다름)
              undo_font = self.undo_button.font()
-             # 기본 크기 또는 특정 크기 설정 (필요에 따라)
-             # undo_font.setPointSize(10) # 예시: 10pt로 고정
              self.undo_button.setFont(undo_font)
              self.undo_button.setText("Undo")
     # --- 추가 끝 ---
