@@ -175,6 +175,13 @@ class VideoHandler(MediaHandler):
             self.video_position = self.mpv_player.playback_time
             self.video_duration = self.mpv_player.duration
 
+            # --- 추가: UI 업데이트 직접 호출 ---
+            # 타이머 콜백에서 직접 UI 업데이트 함수를 호출하여
+            # 내부 상태와 UI가 항상 동기화되도록 함
+            if self.video_position is not None and self.video_duration is not None:
+                self.update_video_playback() # 슬라이더 및 시간 레이블 업데이트
+            # --- 추가 끝 ---
+
     def _on_duration_change(self, name, value):
         """
         비디오 재생 시간이 변경될 때 호출되는 콜백 함수
