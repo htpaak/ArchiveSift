@@ -659,12 +659,26 @@ class ArchiveSift(QWidget):
             total_files = len(self.image_files)
             self.image_info_label.update_index(self.current_index, total_files)
             
+            # --- 추가: 고정 폰트/패딩으로 변경 ---
+            # 창 크기에 따라 폰트 크기 동적 조절 (주석 처리 또는 삭제)
+            # window_width = self.width()
+            # font_size = max(12, min(32, int(window_width * 0.02)))
+
+            # 패딩과 마진도 창 크기에 비례하여 조절 (margin은 유지)
+            window_width = self.width() # margin 계산 위해 유지
+            # padding = max(8, min(12, int(window_width * 0.008))) # 주석 처리 또는 삭제
+            margin = max(10, min(30, int(window_width * 0.02))) # 마진 계산은 유지
+
+            # 고정 폰트 크기(pt) 및 패딩(px) 사용
+            font_size_pt = 15  # 10pt -> 15pt 변경
+            padding_px = 5   # 10px -> 5px 변경
+
             self.image_info_label.setStyleSheet(f"""
                 QLabel {{
                     color: white;
                     background-color: rgba(52, 73, 94, 0.9);
-                    font-size: {font_size}px;
-                    padding: {padding}px {padding + 4}px;
+                    font-size: {font_size_pt}pt; /* pt 단위 사용 */
+                    padding: {padding_px}px {padding_px + 4}px; /* px 단위 사용 (좌우 패딩 약간 늘림) */
                     border-radius: 3px;
                     font-weight: normal;
                 }}
@@ -674,20 +688,21 @@ class ArchiveSift(QWidget):
                 QLineEdit {{
                     color: white;
                     background-color: rgba(52, 73, 94, 0.9);
-                    font-size: {font_size}px;
-                    padding: {padding}px {padding + 4}px;
+                    font-size: {font_size_pt}pt; /* pt 단위 사용 */
+                    padding: {padding_px}px {padding_px + 4}px; /* px 단위 사용 */
                     border-radius: 3px;
                     border: 1px solid #7f8c8d;
                     font-weight: normal;
                     selection-background-color: #3498db;
                 }}
             """)
-            
+            # --- 고정값 변경 끝 ---
+
             # 레이블 크기와 위치 조정
             self.image_info_label.adjustSize()
             
             # 우측 상단에 위치 (여백은 창 크기에 비례, 툴바 높이 고려)
-            toolbar_height = 90  # 제목바(30) + 툴바(40) + 추가 여백(20)
+            toolbar_height = 45  # 제목바(30) + 툴바(40) + 추가 여백(20) -> 45로 변경
             x = self.width() - self.image_info_label.width() - margin
             y = toolbar_height + margin
             
@@ -813,23 +828,38 @@ class ArchiveSift(QWidget):
         padding = max(8, min(12, int(window_width * 0.008)))
         margin = max(10, min(30, int(window_width * 0.02)))
         
+        # --- 추가: 고정 폰트/패딩으로 변경 ---
+        # 창 크기에 따라 폰트 크기 동적 조절 (주석 처리 또는 삭제)
+        # window_width = self.width()
+        # font_size = max(12, min(32, int(window_width * 0.02)))
+
+        # 패딩과 마진도 창 크기에 비례하여 조절 (margin은 유지)
+        window_width = self.width() # margin 계산 위해 유지
+        # padding = max(8, min(12, int(window_width * 0.008))) # 주석 처리 또는 삭제
+        margin = max(10, min(30, int(window_width * 0.02))) # 마진 계산은 유지
+
+        # 고정 폰트 크기(pt) 및 패딩(px) 사용
+        font_size_pt = 15  # 10pt -> 15pt 변경
+        padding_px = 5   # 10px -> 5px 변경
+
         self.message_label.setStyleSheet(f"""
             QLabel {{
                 color: white;
                 background-color: rgba(52, 73, 94, 0.9);
-                font-size: {font_size}px;
-                padding: {padding}px {padding + 4}px;
+                font-size: {font_size_pt}pt; /* pt 단위 사용 */
+                padding: {padding_px}px {padding_px + 4}px; /* px 단위 사용 (좌우 패딩 약간 늘림) */
                 border-radius: 3px;
                 font-weight: normal;
             }}
         """)
-        
+        # --- 고정값 변경 끝 ---
+
         self.message_label.setAlignment(Qt.AlignCenter)
         self.message_label.show()
         self.message_label.adjustSize()
         
         # 좌측 상단에 위치 (image_info_label과 동일한 높이 사용)
-        toolbar_height = 90  # 제목바(30) + 툴바(40) + 추가 여백(20)
+        toolbar_height = 45  # 제목바(30) + 툴바(40) + 추가 여백(20) -> 45로 변경
         self.message_label.move(margin, toolbar_height + margin)
         self.message_label.raise_()  # 항상 위에 표시되도록 함
         
