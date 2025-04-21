@@ -461,13 +461,15 @@ class ArchiveSift(QWidget):
 
     def prepare_for_media_loading(self, image_path):
         """Preparations before media loading"""
-        # Skip resource cleanup for boundary navigation
-        if self.is_boundary_navigation:
-            # Flag reset
-            self.is_boundary_navigation = False
-        else:
-            # Perform resource cleanup in normal cases
-            self.cleanup_current_media()
+        # --- 제거: is_boundary_navigation 플래그 체크 제거 ---
+        # if self.is_boundary_navigation:
+        #     self.is_boundary_navigation = False
+        # else:
+        #     self.cleanup_current_media()
+        # --- 제거 끝 ---
+        # 이제 show_image는 성공적인 네비게이션 후에만 호출되므로,
+        # 항상 이전 미디어를 정리합니다.
+        self.cleanup_current_media()
 
         # Check image size
         image_size_mb = 0
@@ -534,16 +536,11 @@ class ArchiveSift(QWidget):
             QTimer.singleShot(300, self.delayed_resize)
 
     def show_image(self, image_path):
-        """Display image/media file and update related UI
-           Resets the is_boundary_navigation flag that skips resource cleanup in the prepare_for_media_loading method.
-        """
-        # Reset flag to not skip resource cleanup when boundary is reached
-        # Print boundary_navigation flag state
-        
-        # 항상 리소스를 정리하도록 플래그 재설정
-        # is_boundary_navigation 상태와 상관없이 미디어 로딩 전에 리소스를 항상 정리
-        self.is_boundary_navigation = False
-        
+        """Display image/media file and update related UI"""
+        # --- 제거: is_boundary_navigation 플래그 리셋 제거 ---
+        # self.is_boundary_navigation = False
+        # --- 제거 끝 ---
+
         # 이미지 핸들러에게 이미지 표시 위임
         self.image_handler.show_image(image_path)
 
@@ -721,43 +718,37 @@ class ArchiveSift(QWidget):
         # Check current index and the number of image files to determine if it's the last image
         current_index = self.file_navigator.get_current_index()
         file_count = len(self.file_navigator.get_files())
-        
-        # Handle boundary navigation only when it is the last image
         is_last_image = (current_index >= file_count - 1)
-        
+
         success, next_image = self.file_navigator.next_file()
         if success and next_image:
             self.current_index = self.file_navigator.get_current_index()  # Synchronize index
             self.state_manager.set_state("current_index", self.current_index)  # Update state manager
-            self.show_image(next_image)
-        else:
-            # Set boundary navigation flag only when trying to go beyond the last image
-            if is_last_image:
-                self.is_boundary_navigation = True
-            else:
-                # Handle failure for other reasons in a general manner
-                pass
+            self.show_image(next_image) # 네비게이션 성공 시에만 show_image 호출
+        elif is_last_image:
+            # 네비게이션 실패가 마지막 파일 때문일 경우 메시지만 표시
+            self.show_message("This is the last file.")
+            # 다른 실패 시나리오는 여기서 처리 (필요한 경우)
+        # else:
+        #     pass # 다른 실패 이유 처리
 
     def show_previous_image(self):
         """Move to the previous image."""
         # Check current index and the number of image files to determine if it's the first image
         current_index = self.file_navigator.get_current_index()
-        
-        # Handle boundary navigation only when it is the first image (index 0)
         is_first_image = (current_index == 0)
-        
+
         success, prev_image = self.file_navigator.previous_file()
         if success and prev_image:
             self.current_index = self.file_navigator.get_current_index()  # Synchronize index
             self.state_manager.set_state("current_index", self.current_index)  # Update state manager
-            self.show_image(prev_image)
-        else:
-            # Set boundary navigation flag only when trying to go before the first image
-            if is_first_image:
-                self.is_boundary_navigation = True
-            else:
-                # Handle failure for other reasons in a general manner
-                pass
+            self.show_image(prev_image) # 네비게이션 성공 시에만 show_image 호출
+        elif is_first_image:
+             # 네비게이션 실패가 첫 파일 때문일 경우 메시지만 표시
+            self.show_message("This is the first file.")
+            # 다른 실패 시나리오는 여기서 처리 (필요한 경우)
+        # else:
+        #     pass # 다른 실패 이유 처리
 
     def handle_navigation(self, direction):
         """Handles image navigation logic.
@@ -765,51 +756,48 @@ class ArchiveSift(QWidget):
         Args:
             direction (str): 'next' or 'previous'
         """
-        # Debug messages removed: current index before navigation, current image, file navigator file count, and main image list count
-        
+        # Debug messages removed
+
         # Check image list synchronization
         if self.file_navigator.get_files() != self.image_files:
-            # Synchronize if necessary
             self.image_files = self.file_navigator.get_files()
-        
-        # Default boundary navigation flag is False
-        self.is_boundary_navigation = False
-        
-        # Check current index
-        current_index = self.file_navigator.get_current_index()
-        file_count = len(self.file_navigator.get_files())
-        
-        # Determine if it is the first or last image
-        is_first_image = (current_index == 0)
-        is_last_image = (current_index >= file_count - 1)
-        
+
+        # --- 제거: is_boundary_navigation 플래그 관련 로직 제거 ---
+        # self.is_boundary_navigation = False
+        # current_index = self.file_navigator.get_current_index()
+        # file_count = len(self.file_navigator.get_files())
+        # is_first_image = (current_index == 0)
+        # is_last_image = (current_index >= file_count - 1)
+        # --- 제거 끝 ---
+
         # Call the appropriate method based on navigation direction
         if direction == 'next':
-            success, image_path = self.file_navigator.next_file()
-            direction_text = "next"
-            
-            # Set boundary navigation flag only when attempting to go beyond the last image
-            if not success and is_last_image:
-                self.is_boundary_navigation = True
+            self.show_next_image() # 이제 show_next_image가 모든 로직 처리
+            # --- 제거: 기존 로직 제거 ---
+            # success, image_path = self.file_navigator.next_file()
+            # direction_text = "next"
+            # if not success and is_last_image:
+            #     self.is_boundary_navigation = True
+            # --- 제거 끝 ---
         else:  # previous
-            success, image_path = self.file_navigator.previous_file()
-            direction_text = "previous"
-            
-            # Set boundary navigation flag only when attempting to go before the first image
-            if not success and is_first_image:
-                self.is_boundary_navigation = True
-        
-        # Debug messages removed: image load success/failure details
-        if success and image_path:
-            self.current_index = self.file_navigator.get_current_index()  # Synchronize index
-            # Debug message removed: new index
-            self.show_image(image_path)
-        else:
-            # Display message if navigation fails due to boundary or unknown reason
-            if self.is_boundary_navigation:
-                pass  # Debug message removed: image load failed - boundary reached
-            else:
-                pass  # Debug message removed: image load failed - unknown reason
+            self.show_previous_image() # 이제 show_previous_image가 모든 로직 처리
+            # --- 제거: 기존 로직 제거 ---
+            # success, image_path = self.file_navigator.previous_file()
+            # direction_text = "previous"
+            # if not success and is_first_image:
+            #     self.is_boundary_navigation = True
+            # --- 제거 끝 ---
+
+        # --- 제거: show_image 호출 및 실패 메시지 로직 제거 ---
+        # if success and image_path:
+        #     self.current_index = self.file_navigator.get_current_index()
+        #     self.show_image(image_path)
+        # else:
+        #     if self.is_boundary_navigation:
+        #          self.show_message("This is the first/last file.") # 메시지는 show_next/previous에서 처리
+        #     else:
+        #          pass # Unknown reason
+        # --- 제거 끝 ---
 
     def show_message(self, message):
         if hasattr(self, 'message_label') and self.message_label.isVisible():

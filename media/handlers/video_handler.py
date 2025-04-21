@@ -210,14 +210,22 @@ class VideoHandler(MediaHandler):
             name: 속성 이름
             value: 변경된 값 (비디오 종료 상태)
         """
+        # --- 디버깅 출력 추가 ---
+        print(f"DEBUG: _on_video_end called - name: {name}, value: {value}")
+        # --- 추가 끝 ---
+
         if value:  # 종료 상태가 참(True)인 경우에만 처리
+            # --- 디버깅 출력 추가 ---
+            print(f"DEBUG: Video end detected (value is True). Stopping timer and resetting state.")
+            # --- 추가 끝 ---
             self.is_playing = False
             self.video_position = 0
             self.video_duration = 0
             self.video_timer.stop()
-            
+
             # 비디오 종료 처리를 위한 on_video_end 메서드 호출
-            self.on_video_end(name, value)
+            # self.on_video_end(name, value) # 이 부분은 ArchiveSift의 on_video_end를 호출하는 것으로 보임. 중복 처리일 수 있음.
+            # 우선 주석 처리하고 ArchiveSift의 핸들러만 사용하도록 유도
 
     def play(self):
         """

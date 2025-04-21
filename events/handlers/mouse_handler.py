@@ -173,13 +173,16 @@ class MouseHandler(QObject):
         """이미지 전환 전 미디어 상태를 정리합니다."""
         # 현재 미디어 타입 확인
         current_media_type = getattr(self.parent, 'current_media_type', 'unknown')
-        
-        # 비디오 플레이어 정지만 수행 (정리는 show_image 내부에서 처리)
-        if current_media_type == 'video':
-            # 비디오 중지
-            self.parent.stop_video()
-        
-        return True  # 준비 작업 수행됨
+
+        # --- 제거: 비디오 플레이어 정지 로직 제거 ---
+        # # 비디오 플레이어 정지만 수행 (정리는 show_image 내부에서 처리)
+        # if current_media_type == 'video':
+        #     # 비디오 중지
+        #     self.parent.stop_video()
+        # --- 제거 끝 ---
+        # 이제 비디오 정리는 show_image 내부에서만 처리됩니다.
+
+        return True  # 준비 작업 수행됨 (실제 하는 일은 없음)
         
     def handle_double_click(self, event=None):
         """
