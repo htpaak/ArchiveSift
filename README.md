@@ -101,14 +101,6 @@ Built with:
 -   OpenCV and Pillow for image processing 🖼️
 -   MPV for robust video playback ▶️
 
-## License 📜
-
-*(Add your license information here, e.g., MIT License. Consider adding a LICENSE file.)*
-
-## Contributing 🙌
-
-*(Optional: Add guidelines for contributing here if you welcome contributions. E.g., how to report bugs, suggest features, or submit pull requests.)*
-
 ## Acknowledgments 🙏
 
 -   Thanks to all the potential contributors who might help with development in the future! 💖
