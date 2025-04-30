@@ -666,12 +666,12 @@ class ControlsLayout(QWidget):
         
         # 시도할 경로 목록
         icon_paths = [
-            './core/ArchiveSift.ico',
-            'core/ArchiveSift.ico',
-            os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../core/ArchiveSift.ico'),
-            os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'core', 'ArchiveSift.ico'),
-            'ArchiveSift.ico',
-            './ArchiveSift.ico'
+            './core/ImageSortingPAAK.ico',
+            'core/ImageSortingPAAK.ico',
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../core/ImageSortingPAAK.ico'),
+            os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'core', 'ImageSortingPAAK.ico'),
+            'ImageSortingPAAK.ico',
+            './ImageSortingPAAK.ico'
         ]
         
         # 찾은 첫 번째 유효한 아이콘 경로 사용

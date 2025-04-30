@@ -18,7 +18,7 @@ class MediaHandler(ABC):
     이 클래스를 상속받아 공통 인터페이스를 구현해야 합니다.
     
     Attributes:
-        parent: 부모 위젯 (보통 ArchiveSift 클래스의 인스턴스)
+        parent: 부모 위젯 (보통 ImageSortingPAAK 클래스의 인스턴스)
         display_label: 미디어를 표시할 QLabel 위젯
     """
     
@@ -27,7 +27,7 @@ class MediaHandler(ABC):
         MediaHandler 클래스 초기화
         
         Args:
-            parent: 부모 위젯 (보통 ArchiveSift 클래스의 인스턴스)
+            parent: 부모 위젯 (보통 ImageSortingPAAK 클래스의 인스턴스)
             display_label: 미디어를 표시할 QLabel 위젯
         """
         self.parent = parent

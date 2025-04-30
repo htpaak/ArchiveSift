@@ -1,5 +1,5 @@
 @echo off
-echo Building ArchiveSift single-file executable...
+echo Building ImageSortingPAAK single-file executable...
 echo.
 
 REM Check if PyInstaller is installed
@@ -10,7 +10,7 @@ if %errorlevel% neq 0 (
 )
 
 REM Create the single-file executable
-pyinstaller --clean archivesift_onefile.spec
+pyinstaller --clean ImageSortingPAAK_onefile.spec
 
 echo.
 if %errorlevel% equ 0 (

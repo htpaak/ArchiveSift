@@ -20,7 +20,7 @@ class TimerManager:
         TimerManager 클래스를 초기화합니다.
         
         Args:
-            viewer: ArchiveSift 인스턴스
+            viewer: ImageSortingPAAK 인스턴스
         """
         self.viewer = viewer
         self.singleshot_timers = []  # 일회성 타이머 추적을 위한 리스트

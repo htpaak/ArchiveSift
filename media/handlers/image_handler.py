@@ -61,7 +61,7 @@ class ImageHandler(MediaHandler):
     일반 이미지 파일(JPG, PNG 등)을 로드하고 표시하는 기능을 제공합니다.
     
     Attributes:
-        parent: 부모 위젯 (ArchiveSift 클래스의 인스턴스)
+        parent: 부모 위젯 (ImageSortingPAAK 클래스의 인스턴스)
         display_label: 이미지를 표시할 QLabel 위젯
         current_pixmap: 현재 로드된 이미지의 QPixmap 객체
         original_pixmap: 원본 크기의 QPixmap 객체 (크기 조정 전)
@@ -75,7 +75,7 @@ class ImageHandler(MediaHandler):
         ImageHandler 클래스 초기화
         
         Args:
-            parent: 부모 위젯 (ArchiveSift 클래스의 인스턴스)
+            parent: 부모 위젯 (ImageSortingPAAK 클래스의 인스턴스)
             display_label: 이미지를 표시할 QLabel 위젯
         """
         super().__init__(parent, display_label)

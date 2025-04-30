@@ -29,7 +29,7 @@ class AboutDialog(QDialog):
         # 버전 정보 가져오기
         version_info = get_version_info()
         
-        self.setWindowTitle(f"ArchiveSift {get_full_version_string()}")  # 창의 제목에 버전 표시
+        self.setWindowTitle(f"ImageSortingPAAK {get_full_version_string()}")  # 창의 제목에 버전 표시
         self.setMinimumWidth(500)  # 창의 최소 너비를 설정해요
         self.setMinimumHeight(400)  # 창의 최소 높이를 설정해요
         
@@ -38,7 +38,7 @@ class AboutDialog(QDialog):
         layout = QVBoxLayout(self)
         
         # 프로그램 제목 - 맨 위에 큰 글씨로 표시해요
-        title_label = QLabel("ArchiveSift")
+        title_label = QLabel("ImageSortingPAAK")
         title_label.setAlignment(Qt.AlignCenter)  # 가운데 정렬해요
         title_label.setStyleSheet("font-size: 24px; font-weight: bold; color: rgba(52, 73, 94, 1.0);")  # 글씨 스타일을 설정해요
         layout.addWidget(title_label)
@@ -64,7 +64,7 @@ class AboutDialog(QDialog):
         
         # 프로그램 설명 - 프로그램이 무엇인지 간단히 설명해요
         description = QLabel(
-            "ArchiveSift is a powerful file organization tool designed to help you "
+            "ImageSortingPAAK is a powerful file organization tool designed to help you "
             "easily and quickly categorize and manage various media files, "
             "including images, videos, and animations. With its intuitive interface, "
             "you can view your media and instantly copy or move them to your desired folders."
@@ -80,9 +80,9 @@ class AboutDialog(QDialog):
         scroll_layout.addWidget(links_label)
 
         links_detail = QLabel(
-            '• <a href="https://github.com/htpaak/ArchiveSift">GitHub Repository</a><br>'
-            '• <a href="https://github.com/htpaak/ArchiveSift/releases/latest">Download Latest Version</a><br>'
-            '• <a href="https://github.com/htpaak/ArchiveSift/discussions">Feedback</a>'
+            '• <a href="https://github.com/htpaak/ImageSortingPAAK">GitHub Repository</a><br>'
+            '• <a href="https://github.com/htpaak/ImageSortingPAAK/releases/latest">Download Latest Version</a><br>'
+            '• <a href="https://github.com/htpaak/ImageSortingPAAK/discussions">Feedback</a>'
         )
         links_detail.setOpenExternalLinks(True) # 링크 클릭 시 외부 브라우저에서 열기
         links_detail.setStyleSheet("margin-left: 15px;")

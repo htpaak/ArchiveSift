@@ -97,7 +97,7 @@ from file.undo_manager import UndoManager
 from ui.components.dual_action_button import DualActionButton  # 듀얼 액션 버튼 클래스 import
 # from ui.components.tooltip_manager import TooltipManager
 # from ui.components.loading_indicator import LoadingIndicator
-from core.initializer import ArchiveSiftInitializer
+from core.initializer import ImageSortingPAAKInitializer
 
 # Add MPV DLL path to PATH environment variable (required before importing mpv module)
 # 현재 실행 중인 디렉토리를 PATH에 추가 (PyInstaller로 패키징된 경우를 위한 코드)
@@ -189,11 +189,11 @@ from core.debug import QMovieDebugger, MemoryProfiler
 from core.memory import ResourceCleaner, TimerManager
 
 # 메인 이미지 뷰어 클래스 정의
-class ArchiveSift(QWidget):
+class ImageSortingPAAK(QWidget):
     def __init__(self):
         super().__init__()  # 부모 클래스 초기화        
         # 초기화 위임
-        initializer = ArchiveSiftInitializer()
+        initializer = ImageSortingPAAKInitializer()
         initializer.initialize(self)
         
         # 추가 이벤트 핸들러 함수 추가
@@ -423,8 +423,8 @@ class ArchiveSift(QWidget):
     def update_window_title(self, image_path):
         """창 제목과 제목표시줄 업데이트"""
         # 파일 이름을 제목표시줄에 표시
-        file_name = os.path.basename(image_path) if image_path else "ArchiveSift"
-        title_text = f"ArchiveSift - {file_name}" if image_path else "ArchiveSift"
+        file_name = os.path.basename(image_path) if image_path else "ImageSortingPAAK"
+        title_text = f"ImageSortingPAAK - {file_name}" if image_path else "ImageSortingPAAK"
         
         # 제목표시줄 레이블 찾아서 텍스트 업데이트
         title_label = self.title_bar.controls.get('title_label')
@@ -1679,7 +1679,7 @@ class ArchiveSift(QWidget):
 
     def open_feedback(self):
         """GitHub Discussions 페이지를 웹 브라우저에서 엽니다."""
-        feedback_url = "https://github.com/htpaak/ArchiveSift/discussions"
+        feedback_url = "https://github.com/htpaak/ImageSortingPAAK/discussions"
         QDesktopServices.openUrl(QUrl(feedback_url))
 
     def go_to_index(self, index):
@@ -2100,12 +2100,12 @@ def main():
     # --- 추가 끝 ---
     
     app = QApplication(sys.argv)  # Qt application instance creation
-    app.setApplicationName("ArchiveSift")  # Set application name
+    app.setApplicationName("ImageSortingPAAK")  # Set application name
     
     # 작업 표시줄 아이콘 설정
-    icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'core', 'ArchiveSift.ico')
+    icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'core', 'ImageSortingPAAK.ico')
     if not os.path.exists(icon_path):
-        icon_path = 'core/ArchiveSift.ico'
+        icon_path = 'core/ImageSortingPAAK.ico'
     
     app_icon = QIcon(icon_path)
     app.setWindowIcon(app_icon)
@@ -2114,12 +2114,12 @@ def main():
     if platform.system() == 'Windows':
         try:
             import ctypes
-            myappid = 'ArchiveSift.ImageViewer.1.0'
+            myappid = 'ImageSortingPAAK.ImageViewer.1.0'
             ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
         except Exception as e:
             print(f"Windows taskbar icon setting error: {e}")
     
-    viewer = ArchiveSift()  # Create instance of ArchiveSift class
+    viewer = ImageSortingPAAK()  # Create instance of ImageSortingPAAK class
     viewer.show()  # Display viewer window
     exit_code = app.exec_()  # Execute event loop
     sys.exit(exit_code)

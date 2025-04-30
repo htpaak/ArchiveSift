@@ -1,16 +1,16 @@
-# ArchiveSift 🗄️✨
+# ImageSortingPAAK 🗄️✨
 
-ArchiveSift is a powerful file organization tool 🛠️ that allows you to easily and quickly categorize and manage media files 🖼️🎬🎵. You can view images, videos, animations, and other formats through an intuitive interface while instantly copying or moving them to your desired folders 📁➡️📁.
+ImageSortingPAAK is a powerful file organization tool 🛠️ that allows you to easily and quickly categorize and manage media files 🖼️🎬🎵. You can view images, videos, animations, and other formats through an intuitive interface while instantly copying or moving them to your desired folders 📁➡️📁.
 
-[![GitHub release](https://img.shields.io/github/release/htpaak/ArchiveSift.svg?logo=github)](https://github.com/htpaak/ArchiveSift/releases/latest)
-[![GitHub downloads](https://img.shields.io/github/downloads/htpaak/ArchiveSift/latest/total.svg?logo=github)](https://github.com/htpaak/ArchiveSift/releases/latest)
-[![GitHub downloads](https://img.shields.io/github/downloads/htpaak/ArchiveSift/total.svg?logo=github)](https://github.com/htpaak/ArchiveSift/releases)
+[![GitHub release](https://img.shields.io/github/release/htpaak/ImageSortingPAAK.svg?logo=github)](https://github.com/htpaak/ImageSortingPAAK/releases/latest)
+[![GitHub downloads](https://img.shields.io/github/downloads/htpaak/ImageSortingPAAK/latest/total.svg?logo=github)](https://github.com/htpaak/ImageSortingPAAK/releases/latest)
+[![GitHub downloads](https://img.shields.io/github/downloads/htpaak/ImageSortingPAAK/total.svg?logo=github)](https://github.com/htpaak/ImageSortingPAAK/releases)
 
 ## Quick Links 🔗
 
-- [⬇️ Download Latest Release](https://github.com/htpaak/ArchiveSift/releases/latest)
-- [⭐ GitHub Repository](https://github.com/htpaak/ArchiveSift)
-- [💬 Feedback & Discussions](https://github.com/htpaak/ArchiveSift/discussions)
+- [⬇️ Download Latest Release](https://github.com/htpaak/ImageSortingPAAK/releases/latest)
+- [⭐ GitHub Repository](https://github.com/htpaak/ImageSortingPAAK)
+- [💬 Feedback & Discussions](https://github.com/htpaak/ImageSortingPAAK/discussions)
 
 ## Key Features 🌟
 
@@ -25,10 +25,10 @@ ArchiveSift is a powerful file organization tool 🛠️ that allows you to easi
 
 ## Demo 📸
 
-![ArchiveSift Basic Screen](assets/Demo_1.png)
-![ArchiveSift Interface](assets/Demo_2.png)
-![ArchiveSift Video Player](assets/Demo_3.png)
-![ArchiveSift File Browser](assets/Demo_4.png)
+![ImageSortingPAAK Basic Screen](assets/Demo_1.png)
+![ImageSortingPAAK Interface](assets/Demo_2.png)
+![ImageSortingPAAK Video Player](assets/Demo_3.png)
+![ImageSortingPAAK File Browser](assets/Demo_4.png)
 
 ## System Requirements 💻
 
@@ -38,14 +38,14 @@ ArchiveSift is a powerful file organization tool 🛠️ that allows you to easi
 
 ## Installation 🚀
 
-1.  Go to the [Releases page](https://github.com/htpaak/ArchiveSift/releases/latest).
-2.  Download the `ArchiveSift_vX.Y.Z.exe` file (where X.Y.Z is the version number).
+1.  Go to the [Releases page](https://github.com/htpaak/ImageSortingPAAK/releases/latest).
+2.  Download the `ImageSortingPAAK_vX.Y.Z.exe` file (where X.Y.Z is the version number).
 3.  That's it! No installation needed. Simply run the downloaded `.exe` file.
-4.  Launch ArchiveSift and start managing your media files! 🎉
+4.  Launch ImageSortingPAAK and start managing your media files! 🎉
 
 ## How to Use 📖
 
-1.  **Launch ArchiveSift** ▶️.
+1.  **Launch ImageSortingPAAK** ▶️.
 2.  Click the **Open Folder** button (typically 📂) to select your media folder.
 3.  **Copy and Move Files (Core Feature) 🗂️:**
     *   Click the **Set Base Folder** button (optional) to automatically generate buttons for its subfolders.

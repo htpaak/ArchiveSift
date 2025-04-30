@@ -30,12 +30,12 @@ VSVersionInfo(
       StringTable(
         u'040904B0',
         [StringStruct(u'CompanyName', u''),
-        StringStruct(u'FileDescription', u'ArchiveSift - Image and Media Viewer'),
+        StringStruct(u'FileDescription', u'ImageSortingPAAK - Image and Media Viewer'),
         StringStruct(u'FileVersion', u'1.0.0.0'),
-        StringStruct(u'InternalName', u'ArchiveSift'),
+        StringStruct(u'InternalName', u'ImageSortingPAAK'),
         StringStruct(u'LegalCopyright', u''),
-        StringStruct(u'OriginalFilename', u'ArchiveSift.exe'),
-        StringStruct(u'ProductName', u'ArchiveSift'),
+        StringStruct(u'OriginalFilename', u'ImageSortingPAAK.exe'),
+        StringStruct(u'ProductName', u'ImageSortingPAAK'),
         StringStruct(u'ProductVersion', u'1.0.0.0')])
       ]), 
     VarFileInfo([VarStruct(u'Translation', [1033, 1200])])

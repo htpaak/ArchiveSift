@@ -94,20 +94,20 @@ def resource_path(relative_path):
         base_path = os.path.abspath(".") # 또는 os.path.dirname(__file__) 등 기준 경로
 
     # base_path와 상대 경로를 결합하여 최종 경로 반환
-    # .spec 파일에서 ('core/ArchiveSift.ico', '.') 로 설정했으므로,
+    # .spec 파일에서 ('core/ImageSortingPAAK.ico', '.') 로 설정했으므로,
     # 번들 환경에서는 base_path 바로 아래에 아이콘이 있음
     return os.path.join(base_path, os.path.basename(relative_path))
 # --- 추가 끝 ---
 
-class ArchiveSiftInitializer:
+class ImageSortingPAAKInitializer:
     def initialize(self, viewer):
         """
-        ArchiveSift 뷰어의 초기화를 담당하는 메서드
+        ImageSortingPAAK 뷰어의 초기화를 담당하는 메서드
 
         Args:
-            viewer: ArchiveSift 인스턴스
+            viewer: ImageSortingPAAK 인스턴스
         """
-        viewer.logger = Logger("ArchiveSift")
+        viewer.logger = Logger("ImageSortingPAAK")
         viewer.logger.info("Image viewer initialization start")
 
         # TooltipManager import는 클래스 정의 밖으로 이동했습니다.
@@ -117,11 +117,11 @@ class ArchiveSiftInitializer:
         viewer.setWindowTitle('Image Viewer')  # 창 제목 설정
 
         # --- 수정 시작: 작업 표시줄 아이콘 설정 ---
-        icon_filename = 'ArchiveSift.ico' # 아이콘 파일 이름
+        icon_filename = 'ImageSortingPAAK.ico' # 아이콘 파일 이름
         try:
             # resource_path 함수를 사용하여 아이콘 경로 탐색
-            # .spec 파일에서 ('core/ArchiveSift.ico', '.') 로 설정했으므로,
-            # 번들 환경 루트에 있는 'ArchiveSift.ico'를 찾도록 함
+            # .spec 파일에서 ('core/ImageSortingPAAK.ico', '.') 로 설정했으므로,
+            # 번들 환경 루트에 있는 'ImageSortingPAAK.ico'를 찾도록 함
             icon_path = resource_path(icon_filename)
 
             if os.path.exists(icon_path):
@@ -401,7 +401,7 @@ class ArchiveSiftInitializer:
 
         # 앱 아이콘 레이블 추가
         app_icon_label = QLabel()
-        app_icon_pixmap = QIcon(icon_path if icon_path else './core/ArchiveSift.ico').pixmap(20, 20)
+        app_icon_pixmap = QIcon(icon_path if icon_path else './core/ImageSortingPAAK.ico').pixmap(20, 20)
         app_icon_label.setPixmap(app_icon_pixmap)
         app_icon_label.setStyleSheet("background-color: transparent;")
         app_icon_label.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
@@ -409,7 +409,7 @@ class ArchiveSiftInitializer:
         viewer.title_bar.controls['app_icon_label'] = app_icon_label
 
         # 제목 텍스트 레이블
-        title_label = QLabel("ArchiveSift")
+        title_label = QLabel("ImageSortingPAAK")
         title_label.setStyleSheet("""
             QLabel { color: white; background-color: transparent; padding: 2px 8px; font-size: 12px; font-weight: bold; }
         """)

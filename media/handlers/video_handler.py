@@ -37,7 +37,7 @@ class VideoHandler(MediaHandler):
     비디오 파일을 로드하고 재생하는 기능을 제공합니다.
     
     Attributes:
-        parent: 부모 위젯 (ArchiveSift 클래스의 인스턴스)
+        parent: 부모 위젯 (ImageSortingPAAK 클래스의 인스턴스)
         display_label: 비디오를 표시할 QLabel 위젯
         mpv_player: libmpv 기반 비디오 플레이어
         is_playing: 현재 재생 중인지 여부
@@ -48,7 +48,7 @@ class VideoHandler(MediaHandler):
         VideoHandler 클래스 초기화
         
         Args:
-            parent: 부모 위젯 (ArchiveSift 클래스의 인스턴스)
+            parent: 부모 위젯 (ImageSortingPAAK 클래스의 인스턴스)
             display_label: 비디오를 표시할 QLabel 위젯
         """
         super().__init__(parent, display_label)
@@ -224,8 +224,8 @@ class VideoHandler(MediaHandler):
             self.video_timer.stop()
 
             # 비디오 종료 처리를 위한 on_video_end 메서드 호출
-            # self.on_video_end(name, value) # 이 부분은 ArchiveSift의 on_video_end를 호출하는 것으로 보임. 중복 처리일 수 있음.
-            # 우선 주석 처리하고 ArchiveSift의 핸들러만 사용하도록 유도
+            # self.on_video_end(name, value) # 이 부분은 ImageSortingPAAK의 on_video_end를 호출하는 것으로 보임. 중복 처리일 수 있음.
+            # 우선 주석 처리하고 ImageSortingPAAK의 핸들러만 사용하도록 유도
 
     def play(self):
         """

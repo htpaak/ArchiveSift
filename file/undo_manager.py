@@ -43,7 +43,7 @@ class UndoManager(QObject):
         UndoManager 초기화
         
         Args:
-            viewer: 메인 뷰어 인스턴스 (ArchiveSift)
+            viewer: 메인 뷰어 인스턴스 (ImageSortingPAAK)
         """
         super().__init__()
         self.viewer = viewer
