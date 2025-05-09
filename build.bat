@@ -39,7 +39,7 @@ REM PyInstaller 실행:
 REM --noconsole: 콘솔 창 없이 실행 (GUI 애플리케이션용)
 REM --onefile: 모든 파일을 하나의 실행 파일(.exe)로 묶음
 REM --clean: 빌드 전 캐시 정리
-REM --icon="core/ImageSortingPAAK.ico": 실행 파일 아이콘 설정 (아이콘이 core 폴더에 있다고 가정)
+REM --icon="assets/icon.ico": 실행 파일 아이콘 설정 (아이콘이 assets 폴더에 있다고 가정)
 REM --add-data "assets;assets": assets 폴더 및 내용 포함 (필요시 경로 및 대상 수정)
 REM --add-binary "core/mpv/libmpv-2.dll;.": MPV DLL 파일을 실행 파일과 같은 경로에 포함
 REM --hidden-import=module_name: PyInstaller가 자동으로 찾지 못하는 모듈이 있다면 이 옵션 사용
@@ -49,7 +49,7 @@ REM main.py: 빌드할 메인 파이썬 스크립트
 pyinstaller --noconsole ^
   --onefile ^
   --clean ^
-  --icon="core/ImageSortingPAAK.ico" ^
+  --icon="assets/icon.ico" ^
   --add-data "assets;assets" ^
   --add-binary "core/mpv/libmpv-2.dll;." ^
   --exclude-module=pytest ^

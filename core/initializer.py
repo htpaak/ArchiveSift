@@ -116,30 +116,34 @@ class ImageSortingPAAKInitializer:
 
         viewer.setWindowTitle('Image Viewer')  # 창 제목 설정
 
-        # --- 수정 시작: 작업 표시줄 아이콘 설정 ---
-        icon_filename = 'ImageSortingPAAK.ico' # 아이콘 파일 이름
-        try:
-            # resource_path 함수를 사용하여 아이콘 경로 탐색
-            # .spec 파일에서 ('core/ImageSortingPAAK.ico', '.') 로 설정했으므로,
-            # 번들 환경 루트에 있는 'ImageSortingPAAK.ico'를 찾도록 함
-            icon_path = resource_path(icon_filename)
+        # --- 아이콘 설정 로직 수정 ---
+        icon_filename = 'icon.ico'
+        icon_folder = 'assets'
+        icon_path_to_set = None
 
-            if os.path.exists(icon_path):
-                viewer.setWindowIcon(QIcon(icon_path))  # 앱 아이콘 설정
-                print(f"Found window icon at: {icon_path}")
-            else:
-                # 개발 환경 등에서 다른 경로 시도 (예: core 폴더 내부)
-                dev_icon_path = os.path.join('core', icon_filename)
-                if os.path.exists(dev_icon_path):
-                     viewer.setWindowIcon(QIcon(dev_icon_path))
-                     print(f"Found window icon at (dev path): {dev_icon_path}")
-                else:
-                    print(f"Warning: Could not find icon file '{icon_filename}' at '{icon_path}' or '{dev_icon_path}'.")
-                    # 아이콘 설정 실패 시 별도 처리는 하지 않음 (기본 아이콘 표시됨)
+        if getattr(sys, 'frozen', False):  # PyInstaller 번들 환경
+            # --add-data "assets;assets" 옵션으로 인해 실행파일과 같은 레벨에 assets 폴더 생성
+            base_path = sys._MEIPASS
+            potential_icon_path = os.path.join(base_path, icon_folder, icon_filename)
+            if os.path.exists(potential_icon_path):
+                icon_path_to_set = potential_icon_path
+                print(f"Found bundled icon at: {potential_icon_path}")
+        else:  # 개발 환경
+            # 프로젝트 루트의 assets 폴더를 찾음
+            project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
+            potential_icon_path = os.path.join(project_root, icon_folder, icon_filename)
+            if os.path.exists(potential_icon_path):
+                icon_path_to_set = potential_icon_path
+                print(f"Found development icon at: {potential_icon_path}")
 
-        except Exception as e:
-            print(f"Error setting window icon: {e}")
-        # --- 수정 끝 ---
+        # 창 아이콘 설정
+        if icon_path_to_set and os.path.exists(icon_path_to_set):
+            app_icon = QIcon(icon_path_to_set)
+            viewer.setWindowIcon(app_icon)
+            print(f"Window icon set from: {icon_path_to_set}")
+        else:
+            print(f"Warning: Icon file '{icon_filename}' not found in '{icon_folder}' for either bundled or dev environment.")
+        # --- 아이콘 설정 로직 끝 ---
 
         viewer.setGeometry(100, 100, 800, 600)  # 창 위치와 크기 설정
 
@@ -399,14 +403,30 @@ class ImageSortingPAAKInitializer:
         title_layout.setSpacing(2)
         title_layout.setAlignment(Qt.AlignVCenter)
 
-        # 앱 아이콘 레이블 추가
-        app_icon_label = QLabel()
-        app_icon_pixmap = QIcon(icon_path if icon_path else './core/ImageSortingPAAK.ico').pixmap(20, 20)
-        app_icon_label.setPixmap(app_icon_pixmap)
-        app_icon_label.setStyleSheet("background-color: transparent;")
-        app_icon_label.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
-        title_layout.addWidget(app_icon_label)
-        viewer.title_bar.controls['app_icon_label'] = app_icon_label
+        # --- 앱 아이콘 라벨 로직을 QToolButton으로 변경 ---
+        app_icon_button = QToolButton()
+        app_icon_button.setFixedSize(20, 20)
+        app_icon_button.setStyleSheet("""
+            QToolButton {
+                background-color: transparent;
+                border: none;
+                padding: 0px;
+                margin: 0px;
+            }
+        """)
+        
+        if icon_path_to_set and os.path.exists(icon_path_to_set):
+            # 아이콘 파일을 QIcon으로 로드하여 버튼에 설정
+            app_icon = QIcon(icon_path_to_set)
+            app_icon_button.setIcon(app_icon)
+            app_icon_button.setIconSize(QSize(16, 16))
+            print(f"Title bar icon set from: {icon_path_to_set}")
+        else:
+            print(f"Title bar icon not set as source file not found.")
+            
+        title_layout.addWidget(app_icon_button)
+        viewer.title_bar.controls['app_icon_button'] = app_icon_button
+        # --- 앱 아이콘 버튼 로직 끝 ---
 
         # 제목 텍스트 레이블
         title_label = QLabel("ImageSortingPAAK")

@@ -15,7 +15,7 @@ from PyQt5.QtWidgets import (
     QInputDialog, QTableWidget, QTableWidgetItem, QHeaderView, QStackedWidget, QGroupBox
 )
 from PyQt5.QtGui import (
-    QPixmap, QImage, QImageReader, QFont, QMovie, QCursor, QIcon, QColor, 
+    QPixmap, QImage, QImageReader, QFont, QMovie, QCursor, QColor, 
     QPalette, QFontMetrics, QTransform, QKeySequence, QWheelEvent, QDesktopServices
 )
 from PyQt5.QtCore import (
@@ -24,7 +24,7 @@ from PyQt5.QtCore import (
 )
 
 # main.py 파일의 임포트 부분에서
-from PyQt5.QtGui import QPixmap, QImage, QImageReader, QFont, QMovie, QCursor, QIcon, QColor, QPalette, QFontMetrics, QTransform, QKeySequence, QWheelEvent, QDesktopServices  # 그래픽 요소 처리
+from PyQt5.QtGui import QPixmap, QImage, QImageReader, QFont, QMovie, QCursor, QColor, QPalette, QFontMetrics, QTransform, QKeySequence, QWheelEvent, QDesktopServices  # 그래픽 요소 처리
 from PyQt5.QtCore import Qt, QSize, QTimer, QEvent, QPoint, pyqtSignal, QRect, QMetaObject, QObject, QUrl, QThread, QBuffer  # Qt 코어 기능
 # QDesktopServices 관련 중복 임포트 제거 (PyQt5.QtCore에는 QDesktopServices가 없음)
 import cv2  # OpenCV 라이브러리 - 비디오 처리용 (프레임 추출, 이미지 변환 등)
@@ -2101,23 +2101,6 @@ def main():
     
     app = QApplication(sys.argv)  # Qt application instance creation
     app.setApplicationName("ImageSortingPAAK")  # Set application name
-    
-    # 작업 표시줄 아이콘 설정
-    icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'core', 'ImageSortingPAAK.ico')
-    if not os.path.exists(icon_path):
-        icon_path = 'core/ImageSortingPAAK.ico'
-    
-    app_icon = QIcon(icon_path)
-    app.setWindowIcon(app_icon)
-    
-    # Windows에서 작업 표시줄 아이콘 설정
-    if platform.system() == 'Windows':
-        try:
-            import ctypes
-            myappid = 'ImageSortingPAAK.ImageViewer.1.0'
-            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
-        except Exception as e:
-            print(f"Windows taskbar icon setting error: {e}")
     
     viewer = ImageSortingPAAK()  # Create instance of ImageSortingPAAK class
     viewer.show()  # Display viewer window

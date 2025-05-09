@@ -1,5 +1,5 @@
-from PyQt5.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QPushButton, QSlider, QMenu, QAction, QLabel, QSizePolicy
-from PyQt5.QtCore import Qt, QTimer, pyqtSignal
+from PyQt5.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QPushButton, QSlider, QMenu, QAction, QLabel, QSizePolicy, QToolButton
+from PyQt5.QtCore import Qt, QTimer, pyqtSignal, QSize
 from PyQt5.QtGui import QIcon, QFont
 from media.handlers.animation_handler import AnimationHandler  # AnimationHandler 클래스 임포트
 from core.utils.time_utils import format_time  # format_time 함수 추가 임포트
@@ -147,14 +147,23 @@ class ControlsLayout(QWidget):
             # 모든 제목표시줄 컨트롤 버튼에 크기 적용
             for control_name, control in self.parent.title_bar.controls.items():
                 # 앱 아이콘과 타이틀 레이블은 특별히 처리
-                if control_name == 'app_icon_label':
-                    # 버튼과 동일한 크기의 직사각형 형태로 아이콘 설정(너비도 똑같이)
-                    if icon_path:
-                        control.setPixmap(QIcon(icon_path).pixmap(button_width, button_size))
-                    else:
-                        # 아이콘을 찾지 못한 경우 기본 텍스트로 대체
-                        control.setText("AS")
-                        control.setStyleSheet("color: white; background-color: transparent; font-weight: bold;")
+                if control_name == 'app_icon_label' or control_name == 'app_icon_button':
+                    # QLabel 또는 QToolButton인지 확인
+                    if isinstance(control, QLabel):
+                        # QLabel 타입인 경우 이전 방식으로 처리
+                        if icon_path:
+                            control.setPixmap(QIcon(icon_path).pixmap(button_width, button_size))
+                        else:
+                            # 아이콘을 찾지 못한 경우 기본 텍스트로 대체
+                            control.setText("AS")
+                            control.setStyleSheet("color: white; background-color: transparent; font-weight: bold;")
+                    elif isinstance(control, QToolButton):
+                        # QToolButton 타입인 경우
+                        if icon_path:
+                            control.setIcon(QIcon(icon_path))
+                            control.setIconSize(QSize(button_width, button_size))
+                        control.setFixedSize(button_width, button_size)
+                        control.setStyleSheet("background-color: transparent; border: none;")
                 elif control_name == 'title_label':
                     # --- 복구: 스타일시트 고정 폰트 크기 (8pt) ---
                     fixed_font_size = 8 # 원하는 고정 pt 크기
@@ -328,14 +337,23 @@ class ControlsLayout(QWidget):
             # 모든 제목표시줄 컨트롤 버튼에 크기 적용
             for control_name, control in self.parent.title_bar.controls.items():
                 # 앱 아이콘과 타이틀 레이블은 특별히 처리
-                if control_name == 'app_icon_label':
-                    # 버튼과 동일한 크기의 직사각형 형태로 아이콘 설정(너비도 똑같이)
-                    if icon_path:
-                        control.setPixmap(QIcon(icon_path).pixmap(button_width, button_size))
-                    else:
-                        # 아이콘을 찾지 못한 경우 기본 텍스트로 대체
-                        control.setText("AS")
-                        control.setStyleSheet("color: white; background-color: transparent; font-weight: bold;")
+                if control_name == 'app_icon_label' or control_name == 'app_icon_button':
+                    # QLabel 또는 QToolButton인지 확인
+                    if isinstance(control, QLabel):
+                        # QLabel 타입인 경우 이전 방식으로 처리
+                        if icon_path:
+                            control.setPixmap(QIcon(icon_path).pixmap(button_width, button_size))
+                        else:
+                            # 아이콘을 찾지 못한 경우 기본 텍스트로 대체
+                            control.setText("AS")
+                            control.setStyleSheet("color: white; background-color: transparent; font-weight: bold;")
+                    elif isinstance(control, QToolButton):
+                        # QToolButton 타입인 경우
+                        if icon_path:
+                            control.setIcon(QIcon(icon_path))
+                            control.setIconSize(QSize(button_width, button_size))
+                        control.setFixedSize(button_width, button_size)
+                        control.setStyleSheet("background-color: transparent; border: none;")
                 elif control_name == 'title_label':
                     # --- 복구: 스타일시트 고정 폰트 크기 (8pt) ---
                     fixed_font_size = 8 # 원하는 고정 pt 크기
@@ -664,8 +682,14 @@ class ControlsLayout(QWidget):
         """
         import os
         
-        # 시도할 경로 목록
+        # 시도할 경로 목록 - assets/icon.ico를 가장 우선적으로 검색
         icon_paths = [
+            './assets/icon.ico',  # 프로젝트 루트의 assets 폴더
+            'assets/icon.ico',  # 상대 경로로 assets 폴더
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../assets/icon.ico'),  # 현재 파일에서 상대 경로
+            os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'assets', 'icon.ico'),  # 프로젝트 루트에서 절대 경로
+            
+            # 기존 경로도 유지 (하위 호환성)
             './core/ImageSortingPAAK.ico',
             'core/ImageSortingPAAK.ico',
             os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../core/ImageSortingPAAK.ico'),
@@ -677,8 +701,12 @@ class ControlsLayout(QWidget):
         # 찾은 첫 번째 유효한 아이콘 경로 사용
         for path in icon_paths:
             if os.path.exists(path):
+                # 디버그 로그로 찾은 아이콘 경로 출력
+                print(f"Found icon at: {os.path.abspath(path)}")
                 return path
                 
+        # 아이콘을 찾지 못한 경우
+        print("Icon not found in any location")
         return None
 
     # 여기에 main.py에서 옮겨올 메서드들이 추가될 예정 
