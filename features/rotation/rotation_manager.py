@@ -23,7 +23,7 @@ class RotationManager(QObject):
         RotationManager 초기화
         
         Args:
-            parent: 부모 객체 (일반적으로 ImageSortingPAAK)
+            parent: 부모 객체 (일반적으로 MediaSorterPAAK)
         """
         super().__init__(parent)
         self._rotation_angle = ROTATE_0  # 현재 회전 각도

@@ -27,8 +27,8 @@ def get_user_data_directory():
     사용자의 정보를 저장할 폴더를 만들고 알려주는 함수예요.
     
     이 함수는 프로그램에서 사용자 정보(북마크, 설정 등)를 
-    %LOCALAPPDATA%/ImageSortingPAAK/UserData 폴더(Windows) 또는
-    ~/ImageSortingPAAK/UserData 폴더(macOS, Linux)에 저장합니다.
+    %LOCALAPPDATA%/MediaSorterPAAK/UserData 폴더(Windows) 또는
+    ~/MediaSorterPAAK/UserData 폴더(macOS, Linux)에 저장합니다.
     만약 그 폴더가 없다면 새로 만들어줘요.
     
     반환값:
@@ -36,15 +36,15 @@ def get_user_data_directory():
     """
     # 운영체제별 적절한 앱 데이터 경로 사용
     if os.name == 'nt':  # Windows
-        # %LOCALAPPDATA%/ImageSortingPAAK 경로 사용 (권한 문제 방지)
+        # %LOCALAPPDATA%/MediaSorterPAAK 경로 사용 (권한 문제 방지)
         local_app_data = os.environ.get('LOCALAPPDATA')
         if not local_app_data:  # 환경 변수가 없는 경우 대체 경로
             local_app_data = os.path.join(os.path.expanduser('~'), 'AppData', 'Local')
-        data_dir = os.path.join(local_app_data, 'ImageSortingPAAK', 'UserData')
+        data_dir = os.path.join(local_app_data, 'MediaSorterPAAK', 'UserData')
     else:  # macOS, Linux 등
-        # 홈 디렉토리의 ImageSortingPAAK 폴더 사용
+        # 홈 디렉토리의 MediaSorterPAAK 폴더 사용
         home = os.path.expanduser("~")
-        data_dir = os.path.join(home, 'ImageSortingPAAK', 'UserData')
+        data_dir = os.path.join(home, 'MediaSorterPAAK', 'UserData')
     
     # 만약 그 폴더가 아직 없다면 새로 만들어요
     if not os.path.exists(data_dir):

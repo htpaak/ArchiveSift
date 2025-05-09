@@ -94,20 +94,20 @@ def resource_path(relative_path):
         base_path = os.path.abspath(".") # 또는 os.path.dirname(__file__) 등 기준 경로
 
     # base_path와 상대 경로를 결합하여 최종 경로 반환
-    # .spec 파일에서 ('core/ImageSortingPAAK.ico', '.') 로 설정했으므로,
+    # .spec 파일에서 ('core/MediaSorterPAAK.ico', '.') 로 설정했으므로,
     # 번들 환경에서는 base_path 바로 아래에 아이콘이 있음
     return os.path.join(base_path, os.path.basename(relative_path))
 # --- 추가 끝 ---
 
-class ImageSortingPAAKInitializer:
+class MediaSorterPAAKInitializer:
     def initialize(self, viewer):
         """
-        ImageSortingPAAK 뷰어의 초기화를 담당하는 메서드
+        MediaSorterPAAK 뷰어의 초기화를 담당하는 메서드
 
         Args:
-            viewer: ImageSortingPAAK 인스턴스
+            viewer: MediaSorterPAAK 인스턴스
         """
-        viewer.logger = Logger("ImageSortingPAAK")
+        viewer.logger = Logger("MediaSorterPAAK")
         viewer.logger.info("Image viewer initialization start")
 
         # TooltipManager import는 클래스 정의 밖으로 이동했습니다.
@@ -429,7 +429,7 @@ class ImageSortingPAAKInitializer:
         # --- 앱 아이콘 버튼 로직 끝 ---
 
         # 제목 텍스트 레이블
-        title_label = QLabel("ImageSortingPAAK")
+        title_label = QLabel("MediaSorterPAAK")
         title_label.setStyleSheet("""
             QLabel { color: white; background-color: transparent; padding: 2px 8px; font-size: 12px; font-weight: bold; }
         """)

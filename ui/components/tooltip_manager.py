@@ -21,7 +21,7 @@ class TooltipManager(QObject):
         TooltipManager 초기화
         
         Args:
-            parent: 부모 객체 (일반적으로 ImageSortingPAAK 인스턴스)
+            parent: 부모 객체 (일반적으로 MediaSorterPAAK 인스턴스)
         """
         super().__init__(parent)
         self.parent = parent

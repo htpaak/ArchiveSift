@@ -28,7 +28,7 @@ class BookmarkManager:
         북마크 관리자를 초기화해요.
         
         매개변수:
-            viewer: 부모 위젯 (보통 ImageSortingPAAK 클래스)
+            viewer: 부모 위젯 (보통 MediaSorterPAAK 클래스)
         """
         self.viewer = viewer
         self.bookmarks = []  # 북마크를 set 대신 list로 사용하여 순서 유지

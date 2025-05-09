@@ -690,12 +690,12 @@ class ControlsLayout(QWidget):
             os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'assets', 'icon.ico'),  # 프로젝트 루트에서 절대 경로
             
             # 기존 경로도 유지 (하위 호환성)
-            './core/ImageSortingPAAK.ico',
-            'core/ImageSortingPAAK.ico',
-            os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../core/ImageSortingPAAK.ico'),
-            os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'core', 'ImageSortingPAAK.ico'),
-            'ImageSortingPAAK.ico',
-            './ImageSortingPAAK.ico'
+            './core/MediaSorterPAAK.ico',
+            'core/MediaSorterPAAK.ico',
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../core/MediaSorterPAAK.ico'),
+            os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'core', 'MediaSorterPAAK.ico'),
+            'MediaSorterPAAK.ico',
+            './MediaSorterPAAK.ico'
         ]
         
         # 찾은 첫 번째 유효한 아이콘 경로 사용

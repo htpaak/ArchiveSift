@@ -35,7 +35,7 @@ class FileOperations:
     파일 작업 클래스
     
     이 클래스는 이미지 및 비디오 파일 작업(복사, 삭제, 이동 등)을 처리합니다.
-    ImageSortingPAAK 클래스와 협력하여 UI 표시 및 파일 내비게이터 업데이트를 수행합니다.
+    MediaSorterPAAK 클래스와 협력하여 UI 표시 및 파일 내비게이터 업데이트를 수행합니다.
     """
     
     def __init__(self, viewer):
@@ -43,7 +43,7 @@ class FileOperations:
         FileOperations 클래스를 초기화합니다.
         
         매개변수:
-            viewer: ImageSortingPAAK 인스턴스 (UI 표시 및 파일 내비게이터 제공)
+            viewer: MediaSorterPAAK 인스턴스 (UI 표시 및 파일 내비게이터 제공)
         """
         self.viewer = viewer
     
@@ -399,7 +399,7 @@ class FileOperations:
                         except Exception as e:
                             pass
         
-        # 미디어 리소스 정리를 위해 ImageSortingPAAK의 cleanup_current_media 메서드 사용
+        # 미디어 리소스 정리를 위해 MediaSorterPAAK의 cleanup_current_media 메서드 사용
         if hasattr(self.viewer, 'cleanup_current_media'):
             self.viewer.cleanup_current_media()
         

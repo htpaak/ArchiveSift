@@ -1,16 +1,16 @@
-# ImageSortingPAAK 🗄️✨
+# MediaSorterPAAK 🗄️✨
 
-ImageSortingPAAK is a powerful file organization tool 🛠️ that allows you to easily and quickly categorize and manage media files 🖼️🎬🎵. You can view images, videos, animations, and other formats through an intuitive interface while instantly copying or moving them to your desired folders 📁➡️📁.
+MediaSorterPAAK is a powerful file organization tool 🛠️ that allows you to easily and quickly categorize and manage media files 🖼️🎬🎵. You can view images, videos, animations, and other formats through an intuitive interface while instantly copying or moving them to your desired folders 📁➡️📁.
 
-[![GitHub release](https://img.shields.io/github/release/htpaak/ImageSortingPAAK.svg?logo=github)](https://github.com/htpaak/ImageSortingPAAK/releases/latest)
-[![GitHub downloads](https://img.shields.io/github/downloads/htpaak/ImageSortingPAAK/latest/total.svg?logo=github)](https://github.com/htpaak/ImageSortingPAAK/releases/latest)
-[![GitHub downloads](https://img.shields.io/github/downloads/htpaak/ImageSortingPAAK/total.svg?logo=github)](https://github.com/htpaak/ImageSortingPAAK/releases)
+[![GitHub release](https://img.shields.io/github/release/htpaak/MediaSorterPAAK.svg?logo=github)](https://github.com/htpaak/MediaSorterPAAK/releases/latest)
+[![GitHub downloads](https://img.shields.io/github/downloads/htpaak/MediaSorterPAAK/latest/total.svg?logo=github)](https://github.com/htpaak/MediaSorterPAAK/releases/latest)
+[![GitHub downloads](https://img.shields.io/github/downloads/htpaak/MediaSorterPAAK/total.svg?logo=github)](https://github.com/htpaak/MediaSorterPAAK/releases)
 
 ## Quick Links 🔗
 
-- [⬇️ Download Latest Release](https://github.com/htpaak/ImageSortingPAAK/releases/latest)
-- [⭐ GitHub Repository](https://github.com/htpaak/ImageSortingPAAK)
-- [💬 Feedback & Discussions](https://github.com/htpaak/ImageSortingPAAK/discussions)
+- [⬇️ Download Latest Release](https://github.com/htpaak/MediaSorterPAAK/releases/latest)
+- [⭐ GitHub Repository](https://github.com/htpaak/MediaSorterPAAK)
+- [💬 Feedback & Discussions](https://github.com/htpaak/MediaSorterPAAK/discussions)
 
 ## Key Features 🌟
 
@@ -25,10 +25,10 @@ ImageSortingPAAK is a powerful file organization tool 🛠️ that allows you to
 
 ## Demo 📸
 
-![ImageSortingPAAK Basic Screen](assets/Demo_1.png)
-![ImageSortingPAAK Interface](assets/Demo_2.png)
-![ImageSortingPAAK Video Player](assets/Demo_3.png)
-![ImageSortingPAAK File Browser](assets/Demo_4.png)
+![MediaSorterPAAK Basic Screen](assets/Demo_1.png)
+![MediaSorterPAAK Interface](assets/Demo_2.png)
+![MediaSorterPAAK Video Player](assets/Demo_3.png)
+![MediaSorterPAAK File Browser](assets/Demo_4.png)
 
 ## System Requirements 💻
 
@@ -38,14 +38,14 @@ ImageSortingPAAK is a powerful file organization tool 🛠️ that allows you to
 
 ## Installation 🚀
 
-1.  Go to the [Releases page](https://github.com/htpaak/ImageSortingPAAK/releases/latest).
-2.  Download the `ImageSortingPAAK_vX.Y.Z.exe` file (where X.Y.Z is the version number).
+1.  Go to the [Releases page](https://github.com/htpaak/MediaSorterPAAK/releases/latest).
+2.  Download the `MediaSorterPAAK_vX.Y.Z.exe` file (where X.Y.Z is the version number).
 3.  That's it! No installation needed. Simply run the downloaded `.exe` file.
-4.  Launch ImageSortingPAAK and start managing your media files! 🎉
+4.  Launch MediaSorterPAAK and start managing your media files! 🎉
 
 ## How to Use 📖
 
-1.  **Launch ImageSortingPAAK** ▶️.
+1.  **Launch MediaSorterPAAK** ▶️.
 2.  Click the **Open Folder** button (typically 📂) to select your media folder.
 3.  **Copy and Move Files (Core Feature) 🗂️:**
     *   Click the **Set Base Folder** button (optional) to automatically generate buttons for its subfolders.

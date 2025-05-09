@@ -44,7 +44,7 @@ REM --add-data "assets;assets": assets 폴더 및 내용 포함 (필요시 경�
 REM --add-binary "core/mpv/libmpv-2.dll;.": MPV DLL 파일을 실행 파일과 같은 경로에 포함
 REM --hidden-import=module_name: PyInstaller가 자동으로 찾지 못하는 모듈이 있다면 이 옵션 사용
 REM --exclude-module: 특정 모듈 제외 (테스트 등)
-REM --name="ImageSortingPAAK": 생성될 실행 파일의 이름 지정
+REM --name="MediaSorterPAAK": 생성될 실행 파일의 이름 지정
 REM main.py: 빌드할 메인 파이썬 스크립트
 pyinstaller --noconsole ^
   --onefile ^
@@ -55,7 +55,7 @@ pyinstaller --noconsole ^
   --exclude-module=pytest ^
   --exclude-module=_pytest ^
   --exclude-module=unittest ^
-  --name="ImageSortingPAAK" ^
+  --name="MediaSorterPAAK" ^
   main.py
 
 echo.

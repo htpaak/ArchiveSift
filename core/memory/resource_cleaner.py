@@ -19,7 +19,7 @@ class ResourceCleaner:
         ResourceCleaner 클래스를 초기화합니다.
         
         Args:
-            viewer: ImageSortingPAAK 인스턴스
+            viewer: MediaSorterPAAK 인스턴스
         """
         self.viewer = viewer
     

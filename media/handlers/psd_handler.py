@@ -23,7 +23,7 @@ class PSDHandler(MediaHandler):
     Photoshop PSD 파일을 로드하고 표시하는 기능을 제공합니다.
     
     Attributes:
-        parent: 부모 위젯 (ImageSortingPAAK 클래스의 인스턴스)
+        parent: 부모 위젯 (MediaSorterPAAK 클래스의 인스턴스)
         display_label: 이미지를 표시할 QLabel 위젯
         psd_cache: PSD 파일 캐시 (LRUCache 인스턴스)
         loader_threads: 로더 스레드를 추적하는 딕셔너리
@@ -34,7 +34,7 @@ class PSDHandler(MediaHandler):
         PSDHandler 클래스 초기화
         
         Args:
-            parent: 부모 위젯 (ImageSortingPAAK 클래스의 인스턴스)
+            parent: 부모 위젯 (MediaSorterPAAK 클래스의 인스턴스)
             display_label: 이미지를 표시할 QLabel 위젯
         """
         super().__init__(parent, display_label)

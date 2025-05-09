@@ -36,7 +36,7 @@ class AudioHandler(MediaHandler):
     오디오 파일을 로드하고 재생하는 기능을 제공합니다.
     
     Attributes:
-        parent: 부모 위젯 (ImageSortingPAAK 클래스의 인스턴스)
+        parent: 부모 위젯 (MediaSorterPAAK 클래스의 인스턴스)
         display_label: 오디오를 표시할 QLabel 위젯
         mpv_player: libmpv 기반 오디오 플레이어
         is_playing: 현재 재생 중인지 여부
@@ -47,7 +47,7 @@ class AudioHandler(MediaHandler):
         AudioHandler 클래스 초기화
         
         Args:
-            parent: 부모 위젯 (ImageSortingPAAK 클래스의 인스턴스)
+            parent: 부모 위젯 (MediaSorterPAAK 클래스의 인스턴스)
             display_label: 오디오를 표시할 QLabel 위젯
         """
         super().__init__(parent, display_label)
