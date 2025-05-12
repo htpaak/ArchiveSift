@@ -114,6 +114,7 @@ class DualActionButton(QPushButton):
         현재 호버 영역에 따라 툴팁 업데이트
         """
         if not self.folder_path:
+            self.setToolTip('') # 폴더 경로가 없으면 툴팁을 비웁니다.
             return
             
         if self.hover_region == 'left':
@@ -164,4 +165,6 @@ class DualActionButton(QPushButton):
         self.folder_path = folder_path
         self.folder_name = folder_name
         self.setText(folder_name)
-        self._update_tooltip() 
+        if not self.folder_path: # 폴더 경로가 비어있으면
+            self.setToolTip('')   # 툴팁을 즉시 비웁니다.
+        self._update_tooltip() # 그 후 _update_tooltip을 호출하여 호버 상태에 따른 툴팁을 설정 (경로가 있으면)하거나 비웁니다 (경로가 없으면). 
