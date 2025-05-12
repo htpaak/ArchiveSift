@@ -507,6 +507,18 @@ class ImageHandler(MediaHandler):
             # 오류가 발생한 경우 클라이언트에게 알림
             if hasattr(self.parent, 'show_message'):
                 self.parent.show_message(f"image loading error: {e}")
+            if hasattr(self.parent, 'image_label'): # image_label이 있는지 확인
+                self.parent.image_label.clear() # 로딩 실패 시 이미지 표시 영역 초기화
+            
+        except Exception as e: # 이 바깥쪽 try-except는 다른 종류의 예외를 잡기 위한 것일 수 있으므로, 내부의 구체적인 except 블록에 추가하는 것이 더 안전합니다.
+            # 다만, 현재 구조상 이 except 블록은 거의 사용되지 않을 것으로 보입니다.
+            # 만약 이 블록도 이미지 로딩 실패와 관련있다면 여기에 .clear()를 추가할 수 있습니다.
+            # self.on_error(image_path, str(e))
+            # if hasattr(self.parent, 'show_message'):
+            #     self.parent.show_message(f"Failed to load image: {os.path.basename(image_path)}\n{str(e)}")
+            # if hasattr(self.parent, 'image_label'):
+            #      self.parent.image_label.clear()
+            pass # 일단 최상위 except는 그대로 둡니다. 가장 안쪽의 포맷별 로딩 실패 시 처리가 우선입니다.
     
     def unload(self):
         """현재 로드된 이미지를 언로드합니다."""
