@@ -170,6 +170,10 @@ class AudioHandler(MediaHandler):
             if self.mpv_player:
                 self.mpv_player.pause = False
                 
+            # 지속적인 음소거 상태 적용
+            if hasattr(self.parent, 'persistent_mute_state') and self.mpv_player:
+                self.mpv_player.mute = self.parent.persistent_mute_state
+                
             # 슬라이더에 오디오 컨트롤 연결
             if hasattr(self.parent, 'playback_slider'):
                 self.parent.playback_slider.connect_to_video_control(
@@ -348,6 +352,17 @@ class AudioHandler(MediaHandler):
             # 재생 버튼 업데이트 (parent에 update_play_button 메서드가 있다면)
             if hasattr(self.parent, 'update_play_button'):
                 self.parent.update_play_button()
+
+    def is_muted(self):
+        """
+        현재 음소거 상태인지 확인합니다.
+        
+        Returns:
+            bool: 음소거 상태 여부 (플레이어가 없으면 False 반환)
+        """
+        if self.mpv_player:
+            return self.mpv_player.mute
+        return False
 
     def toggle_audio_playback(self):
         """

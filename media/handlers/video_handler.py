@@ -392,6 +392,11 @@ class VideoHandler(MediaHandler):
                 # Play video
                 self.play()
                 
+                # 지속적인 음소거 상태 적용
+                if hasattr(self.parent, 'persistent_mute_state'):
+                    if self.is_muted() != self.parent.persistent_mute_state:
+                        self.toggle_mute() # persistent_mute_state와 동기화
+                
                 # Hide loading indicator during playback
                 if self.parent and hasattr(self.parent, 'hide_loading_indicator'):
                     self.parent.hide_loading_indicator()

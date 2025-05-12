@@ -443,13 +443,20 @@ class MediaSorterPAAK(QWidget):
     def update_media_controls(self):
         """Update control states based on media type"""
         # For video media, reset the mute button state
-        if self.current_media_type == 'video' and hasattr(self, 'mute_button'):
+        # if self.current_media_type == 'video' and hasattr(self, 'mute_button'): # 기존 로직 주석 처리
+        #     try:
+        #         is_muted = self.video_handler.is_muted()
+        #         if is_muted is not None:  # Update state only if not None
+        #             self.mute_button.set_mute_state(is_muted)
+        #     except Exception as e:
+        #         pass
+        
+        # 오디오 및 비디오 미디어에 대해 persistent_mute_state를 사용하여 음소거 버튼 업데이트
+        if self.current_media_type in ['video', 'audio'] and hasattr(self, 'mute_button') and hasattr(self, 'persistent_mute_state'):
             try:
-                is_muted = self.video_handler.is_muted()
-                if is_muted is not None:  # Update state only if not None
-                    self.mute_button.set_mute_state(is_muted)
+                self.mute_button.set_mute_state(self.persistent_mute_state)
             except Exception as e:
-                pass
+                print(f"Error updating mute button state from persistent_mute_state: {e}")
                 
     def ensure_ui_visibility(self):
         """Manage visibility of UI components"""

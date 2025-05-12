@@ -849,9 +849,13 @@ class MediaSorterPAAKInitializer:
 
         # 미디어 핸들러 초기화
         viewer.image_handler = ImageHandler(viewer, viewer.image_label)
-        viewer.psd_handler = PSDHandler(viewer, viewer.image_label)
-        viewer.video_handler = VideoHandler(viewer, viewer.image_label)
-        viewer.audio_handler = AudioHandler(viewer, viewer.image_label)
+        viewer.video_handler = VideoHandler(viewer, viewer.image_label)  # VideoHandler 초기화
+        viewer.psd_handler = PSDHandler(viewer, viewer.image_label) # PSD 핸들러 추가
+        viewer.animation_handler = AnimationHandler(viewer, viewer.image_label) # AnimationHandler 초기화
+        viewer.audio_handler = AudioHandler(viewer, viewer.image_label)  # AudioHandler 초기화
+
+        # 지속적인 음소거 상태 (세션 동안 유지)
+        viewer.persistent_mute_state = False
 
         # MediaDisplay 이벤트 연결
         viewer.image_label.mouseDoubleClicked.connect(viewer.mouseDoubleClickEvent)

@@ -42,14 +42,43 @@ class ControlsLayout(QWidget):
                 
     def toggle_mute(self):
         """음소거 상태를 토글합니다."""
-        try:
-            # VideoHandler의 toggle_mute 메서드 사용
-            is_muted = self.parent.video_handler.toggle_mute()
-            
-            # 버튼 아이콘 변경 (음소거 상태에 따라)
-            self.parent.mute_button.set_mute_state(is_muted)
-        except Exception as e:
-            pass
+        target_mute_state = not self.parent.persistent_mute_state
+
+        current_media_type = getattr(self.parent, 'current_media_type', None)
+        actual_new_mute_state = target_mute_state # 기본값은 목표 상태
+
+        if current_media_type == 'video':
+            if hasattr(self.parent, 'video_handler') and self.parent.video_handler and hasattr(self.parent.video_handler, 'mpv_player') and self.parent.video_handler.mpv_player:
+                try:
+                    # set_mute 메소드가 없으므로, 현재 상태와 다를 경우에만 toggle_mute 호출
+                    if self.parent.video_handler.is_muted() != target_mute_state:
+                        self.parent.video_handler.toggle_mute() # 핸들러의 음소거 상태 변경
+                    actual_new_mute_state = self.parent.video_handler.is_muted() # 실제 적용된 상태 확인
+                except Exception as e:
+                    print(f"Error toggling video mute: {e}")
+                    actual_new_mute_state = self.parent.persistent_mute_state # 오류 시 이전 상태 유지 시도
+            else:
+                 # 핸들러가 없으면 UI만 업데이트
+                pass # 이 경우 persistent_mute_state가 바로 적용됨
+
+        elif current_media_type == 'audio':
+            if hasattr(self.parent, 'audio_handler') and self.parent.audio_handler and hasattr(self.parent.audio_handler, 'mpv_player') and self.parent.audio_handler.mpv_player:
+                try:
+                    self.parent.audio_handler.mpv_player.mute = target_mute_state # 직접 mpv_player의 mute 속성 설정
+                    actual_new_mute_state = self.parent.audio_handler.mpv_player.mute # 실제 적용된 상태 확인
+                except Exception as e:
+                    print(f"Error toggling audio mute: {e}")
+                    actual_new_mute_state = self.parent.persistent_mute_state # 오류 시 이전 상태 유지 시도
+            else:
+                # 핸들러가 없으면 UI만 업데이트
+                pass # 이 경우 persistent_mute_state가 바로 적용됨
+        
+        # persistent_mute_state를 실제 적용된 상태 또는 목표했던 상태로 업데이트
+        self.parent.persistent_mute_state = actual_new_mute_state
+        
+        # 음소거 버튼 아이콘 업데이트
+        if hasattr(self.parent, 'mute_button'):
+            self.parent.mute_button.set_mute_state(self.parent.persistent_mute_state)
             
     def adjust_volume(self, volume):
         """음량을 조절합니다."""
