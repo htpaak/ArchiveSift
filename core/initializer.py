@@ -851,7 +851,7 @@ class MediaSorterPAAKInitializer:
         viewer.image_handler = ImageHandler(viewer, viewer.image_label)
         viewer.video_handler = VideoHandler(viewer, viewer.image_label)  # VideoHandler 초기화
         viewer.psd_handler = PSDHandler(viewer, viewer.image_label) # PSD 핸들러 추가
-        viewer.animation_handler = AnimationHandler(viewer, viewer.image_label) # AnimationHandler 초기화
+        viewer.animation_handler = AnimationHandler(viewer.image_label, viewer) # AnimationHandler 초기화 - 인자 순서 수정
         viewer.audio_handler = AudioHandler(viewer, viewer.image_label)  # AudioHandler 초기화
 
         # 지속적인 음소거 상태 (세션 동안 유지)
