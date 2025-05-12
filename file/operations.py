@@ -192,6 +192,9 @@ class FileOperations:
                     # 인덱스 표시창 숨기기
                     if hasattr(self.viewer, 'image_info_label') and self.viewer.image_info_label.isVisible():
                         self.viewer.image_info_label.hide()
+                    # 창 제목 초기화
+                    if hasattr(self.viewer, 'update_window_title'):
+                        self.viewer.update_window_title(None)
                 elif current_index >= len(self.viewer.image_files):
                     # 마지막 이미지를 이동한 경우, 새로운 마지막 이미지 표시
                     self.viewer.current_index = max(0, len(self.viewer.image_files) - 1)
@@ -511,6 +514,9 @@ class FileOperations:
                     self.viewer.image_info_label.hide()
                 self.viewer.show_message("All images have been deleted")
                 # 모든 이미지가 삭제되었습니다 -> All images have been deleted
+                # 창 제목 초기화
+                if hasattr(self.viewer, 'update_window_title'):
+                    self.viewer.update_window_title(None)
                 return True
                 
             # Display the next image if available
